@@ -4,6 +4,7 @@
   import { unitSystem } from '$lib/stores/units';
   import { projectInfo } from '$lib/stores/form';
   import placesIndex from '$lib/data/places-index.json';
+	import SlabInputs from '$lib/components/slabs/SlabInputs.svelte';
 
   let system: 'us'|'metric' = 'us';
   $: unitSystem.set(system);
@@ -11,6 +12,7 @@
   const sections = [
     { id: 'project', label: 'Project Info' },
     { id: 'materials', label: 'Materials' },
+    { id: 'slabs', label: 'Slab Layout' },
     { id: 'environment', label: 'Environment' },
     { id: 'analysis', label: 'Analysis' },
     { id: 'results', label: 'Results' }
@@ -35,6 +37,8 @@
       <ProjectInfoTab {placesIndex} />
     {:else if active === 'materials'}
       <p class="text-gray-600">Materials tab coming soon…</p>
+    {:else if active === 'slabs'} 
+      <SlabInputs />
     {:else if active === 'environment'}
       <p class="text-gray-600">Environment tab coming soon…</p>
     {:else if active === 'analysis'}
