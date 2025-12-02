@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/typography";
+
+@plugin "flowbite/plugin";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
