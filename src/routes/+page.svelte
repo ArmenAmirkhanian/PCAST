@@ -5,6 +5,7 @@
   import { projectInfo } from '$lib/stores/form';
   import placesIndex from '$lib/data/places-index.json';
 	import SlabInputs from '$lib/components/slabs/SlabInputs.svelte';
+	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
 
   let system: 'us'|'metric' = 'us';
   $: unitSystem.set(system);
@@ -36,7 +37,7 @@
     {#if active === 'project'}
       <ProjectInfoTab {placesIndex} />
     {:else if active === 'materials'}
-      <p class="text-gray-600">Materials tab coming soon…</p>
+      <MaterialsInput />
     {:else if active === 'slabs'} 
       <SlabInputs />
     {:else if active === 'environment'}

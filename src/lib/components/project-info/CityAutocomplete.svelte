@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { projectInfo, updateProjectInfo } from '$lib/stores/form';
+  import type { PlacesIndex } from '$lib/types';
 
-  export let placesIndex: Record<string, string[]> = {};
+  export let placesIndex: PlacesIndex = {};
 
   let state = '';
   let city = '';
@@ -44,7 +45,7 @@
 
   onDestroy(unsubscribe);
 
-  $: state, pool = (placesIndex[state] || []).slice().sort();
+  $: state, pool = (placesIndex[state] || []).map((p) => p.city).slice().sort();
   $: {
     pool;
     if (typed) updateSuggestions(typed);

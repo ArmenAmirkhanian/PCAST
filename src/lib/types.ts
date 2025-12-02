@@ -8,3 +8,11 @@ export type ProjectInfoForm = {
   startTempF: number|'';       // canonical internal units: °F
   deliveryTempF: number|'';    // canonical internal units: °F
 };
+
+export type CityLocation = {
+  city: string;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+export type PlacesIndex = Record<string, CityLocation[]>;

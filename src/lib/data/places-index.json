@@ -1,19 +1,15 @@
 {
   "AL": [
-    "Birmingham",
-    "Huntsville",
-    "Mobile",
-    "Montgomery",
-    "Tuscaloosa",
-    "Auburn",
-    "Dothan",
-    "Hoover",
-    "Decatur",
-	  "Hooppper",
-	  "Noopper",
-    "Madison",
-	  "Hoommmer",
-    "Tipper",
-    "Boaz"
+    { "city": "Auburn", "latitude": 32.6099, "longitude": -85.4808 },
+    { "city": "Birmingham", "latitude": 33.5186, "longitude": -86.8104 },
+    { "city": "Boaz", "latitude": 34.2009, "longitude": -86.1686 },
+    { "city": "Decatur", "latitude": 34.6059, "longitude": -86.9833 },
+    { "city": "Dothan", "latitude": 31.2232, "longitude": -85.3905 },
+    { "city": "Hoover", "latitude": 33.4054, "longitude": -86.8114 },
+    { "city": "Huntsville", "latitude": 34.7304, "longitude": -86.5861 },
+    { "city": "Madison", "latitude": 34.6993, "longitude": -86.7483 },
+    { "city": "Mobile", "latitude": 30.6954, "longitude": -88.0399 },
+    { "city": "Montgomery", "latitude": 32.3668, "longitude": -86.3000 },
+    { "city": "Tuscaloosa", "latitude": 33.2098, "longitude": -87.5692 }
   ]
 }
