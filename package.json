@@ -43,6 +43,7 @@
 	"dependencies": {
 		"@skeletonlabs/skeleton": "^4.6.0",
 		"@skeletonlabs/tw-plugin": "^0.4.1",
+		"better-sqlite3": "^12.5.0",
 		"flowbite": "^4.0.1",
 		"flowbite-svelte": "^1.28.3",
 		"maplibre-gl": "^5.13.0"

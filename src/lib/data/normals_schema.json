@@ -1,0 +1,341 @@
+{
+  "hourly_normals": {
+    "columns": [
+      {
+        "name": "station_id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "var_id",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "month",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "day",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "hour",
+        "type": "INTEGER",
+        "notnull": true,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "value_i",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "meas_flag",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "comp_flag",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "years_used",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [
+      "station_id",
+      "var_id",
+      "month",
+      "day",
+      "hour"
+    ],
+    "foreign_keys": [
+      {
+        "from": "var_id",
+        "to_table": "variables",
+        "to": "id"
+      },
+      {
+        "from": "station_id",
+        "to_table": "stations",
+        "to": "id"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "idx_normals_station_var_time",
+        "unique": false,
+        "columns": [
+          "station_id",
+          "var_id",
+          "month",
+          "day",
+          "hour"
+        ]
+      },
+      {
+        "name": "sqlite_autoindex_hourly_normals_1",
+        "unique": true,
+        "columns": [
+          "station_id",
+          "var_id",
+          "month",
+          "day",
+          "hour"
+        ]
+      }
+    ]
+  },
+  "stations": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "ghcn_id",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "name",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "latitude",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "longitude",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "elevation",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_stations_1",
+        "unique": true,
+        "columns": [
+          "ghcn_id"
+        ]
+      }
+    ]
+  },
+  "stations_rtree": {
+    "columns": [
+      {
+        "name": "rowid",
+        "type": "INT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "min_lat",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "max_lat",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "min_lon",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "max_lon",
+        "type": "REAL",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "stations_rtree_node": {
+    "columns": [
+      {
+        "name": "nodeno",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "data",
+        "type": "",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [
+      "nodeno"
+    ],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "stations_rtree_parent": {
+    "columns": [
+      {
+        "name": "nodeno",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "parentnode",
+        "type": "",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [
+      "nodeno"
+    ],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "stations_rtree_rowid": {
+    "columns": [
+      {
+        "name": "rowid",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "nodeno",
+        "type": "",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [
+      "rowid"
+    ],
+    "foreign_keys": [],
+    "indexes": []
+  },
+  "variables": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "notnull": false,
+        "default": null,
+        "pk": true
+      },
+      {
+        "name": "code",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "timing",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "element",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "stat",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      },
+      {
+        "name": "qualifier",
+        "type": "TEXT",
+        "notnull": false,
+        "default": null,
+        "pk": false
+      }
+    ],
+    "primary_key": [
+      "id"
+    ],
+    "foreign_keys": [],
+    "indexes": [
+      {
+        "name": "sqlite_autoindex_variables_1",
+        "unique": true,
+        "columns": [
+          "code"
+        ]
+      }
+    ]
+  }
+}

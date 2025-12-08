@@ -6,6 +6,7 @@
   import placesIndex from '$lib/data/places-index.json';
 	import SlabInputs from '$lib/components/slabs/SlabInputs.svelte';
 	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
+	import EnvTab from '$lib/components/environmental/envTab.svelte';
 
   let system: 'us'|'metric' = 'us';
   $: unitSystem.set(system);
@@ -41,7 +42,7 @@
     {:else if active === 'slabs'} 
       <SlabInputs />
     {:else if active === 'environment'}
-      <p class="text-gray-600">Environment tab coming soon…</p>
+      <EnvTab />
     {:else if active === 'analysis'}
       <p class="text-gray-600">Analysis tab coming soon…</p>
     {:else if active === 'results'}
