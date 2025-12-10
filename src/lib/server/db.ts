@@ -78,6 +78,7 @@ WITH RECURSIVE
       s.name,
       s.latitude,
       s.longitude,
+      s.elevation,
       2 * 6371 * ASIN(
         SQRT(
           POW(SIN((s.latitude - i.lat) * PI() / 180 / 2), 2) +
@@ -118,6 +119,7 @@ SELECT
   n.name,
   n.latitude,
   n.longitude,
+  n.elevation,
   n.distance_km,
   tw.offset_hr,
   tw.month,

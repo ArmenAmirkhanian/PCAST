@@ -11,6 +11,7 @@
     name: string | null;
     latitude: number | null;
     longitude: number | null;
+    elevation: number | null;
     distance_km: number;
     offset_hr: number;
     month: number;
@@ -29,9 +30,28 @@
     name: string | null;
     latitude: number | null;
     longitude: number | null;
+    elevation: number | null;
     distanceKm: number;
     readings: StationRow[];
   };
+
+  type HourlyRow = {
+    offsetHr: number;
+    month: number;
+    day: number;
+    hour: number;
+    temp: number | null;
+    cloud: number | null;
+    wind: number | null;
+  };
+
+  type StationDisplay = StationGroup & { hourly: HourlyRow[] };
+
+  const TARGET_CODES = {
+    temp: 'HLY-TEMP-NORMAL',
+    cloud: 'HLY-CLDH-NORMAL',
+    wind: 'HLY-WIND-AVGSPD'
+  } as const;
 
   let selectedLocation: CityLocation | null = null;
   let selectedDate: Date | null = null;
@@ -44,15 +64,62 @@
   let errorMessage = '';
   let rows: StationRow[] = [];
   let groupedStations: StationGroup[] = [];
+  let stationDisplays: StationDisplay[] = [];
 
   const formatCoord = (value: number | null) => (value === null ? '' : value.toFixed(4));
   const formatDate = (date: Date | null) =>
     date
       ? `${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`
       : '';
-  const formatTs = (row: Pick<StationRow, 'month' | 'day' | 'hour'>) =>
+  const formatTs = (row: { month: number; day: number; hour: number }) =>
     `${String(row.month).padStart(2, '0')}-${String(row.day).padStart(2, '0')} ${String(row.hour).padStart(2, '0')}:00`;
-  const formatVal = (value: number | null) => (value === null ? '—' : value.toString());
+  const formatNumber = (value: number | null, digits = 1) =>
+    value === null ? '—' : value.toFixed(digits);
+  const formatElevation = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} m`);
+
+  const normalizeValue = (row: StationRow) => {
+    if (row.value_i === null) return null;
+    if (
+      row.var_code.startsWith('HLY-TEMP') ||
+      row.var_code.startsWith('HLY-DEWP') ||
+      row.var_code.startsWith('HLY-HIDX') ||
+      row.var_code.startsWith('HLY-WCHL')
+    ) {
+      return row.value_i / 10;
+    }
+    if (row.var_code === TARGET_CODES.wind) {
+      return row.value_i / 10;
+    }
+    return row.value_i;
+  };
+
+  const toHourlyRows = (readings: StationRow[]): HourlyRow[] => {
+    const map = new Map<number, HourlyRow>();
+    for (const reading of readings) {
+      let bucket = map.get(reading.offset_hr);
+      if (!bucket) {
+        bucket = {
+          offsetHr: reading.offset_hr,
+          month: reading.month,
+          day: reading.day,
+          hour: reading.hour,
+          temp: null,
+          cloud: null,
+          wind: null
+        };
+        map.set(reading.offset_hr, bucket);
+      }
+      const value = normalizeValue(reading);
+      if (reading.var_code === TARGET_CODES.temp) {
+        bucket.temp = value;
+      } else if (reading.var_code === TARGET_CODES.cloud) {
+        bucket.cloud = value;
+      } else if (reading.var_code === TARGET_CODES.wind) {
+        bucket.wind = value;
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.offsetHr - b.offsetHr);
+  };
 
   $: selectedLocation = (() => {
     const state = $projectInfo.state;
@@ -74,6 +141,7 @@
           name: row.name,
           latitude: row.latitude,
           longitude: row.longitude,
+          elevation: row.elevation,
           distanceKm: row.distance_km,
           readings: []
         };
@@ -83,6 +151,11 @@
     }
     return Array.from(map.values()).sort((a, b) => a.distanceKm - b.distanceKm);
   })();
+
+  $: stationDisplays = groupedStations.map((station) => ({
+    ...station,
+    hourly: toHourlyRows(station.readings)
+  }));
 
   $: selectedDate = $projectInfo.date
     ? new Date(`${$projectInfo.date}T00:00:00Z`)
@@ -115,6 +188,7 @@ WITH
       s.name,
       s.latitude,
       s.longitude,
+      s.elevation,
       2 * 6371 * ASIN(
         SQRT(
           POW(SIN((s.latitude - i.lat) * PI() / 180 / 2), 2) +
@@ -155,6 +229,7 @@ SELECT
   n.name,
   n.latitude,
   n.longitude,
+  n.elevation,
   n.distance_km,
   tw.offset_hr,
   tw.month,
@@ -284,56 +359,85 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
         </div>
       {/if}
 
-      {#if groupedStations.length}
-        <div class="space-y-3">
-          <p class="text-sm text-gray-600">
-            Returned {rows.length} rows across {groupedStations.length} station(s) for the next 72 hours.
-          </p>
-          {#each groupedStations as station}
-            <div class="rounded border bg-white p-3">
-              <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p class="font-semibold">{station.name ?? 'Station'} ({station.ghcnId ?? 'N/A'})</p>
-                  <p class="text-sm text-gray-600">
-                    Distance: {station.distanceKm.toFixed(1)} km ·
-                    Lat/Lon: {formatCoord(station.latitude)} , {formatCoord(station.longitude)}
+      {#if stationDisplays.length}
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <p class="text-sm text-gray-600">
+              Returned {rows.length} rows across {stationDisplays.length} station(s) for the next 72 hours.
+            </p>
+            <div class="overflow-x-auto rounded border bg-white shadow-sm">
+              <table class="min-w-full text-left text-sm">
+                <thead class="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th class="px-3 py-2">Station</th>
+                    <th class="px-3 py-2">Latitude</th>
+                    <th class="px-3 py-2">Longitude</th>
+                    <th class="px-3 py-2">Elevation</th>
+                    <th class="px-3 py-2">Distance (km)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y">
+                  {#each stationDisplays as station}
+                    <tr>
+                      <td class="px-3 py-2">
+                        <div class="font-semibold">{station.name ?? 'Station'}</div>
+                        <div class="text-xs text-gray-600">{station.ghcnId ?? 'N/A'}</div>
+                      </td>
+                      <td class="px-3 py-2">{formatCoord(station.latitude)}</td>
+                      <td class="px-3 py-2">{formatCoord(station.longitude)}</td>
+                      <td class="px-3 py-2">{formatElevation(station.elevation)}</td>
+                      <td class="px-3 py-2">{station.distanceKm.toFixed(1)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-semibold text-gray-700">
+              72-hour normals (HLY-TEMP-NORMAL, HLY-CLDH-NORMAL, HLY-WIND-AVGSPD)
+            </p>
+            {#each stationDisplays as station}
+              <div class="rounded border bg-white p-3 shadow-sm">
+                <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p class="font-semibold">{station.name ?? 'Station'} ({station.ghcnId ?? 'N/A'})</p>
+                    <p class="text-sm text-gray-600">
+                      Offset span: 0–71 hrs · Distance {station.distanceKm.toFixed(1)} km
+                    </p>
+                  </div>
+                  <p class="text-xs text-gray-500">
+                    Lat/Lon {formatCoord(station.latitude)}, {formatCoord(station.longitude)} · Elev {formatElevation(station.elevation)}
                   </p>
-                  <p class="text-sm text-gray-600">Readings: {station.readings.length}</p>
+                </div>
+                <div class="mt-3 overflow-x-auto">
+                  <table class="min-w-full text-left text-xs">
+                    <thead class="text-gray-600">
+                      <tr>
+                        <th class="px-2 py-1">Offset hr</th>
+                        <th class="px-2 py-1">Month-Day Hr</th>
+                        <th class="px-2 py-1">HLY Temp</th>
+                        <th class="px-2 py-1">HLY Cloud</th>
+                        <th class="px-2 py-1">HLY Wind</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each station.hourly as reading}
+                        <tr class="border-t">
+                          <td class="px-2 py-1">{reading.offsetHr}</td>
+                          <td class="px-2 py-1">{formatTs(reading)}</td>
+                          <td class="px-2 py-1">{formatNumber(reading.temp)}</td>
+                          <td class="px-2 py-1">{formatNumber(reading.cloud)}</td>
+                          <td class="px-2 py-1">{formatNumber(reading.wind)}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div class="mt-3 overflow-x-auto">
-                <table class="min-w-full text-left text-xs">
-                  <thead>
-                    <tr class="text-gray-600">
-                      <th class="px-2 py-1">Offset hr</th>
-                      <th class="px-2 py-1">Month-Day Hr</th>
-                      <th class="px-2 py-1">Var</th>
-                      <th class="px-2 py-1">Value</th>
-                      <th class="px-2 py-1">Flags</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each station.readings.slice(0, 24) as reading}
-                      <tr class="border-t">
-                        <td class="px-2 py-1">{reading.offset_hr}</td>
-                        <td class="px-2 py-1">{formatTs(reading)}</td>
-                        <td class="px-2 py-1">{reading.var_code}</td>
-                        <td class="px-2 py-1">{formatVal(reading.value_i)}</td>
-                        <td class="px-2 py-1 text-gray-600">
-                          {reading.meas_flag ?? '·'} / {reading.comp_flag ?? '·'}
-                        </td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-                {#if station.readings.length > 24}
-                  <p class="mt-2 text-[11px] text-gray-500">
-                    Showing first 24 rows of {station.readings.length}.
-                  </p>
-                {/if}
-              </div>
-            </div>
-          {/each}
+            {/each}
+          </div>
         </div>
       {/if}
     </div>
