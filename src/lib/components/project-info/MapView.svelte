@@ -1,8 +1,14 @@
 <script>
   import { onMount } from 'svelte';
+  import { PUBLIC_MAPTILER_KEY } from '$env/static/public';
+
+  const defaultStyleUrl = PUBLIC_MAPTILER_KEY
+    ? `https://api.maptiler.com/maps/streets/style.json?key=${PUBLIC_MAPTILER_KEY}`
+    : 'https://api.maptiler.com/maps/streets/style.json';
+
   export let center = [-87.5692, 33.2098];
   export let points = []; // array of [lng, lat], e.g. [[-86.75,33.56], ...]
-  export let styleUrl = 'https://api.maptiler.com/maps/streets/style.json?key=MJ09IxOu460LZj7vMQee';    // pass your MapTiler style with key
+  export let styleUrl = defaultStyleUrl; // override from parent to use a different provider or style
   let el;
   let map;
 

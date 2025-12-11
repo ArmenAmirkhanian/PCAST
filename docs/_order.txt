@@ -1,0 +1,5 @@
+# Optional explicit ordering for docs. One file per line, relative to /docs
+# Remove the leading # to activate lines. Useful for draft or future sections
+
+database_schema.md
+map_view.md
