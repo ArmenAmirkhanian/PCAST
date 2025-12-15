@@ -1,7 +1,10 @@
 <script lang="ts">
+  import { browser } from '$app/environment';
+  import { onMount, tick } from 'svelte';
   import { projectInfo } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
+  import type { Config, Layout, PlotData } from 'plotly.js';
 
   const index = placesIndex as PlacesIndex;
 
@@ -46,12 +49,19 @@
   };
 
   type StationDisplay = StationGroup & { hourly: HourlyRow[] };
+  type MetricKey = 'temp' | 'wind' | 'cloud';
 
   const TARGET_CODES = {
     temp: 'HLY-TEMP-NORMAL',
     cloud: 'HLY-CLDH-NORMAL',
     wind: 'HLY-WIND-AVGSPD'
   } as const;
+  const METRIC_DETAILS: Record<MetricKey, { title: string; unit: string }> = {
+    temp: { title: 'Temperature (°C)', unit: '°C' },
+    wind: { title: 'Wind Speed (m/s)', unit: 'm/s' },
+    cloud: { title: 'Cloud Cover (%)', unit: '%' }
+  };
+  const metrics: MetricKey[] = ['temp', 'wind', 'cloud'];
 
   let selectedLocation: CityLocation | null = null;
   let selectedDate: Date | null = null;
@@ -65,6 +75,14 @@
   let rows: StationRow[] = [];
   let groupedStations: StationGroup[] = [];
   let stationDisplays: StationDisplay[] = [];
+  let Plotly: typeof import('plotly.js-dist-min') | null = null;
+  let plotlyReady = false;
+  let chartError = '';
+  const chartRefs: Record<MetricKey, HTMLDivElement | null> = {
+    temp: null,
+    wind: null,
+    cloud: null
+  };
 
   const formatCoord = (value: number | null) => (value === null ? '' : value.toFixed(4));
   const formatDate = (date: Date | null) =>
@@ -76,6 +94,8 @@
   const formatNumber = (value: number | null, digits = 1) =>
     value === null ? '—' : value.toFixed(digits);
   const formatElevation = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} m`);
+  const getMetricValue = (reading: HourlyRow, metric: MetricKey) =>
+    reading[metric] as number | null;
 
   const normalizeValue = (row: StationRow) => {
     if (row.value_i === null) return null;
@@ -169,6 +189,114 @@
     const hour = parseInt(parts[0] ?? '0', 10);
     return Number.isFinite(hour) ? hour : 0;
   })();
+
+  onMount(async () => {
+    if (!browser) return;
+    try {
+      // Use the pre-bundled browser build to avoid `global` reference errors in ESM.
+      const mod = await import('plotly.js-dist-min');
+      Plotly = (mod as any).default ?? (mod as any);
+      plotlyReady = true;
+    } catch (err) {
+      chartError = 'Unable to load Plotly for chart rendering.';
+      console.error(err);
+    }
+  });
+
+  const buildTraces = (metric: MetricKey): PlotData[] => {
+    return stationDisplays
+      .map((station) => {
+        const x: number[] = [];
+        const y: number[] = [];
+        const stamp: string[] = [];
+        for (const reading of station.hourly) {
+          const value = getMetricValue(reading, metric);
+          if (value === null) continue;
+          x.push(reading.offsetHr);
+          y.push(value);
+          stamp.push(formatTs(reading));
+        }
+        if (!x.length) return null;
+        const stationLabel = station.name ?? station.ghcnId ?? 'Station';
+        return {
+          x,
+          y,
+          customdata: stamp,
+          mode: 'lines+markers',
+          name: `${stationLabel} (${station.distanceKm.toFixed(1)} km)`,
+          hovertemplate: `Hr %{x}: %{y:.1f} ${METRIC_DETAILS[metric].unit}<br>%{customdata}<extra></extra>`
+        } satisfies PlotData;
+      })
+      .filter(Boolean) as PlotData[];
+  };
+
+  const clearCharts = () => {
+    if (!Plotly) return;
+    metrics.forEach((metric) => {
+      const target = chartRefs[metric];
+      if (target) {
+        Plotly.purge(target);
+        target.innerHTML = '';
+      }
+    });
+  };
+
+  const renderCharts = async () => {
+    if (!browser || !Plotly) return;
+    chartError = '';
+    await tick();
+
+    const config: Partial<Config> = {
+      responsive: true,
+      displaylogo: false,
+      displayModeBar: true,
+      toImageButtonOptions: { format: 'png', filename: 'chart' },
+      modeBarButtonsToAdd: [
+        {
+          name: 'Download SVG',
+          title: 'Download plot as SVG',
+          icon: Plotly?.Icons?.camera,
+          click: (gd) => {
+            Plotly?.downloadImage(gd, { format: 'svg', filename: 'chart' });
+          }
+        }
+      ]
+    };
+    const baseLayout: Partial<Layout> = {
+      margin: { t: 40, r: 12, b: 50, l: 55 },
+      height: 320,
+      hovermode: 'x unified',
+      xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 }
+    };
+
+    for (const metric of metrics) {
+      const target = chartRefs[metric];
+      if (!target) continue;
+      const traces = buildTraces(metric);
+      if (!traces.length) {
+        Plotly.purge(target);
+        target.innerHTML =
+          '<div class="flex h-full items-center justify-center text-sm text-gray-500">No data to plot.</div>';
+        continue;
+      }
+      await Plotly.react(
+        target,
+        traces,
+        {
+          ...baseLayout,
+          title: METRIC_DETAILS[metric].title,
+          yaxis: { title: METRIC_DETAILS[metric].unit }
+        },
+        config
+      );
+    }
+  };
+
+  $: if (plotlyReady && stationDisplays.length) {
+    renderCharts();
+  } else if (plotlyReady && !stationDisplays.length) {
+    clearCharts();
+  }
 
   function buildSql(lat: number, lon: number, month: number, day: number, hour: number) {
     const sql = `
@@ -392,6 +520,32 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-sm font-semibold text-gray-700">72-hour charts (Plotly)</p>
+            {#if chartError}
+              <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {chartError}
+              </div>
+            {:else if !plotlyReady}
+              <p class="text-sm text-gray-600">Loading charts…</p>
+            {:else}
+              <div class="flex flex-col gap-4">
+                <div class="w-full rounded border bg-white p-3 shadow-sm">
+                  <p class="text-sm font-semibold text-gray-700">{METRIC_DETAILS.temp.title}</p>
+                  <div class="mt-2 h-80 w-full" bind:this={chartRefs.temp}></div>
+                </div>
+                <div class="w-full rounded border bg-white p-3 shadow-sm">
+                  <p class="text-sm font-semibold text-gray-700">{METRIC_DETAILS.wind.title}</p>
+                  <div class="mt-2 h-80 w-full" bind:this={chartRefs.wind}></div>
+                </div>
+                <div class="w-full rounded border bg-white p-3 shadow-sm">
+                  <p class="text-sm font-semibold text-gray-700">{METRIC_DETAILS.cloud.title}</p>
+                  <div class="mt-2 h-80 w-full" bind:this={chartRefs.cloud}></div>
+                </div>
+              </div>
+            {/if}
           </div>
 
           <div class="space-y-3">
