@@ -71,7 +71,38 @@ WITH RECURSIVE
       CAST(@day AS INTEGER) AS day,
       CAST(@start_hour AS INTEGER) AS start_hour
   ),
-  nearest AS (
+  windows(win_rank, lat_span, lon_span) AS (
+    VALUES
+      (1, 0.5, 0.5),       -- tight box first
+      (2, 1.0, 1.0),
+      (3, 2.5, 2.5),
+      (4, 5.0, 5.0),
+      (5, 90.0, 180.0)     -- global fallback
+  ),
+  window_counts AS (
+    SELECT
+      w.win_rank,
+      w.lat_span,
+      w.lon_span,
+      COUNT(r.rowid) AS station_count
+    FROM windows w
+    CROSS JOIN input i
+    LEFT JOIN stations_rtree r
+      ON r.min_lat <= i.lat + w.lat_span
+     AND r.max_lat >= i.lat - w.lat_span
+     AND r.min_lon <= i.lon + w.lon_span
+     AND r.max_lon >= i.lon - w.lon_span
+    GROUP BY w.win_rank, w.lat_span, w.lon_span
+  ),
+  chosen_window AS (
+    SELECT win_rank, lat_span, lon_span
+    FROM window_counts
+    ORDER BY
+      CASE WHEN station_count >= 3 THEN 0 ELSE 1 END,
+      win_rank
+    LIMIT 1
+  ),
+  candidate_stations AS (
     SELECT
       s.id,
       s.ghcn_id,
@@ -79,14 +110,40 @@ WITH RECURSIVE
       s.latitude,
       s.longitude,
       s.elevation,
+      ((s.latitude - i.lat)*(s.latitude - i.lat) +
+       (s.longitude - i.lon)*(s.longitude - i.lon)) AS approx_dist2
+    FROM chosen_window w
+    JOIN input i
+    JOIN stations_rtree r
+      ON r.min_lat <= i.lat + w.lat_span
+     AND r.max_lat >= i.lat - w.lat_span
+     AND r.min_lon <= i.lon + w.lon_span
+     AND r.max_lon >= i.lon - w.lon_span
+    JOIN stations s ON s.id = r.rowid
+    ORDER BY approx_dist2
+    LIMIT 50
+  ),
+  target_vars AS (
+    SELECT id, code
+    FROM variables
+    WHERE code IN ('HLY-TEMP-NORMAL', 'HLY-CLDH-NORMAL', 'HLY-WIND-AVGSPD')
+  ),
+  nearest AS (
+    SELECT
+      cs.id,
+      cs.ghcn_id,
+      cs.name,
+      cs.latitude,
+      cs.longitude,
+      cs.elevation,
       2 * 6371 * ASIN(
         SQRT(
-          POW(SIN((s.latitude - i.lat) * PI() / 180 / 2), 2) +
-          COS(i.lat * PI() / 180) * COS(s.latitude * PI() / 180) *
-          POW(SIN((s.longitude - i.lon) * PI() / 180 / 2), 2)
+          POW(SIN((cs.latitude - i.lat) * PI() / 180 / 2), 2) +
+          COS(i.lat * PI() / 180) * COS(cs.latitude * PI() / 180) *
+          POW(SIN((cs.longitude - i.lon) * PI() / 180 / 2), 2)
         )
       ) AS distance_km
-    FROM stations s
+    FROM candidate_stations cs
     JOIN input i
     ORDER BY distance_km
     LIMIT 3
@@ -137,6 +194,6 @@ JOIN hourly_normals h
   AND h.month = tw.month
   AND h.day = tw.day
   AND h.hour = tw.hour
-JOIN variables v ON v.id = h.var_id
+JOIN target_vars v ON v.id = h.var_id
 ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
 `);

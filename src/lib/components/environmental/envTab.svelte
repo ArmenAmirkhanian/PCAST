@@ -70,6 +70,8 @@
   let startHour: number | null = null;
   let lastLookupMessage = '';
   let lastLookupTime = '';
+  let sqlProgress: string[] = [];
+  let sqlPreviewOpen = false;
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
@@ -298,9 +300,13 @@
     clearCharts();
   }
 
+  const pushStatus = (msg: string) => {
+    sqlProgress = [...sqlProgress, msg];
+  };
+
   function buildSql(lat: number, lon: number, month: number, day: number, hour: number) {
     const sql = `
-WITH
+WITH RECURSIVE
   input AS (
     SELECT
       ${lat} AS lat,
@@ -309,7 +315,38 @@ WITH
       ${day} AS day,
       ${hour} AS start_hour
   ),
-  nearest AS (
+  windows(win_rank, lat_span, lon_span) AS (
+    VALUES
+      (1, 0.5, 0.5),
+      (2, 1.0, 1.0),
+      (3, 2.5, 2.5),
+      (4, 5.0, 5.0),
+      (5, 90.0, 180.0)
+  ),
+  window_counts AS (
+    SELECT
+      w.win_rank,
+      w.lat_span,
+      w.lon_span,
+      COUNT(r.rowid) AS station_count
+    FROM windows w
+    CROSS JOIN input i
+    LEFT JOIN stations_rtree r
+      ON r.min_lat <= i.lat + w.lat_span
+     AND r.max_lat >= i.lat - w.lat_span
+     AND r.min_lon <= i.lon + w.lon_span
+     AND r.max_lon >= i.lon - w.lon_span
+    GROUP BY w.win_rank, w.lat_span, w.lon_span
+  ),
+  chosen_window AS (
+    SELECT win_rank, lat_span, lon_span
+    FROM window_counts
+    ORDER BY
+      CASE WHEN station_count >= 3 THEN 0 ELSE 1 END,
+      win_rank
+    LIMIT 1
+  ),
+  candidate_stations AS (
     SELECT
       s.id,
       s.ghcn_id,
@@ -317,14 +354,40 @@ WITH
       s.latitude,
       s.longitude,
       s.elevation,
+      ((s.latitude - i.lat)*(s.latitude - i.lat) +
+       (s.longitude - i.lon)*(s.longitude - i.lon)) AS approx_dist2
+    FROM chosen_window w
+    JOIN input i
+    JOIN stations_rtree r
+      ON r.min_lat <= i.lat + w.lat_span
+     AND r.max_lat >= i.lat - w.lat_span
+     AND r.min_lon <= i.lon + w.lon_span
+     AND r.max_lon >= i.lon - w.lon_span
+    JOIN stations s ON s.id = r.rowid
+    ORDER BY approx_dist2
+    LIMIT 50
+  ),
+  target_vars AS (
+    SELECT id, code
+    FROM variables
+    WHERE code IN ('HLY-TEMP-NORMAL', 'HLY-CLDH-NORMAL', 'HLY-WIND-AVGSPD')
+  ),
+  nearest AS (
+    SELECT
+      cs.id,
+      cs.ghcn_id,
+      cs.name,
+      cs.latitude,
+      cs.longitude,
+      cs.elevation,
       2 * 6371 * ASIN(
         SQRT(
-          POW(SIN((s.latitude - i.lat) * PI() / 180 / 2), 2) +
-          COS(i.lat * PI() / 180) * COS(s.latitude * PI() / 180) *
-          POW(SIN((s.longitude - i.lon) * PI() / 180 / 2), 2)
+          POW(SIN((cs.latitude - i.lat) * PI() / 180 / 2), 2) +
+          COS(i.lat * PI() / 180) * COS(cs.latitude * PI() / 180) *
+          POW(SIN((cs.longitude - i.lon) * PI() / 180 / 2), 2)
         )
       ) AS distance_km
-    FROM stations s
+    FROM candidate_stations cs
     JOIN input i
     ORDER BY distance_km
     LIMIT 3
@@ -336,7 +399,7 @@ WITH
       ) AS start_dt
     FROM input
   ),
-  RECURSIVE offsets(n) AS (
+  offsets(n) AS (
     SELECT 0
     UNION ALL
     SELECT n + 1 FROM offsets WHERE n < 71
@@ -344,9 +407,9 @@ WITH
   time_window AS (
     SELECT
       datetime(params.start_dt, '+' || offsets.n || ' hours') AS ts,
-      CAST(strftime('%m', ts) AS INTEGER) AS month,
-      CAST(strftime('%d', ts) AS INTEGER) AS day,
-      CAST(strftime('%H', ts) AS INTEGER) AS hour,
+      CAST(strftime('%m', datetime(params.start_dt, '+' || offsets.n || ' hours')) AS INTEGER) AS month,
+      CAST(strftime('%d', datetime(params.start_dt, '+' || offsets.n || ' hours')) AS INTEGER) AS day,
+      CAST(strftime('%H', datetime(params.start_dt, '+' || offsets.n || ' hours')) AS INTEGER) AS hour,
       offsets.n AS offset_hr
     FROM offsets
     CROSS JOIN params
@@ -375,7 +438,7 @@ JOIN hourly_normals h
   AND h.month = tw.month
   AND h.day = tw.day
   AND h.hour = tw.hour
-JOIN variables v ON v.id = h.var_id
+JOIN target_vars v ON v.id = h.var_id
 ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
 `.trim();
 
@@ -385,18 +448,23 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
   async function runSqlLookup() {
     errorMessage = '';
     rows = [];
+    sqlProgress = [];
+    pushStatus('Validating selection…');
 
     if (!selectedLocation) {
       lastLookupMessage = 'Select a city and state in Project Info to enable the lookup.';
+      pushStatus('No location selected — stopping.');
       lastLookupTime = '';
       return;
     }
     if (!startMonth || !startDay) {
       lastLookupMessage = 'Choose a start date in Project Info to build the query.';
+      pushStatus('No start date provided — stopping.');
       lastLookupTime = '';
       return;
     }
 
+    pushStatus('Building SQL preview…');
     lastLookupMessage = buildSql(
       selectedLocation.latitude ?? 0,
       selectedLocation.longitude ?? 0,
@@ -405,9 +473,11 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
       startHour ?? 0
     );
     lastLookupTime = new Date().toLocaleString();
+    sqlPreviewOpen = false;
 
     isLoading = true;
     try {
+      pushStatus('Requesting nearest normals from server…');
       const params = new URLSearchParams({
         lat: String(selectedLocation.latitude ?? 0),
         lon: String(selectedLocation.longitude ?? 0),
@@ -422,10 +492,15 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
       rows = (await res.json()) as StationRow[];
       if (!rows.length) {
         errorMessage = 'No rows returned for that location/time.';
+        pushStatus('Query returned 0 rows.');
+      } else {
+        pushStatus(`Query returned ${rows.length} rows across ${new Set(rows.map((r) => r.station_id)).size} station(s).`);
       }
     } catch (err) {
       errorMessage = err instanceof Error ? err.message : 'Lookup failed.';
+      pushStatus('Lookup failed.');
     } finally {
+      pushStatus('Done.');
       isLoading = false;
     }
   }
@@ -477,10 +552,39 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
         </div>
       {/if}
 
+      {#if sqlProgress.length}
+        <div class="rounded border bg-gray-50 p-3 text-sm text-gray-800">
+          <div class="flex items-center justify-between">
+            <p class="font-medium">Lookup status</p>
+            {#if isLoading}
+              <span class="text-xs text-blue-600">running…</span>
+            {/if}
+          </div>
+          <ul class="mt-2 space-y-1">
+            {#each sqlProgress as msg, idx}
+              <li class="flex items-start gap-2">
+                <span class="mt-0.5 h-2 w-2 rounded-full {idx === sqlProgress.length - 1 && isLoading ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'}"></span>
+                <span>{msg}</span>
+              </li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
+
       {#if lastLookupMessage}
         <div class="space-y-2 rounded border bg-gray-50 p-3 text-sm text-gray-800">
-          <p class="font-medium">SQL preview</p>
-          <pre class="overflow-x-auto whitespace-pre-wrap text-xs bg-white border rounded p-3">{lastLookupMessage}</pre>
+          <div class="flex items-center justify-between">
+            <p class="font-medium">SQL preview</p>
+            <button
+              class="text-xs text-blue-600 hover:underline"
+              type="button"
+              on:click={() => (sqlPreviewOpen = !sqlPreviewOpen)}>
+              {sqlPreviewOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
+          {#if sqlPreviewOpen}
+            <pre class="overflow-x-auto whitespace-pre-wrap text-xs bg-white border rounded p-3">{lastLookupMessage}</pre>
+          {/if}
           {#if lastLookupTime}
             <p class="text-gray-500">Last run: {lastLookupTime}</p>
           {/if}
