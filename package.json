@@ -48,6 +48,7 @@
 		"better-sqlite3": "^12.5.0",
 		"flowbite": "^4.0.1",
 		"flowbite-svelte": "^1.28.3",
+		"katex": "^0.16.27",
 		"maplibre-gl": "^5.13.0",
 		"plotly.js": "^3.3.1",
 		"plotly.js-dist-min": "^3.3.1"

@@ -1,4 +1,5 @@
 <script lang="ts">
+  export let explanationHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
   import { projectInfo } from '$lib/stores/form';
@@ -72,6 +73,7 @@
   let lastLookupTime = '';
   let sqlProgress: string[] = [];
   let sqlPreviewOpen = false;
+  let haverExplaOpen = false;
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
@@ -112,8 +114,18 @@
     if (row.var_code === TARGET_CODES.wind) {
       return row.value_i / 10;
     }
+    if (row.var_code === TARGET_CODES.cloud) {
+      return row.value_i * 100;
+    }
     return row.value_i;
   };
+
+  const scrubMissing = (raw: StationRow[]): StationRow[] =>
+    raw.map((row) => ({
+      ...row,
+      // NOAA uses -9999 / -9999.0 for missing; turn into null so charts skip them. Added the -99990 because function calculates prior to normalize
+      value_i: row.value_i === -9999 || row.value_i === -9999.0 || row.value_i === -99990 ? null : row.value_i
+    }));
 
   const toHourlyRows = (readings: StationRow[]): HourlyRow[] => {
     const map = new Map<number, HourlyRow>();
@@ -474,6 +486,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
     );
     lastLookupTime = new Date().toLocaleString();
     sqlPreviewOpen = false;
+    haverExplaOpen = false;
 
     isLoading = true;
     try {
@@ -489,7 +502,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
       if (!res.ok) {
         throw new Error(`Lookup failed (${res.status})`);
       }
-      rows = (await res.json()) as StationRow[];
+      rows = scrubMissing((await res.json()) as StationRow[]);
       if (!rows.length) {
         errorMessage = 'No rows returned for that location/time.';
         pushStatus('Query returned 0 rows.');
@@ -587,6 +600,23 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
           {/if}
           {#if lastLookupTime}
             <p class="text-gray-500">Last run: {lastLookupTime}</p>
+          {/if}
+        </div>
+        <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
+          <div class="flex items-center justify-between">
+            <p class="font-medium">Explanation of Station Selection</p>
+            <button
+              class="text-xs text-blue-600 hover:underline"
+              type="button"
+              on:click={() => (haverExplaOpen = !haverExplaOpen)}>
+              {haverExplaOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          {#if haverExplaOpen}
+            <div class="prose prose-sm max-w-none">
+              {@html explanationHtml}
+            </div>
           {/if}
         </div>
       {/if}

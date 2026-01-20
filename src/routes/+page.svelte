@@ -8,6 +8,12 @@
 	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 
+   export let data: {
+    explanations: {
+      haversineApprox: string;
+    };
+  };
+
   let system: 'us'|'metric' = 'us';
   $: unitSystem.set(system);
 
@@ -42,7 +48,7 @@
     {:else if active === 'slabs'} 
       <SlabInputs />
     {:else if active === 'environment'}
-      <EnvTab />
+      <EnvTab explanationHtml={data.explanations.haversineApprox} />
     {:else if active === 'analysis'}
       <p class="text-gray-600">Analysis tab coming soon…</p>
     {:else if active === 'results'}
