@@ -8,9 +8,10 @@
 	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 
-   export let data: {
+  export let data: {
     explanations: {
       haversineApprox: string;
+      climateNormals: string;
     };
   };
 
@@ -48,7 +49,10 @@
     {:else if active === 'slabs'} 
       <SlabInputs />
     {:else if active === 'environment'}
-      <EnvTab explanationHtml={data.explanations.haversineApprox} />
+      <EnvTab
+        stationExplanationHtml={data.explanations.haversineApprox}
+        climateNormalsHtml={data.explanations.climateNormals}
+      />
     {:else if active === 'analysis'}
       <p class="text-gray-600">Analysis tab coming soon…</p>
     {:else if active === 'results'}
