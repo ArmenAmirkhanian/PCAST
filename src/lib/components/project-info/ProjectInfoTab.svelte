@@ -5,7 +5,7 @@
   import HourSelect from './HourSelect.svelte';
   import TempField from './TempField.svelte';
   import MapView from './MapView.svelte';
-  import { site, allPoints } from '$lib/stores/stations';
+  import { site, stations, allPoints } from '$lib/stores/stations';
   import { projectInfo } from '$lib/stores/form';
   import type { PlacesIndex } from '$lib/types';
 
@@ -18,6 +18,12 @@
       (p) => p.city.toLowerCase() === $projectInfo.city.toLowerCase()
     ) || null;
   })();
+
+  // Update map center when user selects a city and clear old stations
+  $: if (selected?.longitude != null && selected?.latitude != null) {
+    site.set([selected.longitude, selected.latitude]);
+    stations.set([]);
+  }
 
   const formatCoord = (value: number | null) => value === null ? '' : value.toFixed(4);
 </script>

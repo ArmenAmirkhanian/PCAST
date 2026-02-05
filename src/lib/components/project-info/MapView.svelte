@@ -81,12 +81,21 @@
 
   });
 
-  // If data changes later, update sources
-  $: if (el && map?.getSource?.('points')) {
+  // If data changes later, update sources and re-fit map
+  $: if (center && points && el && map?.getSource?.('points')) {
     map.getSource('points').setData(toPointsFC());
-  }
-  $: if (el && map?.getSource?.('center-point')) {
     map.getSource('center-point').setData(toCenterFC());
+
+    // Re-fit bounds to show new location with more surrounding area
+    import('maplibre-gl').then(({ default: maplibregl }) => {
+      const all = [center, ...points].filter(Boolean);
+      if (all.length) {
+        const b = new maplibregl.LngLatBounds(all[0], all[0]);
+        all.forEach(p => b.extend(p));
+        // Use maxZoom to match the default zoom level (9)
+        map.fitBounds(b, { padding: 60, duration: 500, maxZoom: 9 });
+      }
+    });
   }
 </script>
 
