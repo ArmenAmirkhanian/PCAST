@@ -33,3 +33,6 @@ dist/
 *.db-wal
 *.db-shm
 
+# Codex
+*.md
+codex/
