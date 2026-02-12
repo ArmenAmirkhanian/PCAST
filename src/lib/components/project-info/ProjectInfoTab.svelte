@@ -20,6 +20,7 @@
   })();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   // Update map center when user selects a city and fetch nearest weather stations
   $: if (selected?.longitude != null && selected?.latitude != null) {
     site.set([selected.longitude, selected.latitude]);
@@ -42,6 +43,24 @@
     site.set([selected.longitude, selected.latitude]);
     stations.set([]);
 >>>>>>> d35c6c3 (Updated Maptiler so that the homepage map automatically animates to show the new coordinates when user inputs informaton.)
+=======
+  // Update map center when user selects a city and fetch nearest weather stations
+  $: if (selected?.longitude != null && selected?.latitude != null) {
+    site.set([selected.longitude, selected.latitude]);
+
+    // Fetch the 3 nearest weather stations from the database
+    fetch(`/api/nearest?lat=${selected.latitude}&lon=${selected.longitude}&k=3`)
+      .then(res => res.json())
+      .then(data => {
+        // Convert station data to [longitude, latitude] format for the map
+        const stationCoords = data.map((s: { longitude: number; latitude: number }) => [s.longitude, s.latitude]);
+        stations.set(stationCoords);
+      })
+      .catch(err => {
+        console.error('Failed to fetch nearest stations:', err);
+        stations.set([]);
+      });
+>>>>>>> 65ade0c (Add dynamic nearest weather stations to map)
   }
 
   const formatCoord = (value: number | null) => value === null ? '' : value.toFixed(4);
