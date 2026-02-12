@@ -7,6 +7,7 @@
 	import SlabInputs from '$lib/components/slabs/SlabInputs.svelte';
 	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
+import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 
    export let data: {
     explanations: {
@@ -23,7 +24,8 @@
     { id: 'slabs', label: 'Slab Layout' },
     { id: 'environment', label: 'Environment' },
     { id: 'analysis', label: 'Analysis' },
-    { id: 'results', label: 'Results' }
+    { id: 'results', label: 'Results' },
+    { id: 'report', label: 'Report PDF' }
   ];
 </script>
 
@@ -58,6 +60,9 @@
     </div>
     <div class:hidden={active !== 'results'}>
       <p class="text-gray-600">Results tab coming soon…</p>
+    </div>
+    <div class:hidden={active !== 'report'}>
+      <ReportPdfTab />
     </div>
   </div>
 </Tabs>
