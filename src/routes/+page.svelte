@@ -64,6 +64,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
     </div>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     <div class:hidden={active !== 'report'}>
       <ReportPdfTab />
     </div>
@@ -74,6 +75,8 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <ReportPdfTab />
     </div>
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
   </div>
 </Tabs>
 
