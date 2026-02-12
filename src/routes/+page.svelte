@@ -54,10 +54,14 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <SlabInputs />
     </div>
     <div class:hidden={active !== 'environment'}>
+<<<<<<< HEAD
       <EnvTab
         stationExplanationHtml={data.explanations.haversineApprox}
         climateNormalsHtml={data.explanations.climateNormals}
       />
+=======
+      <EnvTab explanationHtml={data.explanations.haversineApprox} />
+>>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
     </div>
     <div class:hidden={active !== 'analysis'}>
       <p class="text-gray-600">Analysis tab coming soon…</p>
@@ -69,6 +73,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     <div class:hidden={active !== 'report'}>
       <ReportPdfTab />
     </div>
@@ -86,6 +91,8 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <ReportPdfTab />
     </div>
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
   </div>
 </Tabs>
 
