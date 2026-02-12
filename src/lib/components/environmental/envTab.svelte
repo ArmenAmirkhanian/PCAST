@@ -77,6 +77,29 @@
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
+
+  // Track previous projectInfo to detect changes and reset state
+  let prevProjectInfoJson = '';
+
+  function resetEnvState() {
+    lastLookupMessage = '';
+    lastLookupTime = '';
+    sqlProgress = [];
+    sqlPreviewOpen = false;
+    haverExplaOpen = false;
+    errorMessage = '';
+    rows = [];
+    clearCharts();
+  }
+
+  // Reset environment data when projectInfo changes
+  $: {
+    const currentJson = JSON.stringify($projectInfo);
+    if (prevProjectInfoJson && prevProjectInfoJson !== currentJson) {
+      resetEnvState();
+    }
+    prevProjectInfoJson = currentJson;
+  }
   let groupedStations: StationGroup[] = [];
   let stationDisplays: StationDisplay[] = [];
   let Plotly: typeof import('plotly.js-dist-min') | null = null;
