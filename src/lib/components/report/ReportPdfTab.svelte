@@ -14,6 +14,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   import { get } from 'svelte/store';
 <<<<<<< HEAD
@@ -86,10 +87,14 @@
   import placesIndex from '$lib/data/places-index.json';
   import type { PlacesIndex } from '$lib/types';
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+  // Report PDF Tab - displays a preview of the 8.5x11 report
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 
   let paperPreview: HTMLDivElement;
   let isGenerating = false;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -470,10 +475,13 @@
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
   async function downloadPdf() {
     if (isGenerating) return;
     isGenerating = true;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     // Refresh the snapshot so the downloaded PDF reflects the latest inputs
     refreshPreview();
@@ -589,6 +597,19 @@
 =======
           allowTaint: true,
 >>>>>>> 2c32951 (Fix map not appearing in downloaded PDF)
+=======
+    try {
+      // Dynamically import html2pdf (browser-only library)
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      const options = {
+        margin: 0,
+        filename: 'pavement-cracking-report.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
           letterRendering: true
         },
         jsPDF: {
@@ -598,6 +619,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
           orientation: 'portrait' as const
 =======
           orientation: 'portrait'
@@ -611,10 +633,14 @@
 =======
           orientation: 'portrait' as const
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+          orientation: 'portrait'
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
         }
       };
 
       await html2pdf().set(options).from(paperPreview).save();
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -641,6 +667,8 @@
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF. Please try again.');
@@ -651,6 +679,7 @@
 </script>
 
 <div class="toolbar">
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -675,6 +704,8 @@
     Update PDF
   </button>
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
   <button class="download-btn" on:click={downloadPdf} disabled={isGenerating}>
     {#if isGenerating}
       <svg class="spinner" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -694,6 +725,7 @@
 
 <div class="report-container">
   <div class="paper-preview" bind:this={paperPreview}>
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -1089,12 +1121,15 @@
 =======
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     <div class="paper-content">
       <!-- Header -->
       <div class="report-header">
         <h1>Pavement Cracking Analysis Report</h1>
         <p class="subtitle">Generated Report Preview</p>
       </div>
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
@@ -1741,6 +1776,28 @@
     </div>
 
 >>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
+=======
+
+      <!-- Placeholder content - will be populated with data from other tabs -->
+      <div class="report-body">
+        <p class="placeholder-text">
+          Report content will appear here. This document will include:
+        </p>
+        <ul class="placeholder-list">
+          <li>Project Information</li>
+          <li>Materials Data</li>
+          <li>Slab Layout Details</li>
+          <li>Environmental Conditions</li>
+          <li>Analysis Results</li>
+        </ul>
+      </div>
+
+      <!-- Footer -->
+      <div class="report-footer">
+        <p>Page 1 of 1</p>
+      </div>
+    </div>
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
   </div>
 </div>
 
@@ -1750,17 +1807,21 @@
     justify-content: flex-end;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     gap: 0.75rem;
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
     gap: 0.75rem;
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     padding: 1rem 2rem;
     background-color: #f3f4f6;
     border-bottom: 1px solid #e5e7eb;
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
   .refresh-btn {
@@ -1840,6 +1901,8 @@
   }
 
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
   .download-btn {
     display: flex;
     align-items: center;
@@ -1890,6 +1953,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     height: 85vh;
     overflow-y: auto;
   }
@@ -1906,6 +1970,8 @@
   /* ---- Shared page styles ---- */
   .page {
 =======
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     min-height: 80vh;
@@ -1914,6 +1980,7 @@
   .paper-preview {
     /* 8.5 x 11 inches - exact dimensions */
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
     height: 85vh;
@@ -1944,6 +2011,8 @@
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     width: 8.5in;
     height: 11in;
     background: white;
@@ -1957,6 +2026,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     box-sizing: border-box;
     margin-bottom: 2rem;
   }
@@ -1967,6 +2037,8 @@
 
   .page-content {
 =======
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -1976,6 +2048,7 @@
 
   .paper-content {
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
     box-sizing: border-box;
@@ -1999,6 +2072,8 @@
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     padding: 1in;
     padding-bottom: 0;
     height: calc(11in - 1in);
@@ -2009,8 +2084,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   .page-number {
 =======
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
   .report-header {
@@ -2060,6 +2138,7 @@
 
   .report-footer {
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
   .page-number {
@@ -2069,11 +2148,14 @@
 =======
   .page-number {
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     position: absolute;
     bottom: 1in;
     left: 1in;
     right: 1in;
     text-align: center;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -2784,4 +2866,15 @@
     border: 1px solid #000000;
   }
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+    border-top: 1px solid #d1d5db;
+    padding-top: 1rem;
+  }
+
+  .report-footer p {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 </style>
