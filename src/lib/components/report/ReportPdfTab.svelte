@@ -1,21 +1,51 @@
 <script lang="ts">
-  // Report PDF Tab - displays a preview of the 8.5x11 report
+  import { projectInfo } from '$lib/stores/form';
 
   let paperPreview: HTMLDivElement;
   let isGenerating = false;
+
+  // Get current date formatted
+  function getFormattedDate(): string {
+    return new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+
+  // Section definitions for TOC and section pages
+  const sections = [
+    { id: 'project-info', title: 'Project Information', page: 4 },
+    { id: 'materials', title: 'Materials', page: 5 },
+    { id: 'slab-layout', title: 'Slab Layout', page: 6 },
+    { id: 'environment', title: 'Environment', page: 7 },
+    { id: 'analysis', title: 'Analysis', page: 8 },
+    { id: 'results', title: 'Results', page: 9 },
+    { id: 'appendices', title: 'Appendices', page: 10 }
+  ];
+
+  const totalPages = 10;
 
   async function downloadPdf() {
     if (isGenerating) return;
     isGenerating = true;
 
     try {
-      // Dynamically import html2pdf (browser-only library)
       const html2pdf = (await import('html2pdf.js')).default;
+
+      // Temporarily adjust styles for PDF generation
+      paperPreview.style.zoom = '1';
+      const pages = paperPreview.querySelectorAll<HTMLElement>('.page');
+      pages.forEach((page) => {
+        page.style.marginBottom = '0';
+        page.style.boxShadow = 'none';
+        page.style.borderRadius = '0';
+      });
 
       const options = {
         margin: 0,
         filename: 'pavement-cracking-report.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: {
           scale: 2,
           useCORS: true,
@@ -24,11 +54,19 @@
         jsPDF: {
           unit: 'in',
           format: 'letter',
-          orientation: 'portrait'
+          orientation: 'portrait' as const
         }
       };
 
       await html2pdf().set(options).from(paperPreview).save();
+
+      // Restore styles after PDF generation
+      paperPreview.style.zoom = '';
+      pages.forEach((page) => {
+        page.style.marginBottom = '';
+        page.style.boxShadow = '';
+        page.style.borderRadius = '';
+      });
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF. Please try again.');
@@ -58,32 +96,74 @@
 
 <div class="report-container">
   <div class="paper-preview" bind:this={paperPreview}>
-    <div class="paper-content">
-      <!-- Header -->
-      <div class="report-header">
-        <h1>Pavement Cracking Analysis Report</h1>
-        <p class="subtitle">Generated Report Preview</p>
-      </div>
 
-      <!-- Placeholder content - will be populated with data from other tabs -->
-      <div class="report-body">
-        <p class="placeholder-text">
-          Report content will appear here. This document will include:
-        </p>
-        <ul class="placeholder-list">
-          <li>Project Information</li>
-          <li>Materials Data</li>
-          <li>Slab Layout Details</li>
-          <li>Environmental Conditions</li>
-          <li>Analysis Results</li>
-        </ul>
+    <!-- PAGE 1: Cover Page -->
+    <div class="page cover-page">
+      <div class="cover-content">
+        <div class="cover-title-block">
+          <h1 class="cover-title">Pavement Cracking<br/>Analysis Report</h1>
+          <div class="cover-divider"></div>
+          <p class="cover-location">
+            {#if $projectInfo.city && $projectInfo.state}
+              {$projectInfo.city}, {$projectInfo.state}
+            {:else}
+              Location not specified
+            {/if}
+          </p>
+          <p class="cover-date">{getFormattedDate()}</p>
+        </div>
       </div>
-
-      <!-- Footer -->
-      <div class="report-footer">
-        <p>Page 1 of 1</p>
+      <div class="cover-footer">
+        <p>Report generated using Pavement Cracking Tool website, developed by the Civil, Construction and Environmental Engineering Department at The University of Alabama. Roll Tide.</p>
       </div>
     </div>
+
+    <!-- PAGE 2: Disclaimer -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Disclaimer</h2>
+        <div class="title-rule"></div>
+        <p>Armen, you gotta say something official here so they know that if something goes wrong it's not our fault.</p>
+      </div>
+      <div class="page-number">
+        <p>2</p>
+      </div>
+    </div>
+
+    <!-- PAGE 3: Table of Contents -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Table of Contents</h2>
+        <div class="title-rule"></div>
+        <div class="toc-list">
+          {#each sections as section}
+            <div class="toc-entry">
+              <span class="toc-label">{section.title}</span>
+              <span class="toc-dots"> .................................................................................................................................................... </span>
+              <span class="toc-page">{section.page}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="page-number">
+        <p>3</p>
+      </div>
+    </div>
+
+    <!-- PAGES 4-10: Section Pages -->
+    {#each sections as section, i}
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">{section.title}</h2>
+          <div class="title-rule"></div>
+          <p class="section-placeholder">Content for {section.title} will appear here.</p>
+        </div>
+        <div class="page-number">
+          <p>{section.page}</p>
+        </div>
+      </div>
+    {/each}
+
   </div>
 </div>
 
@@ -142,11 +222,21 @@
     justify-content: center;
     padding: 2rem;
     background-color: #e5e7eb;
-    min-height: 80vh;
+    height: 85vh;
+    overflow-y: auto;
   }
 
   .paper-preview {
-    /* 8.5 x 11 inches - exact dimensions */
+    width: 8.5in;
+    font-family: 'Calibri', 'Carlito', sans-serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    zoom: 0.75;
+    color: #000000;
+  }
+
+  /* ---- Shared page styles ---- */
+  .page {
     width: 8.5in;
     height: 11in;
     background: white;
@@ -156,76 +246,142 @@
     border-radius: 2px;
     overflow: hidden;
     position: relative;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 1rem;
-    line-height: 1.5;
+    box-sizing: border-box;
+    margin-bottom: 2rem;
   }
 
-  .paper-content {
+  .page:last-child {
+    margin-bottom: 0;
+  }
+
+  .page-content {
     padding: 1in;
     padding-bottom: 0;
     height: calc(11in - 1in);
     box-sizing: border-box;
   }
 
-  .report-header {
-    text-align: center;
-    border-bottom: 2px solid #1f2937;
-    padding-bottom: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .report-header h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #1f2937;
-    margin: 0;
-  }
-
-  .report-header .subtitle {
-    font-size: 0.875rem;
-    color: #6b7280;
-    margin-top: 0.5rem;
-  }
-
-  .placeholder-text {
-    color: #4b5563;
-    margin-bottom: 1rem;
-  }
-
-  .placeholder-list {
-    list-style: none;
-    padding-left: 0;
-    margin: 0;
-    color: #6b7280;
-  }
-
-  .placeholder-list li {
-    margin-bottom: 0.5rem;
-    padding-left: 1.5rem;
-    position: relative;
-  }
-
-  .placeholder-list li::before {
-    content: "\2022";
-    position: absolute;
-    left: 0.5rem;
-    color: #6b7280;
-  }
-
-  .report-footer {
+  .page-number {
     position: absolute;
     bottom: 1in;
     left: 1in;
     right: 1in;
     text-align: center;
-    border-top: 1px solid #d1d5db;
-    padding-top: 1rem;
   }
 
-  .report-footer p {
-    font-size: 0.75rem;
-    color: #9ca3af;
+  .page-number p {
+    font-size: 12pt;
+    color: #000000;
   }
 
+  .page-title {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+    padding: 0;
+  }
+
+  .title-rule {
+    width: 100%;
+    height: 2px;
+    background-color: #000000;
+    margin-top: 6pt;
+    margin-bottom: 18pt;
+  }
+
+  /* ---- Cover page ---- */
+  .cover-page {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cover-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1in;
+    box-sizing: border-box;
+  }
+
+  .cover-title-block {
+    text-align: center;
+  }
+
+  .cover-title {
+    font-size: 24pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .cover-divider {
+    width: 4in;
+    height: 3px;
+    background-color: #000000;
+    margin: 1.5rem auto;
+  }
+
+  .cover-location {
+    font-size: 16pt;
+    color: #000000;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .cover-date {
+    font-size: 16pt;
+    color: #000000;
+    margin: 0;
+  }
+
+  .cover-footer {
+    padding: 0 1in 1in 1in;
+    text-align: center;
+  }
+
+  .cover-footer p {
+    font-size: 12pt;
+    color: #000000;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ---- Table of Contents ---- */
+  .toc-list {
+    margin-top: 1rem;
+  }
+
+  .toc-entry {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 1rem;
+    font-size: 12pt;
+    color: #000000;
+  }
+
+  .toc-label {
+    white-space: nowrap;
+  }
+
+  .toc-dots {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #000000;
+    font-size: 12pt;
+    letter-spacing: 0.2em;
+  }
+
+  .toc-page {
+    white-space: nowrap;
+    color: #000000;
+  }
+
+  /* ---- Section pages ---- */
+  .section-placeholder {
+    color: #000000;
+    margin-top: 1rem;
+  }
 </style>
