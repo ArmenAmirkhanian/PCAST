@@ -22,6 +22,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   import { get } from 'svelte/store';
 <<<<<<< HEAD
@@ -130,10 +131,14 @@
 =======
   // Report PDF Tab - displays a preview of the 8.5x11 report
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+  import { projectInfo } from '$lib/stores/form';
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 
   let paperPreview: HTMLDivElement;
   let isGenerating = false;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -415,6 +420,8 @@
   }
 
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
   // Get current date formatted
   function getFormattedDate(): string {
     return new Date().toLocaleDateString('en-US', {
@@ -426,6 +433,7 @@
 
   // Section definitions for TOC and section pages
   const sections = [
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -480,12 +488,15 @@
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     { id: 'project-info', title: 'Project Information', page: 4 },
     { id: 'materials', title: 'Materials', page: 5 },
     { id: 'slab-layout', title: 'Slab Layout', page: 6 },
     { id: 'environment', title: 'Environment', page: 7 },
     { id: 'analysis', title: 'Analysis', page: 8 },
     { id: 'results', title: 'Results', page: 9 },
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -652,6 +663,13 @@
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    { id: 'appendices', title: 'Appendices', page: 10 }
+  ];
+
+  const totalPages = 10;
+
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
   async function downloadPdf() {
     if (isGenerating) return;
     isGenerating = true;
@@ -812,13 +830,21 @@
 >>>>>>> 2c32951 (Fix map not appearing in downloaded PDF)
 =======
     try {
-      // Dynamically import html2pdf (browser-only library)
       const html2pdf = (await import('html2pdf.js')).default;
+
+      // Temporarily adjust styles for PDF generation
+      paperPreview.style.zoom = '1';
+      const pages = paperPreview.querySelectorAll<HTMLElement>('.page');
+      pages.forEach((page) => {
+        page.style.marginBottom = '0';
+        page.style.boxShadow = 'none';
+        page.style.borderRadius = '0';
+      });
 
       const options = {
         margin: 0,
         filename: 'pavement-cracking-report.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: {
           scale: 2,
           useCORS: true,
@@ -835,6 +861,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
           orientation: 'portrait' as const
 =======
           orientation: 'portrait'
@@ -857,6 +884,9 @@
 =======
           orientation: 'portrait'
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+          orientation: 'portrait' as const
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
         }
       };
 
@@ -868,6 +898,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
@@ -885,6 +918,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
@@ -899,6 +933,8 @@
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Error generating PDF. Please try again.');
@@ -971,6 +1007,7 @@
 
 <div class="report-container">
   <div class="paper-preview" bind:this={paperPreview}>
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -2350,27 +2387,80 @@
 
 >>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
 =======
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 
-      <!-- Placeholder content - will be populated with data from other tabs -->
-      <div class="report-body">
-        <p class="placeholder-text">
-          Report content will appear here. This document will include:
-        </p>
-        <ul class="placeholder-list">
-          <li>Project Information</li>
-          <li>Materials Data</li>
-          <li>Slab Layout Details</li>
-          <li>Environmental Conditions</li>
-          <li>Analysis Results</li>
-        </ul>
+    <!-- PAGE 1: Cover Page -->
+    <div class="page cover-page">
+      <div class="cover-content">
+        <div class="cover-title-block">
+          <h1 class="cover-title">Pavement Cracking<br/>Analysis Report</h1>
+          <div class="cover-divider"></div>
+          <p class="cover-location">
+            {#if $projectInfo.city && $projectInfo.state}
+              {$projectInfo.city}, {$projectInfo.state}
+            {:else}
+              Location not specified
+            {/if}
+          </p>
+          <p class="cover-date">{getFormattedDate()}</p>
+        </div>
       </div>
-
-      <!-- Footer -->
-      <div class="report-footer">
-        <p>Page 1 of 1</p>
+      <div class="cover-footer">
+        <p>Report generated using Pavement Cracking Tool website, developed by the Civil, Construction and Environmental Engineering Department at The University of Alabama. Roll Tide.</p>
       </div>
     </div>
+<<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+
+    <!-- PAGE 2: Disclaimer -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Disclaimer</h2>
+        <div class="title-rule"></div>
+        <p>Armen, you gotta say something official here so they know that if something goes wrong it's not our fault.</p>
+      </div>
+      <div class="page-number">
+        <p>2</p>
+      </div>
+    </div>
+
+    <!-- PAGE 3: Table of Contents -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Table of Contents</h2>
+        <div class="title-rule"></div>
+        <div class="toc-list">
+          {#each sections as section}
+            <div class="toc-entry">
+              <span class="toc-label">{section.title}</span>
+              <span class="toc-dots"> .................................................................................................................................................... </span>
+              <span class="toc-page">{section.page}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="page-number">
+        <p>3</p>
+      </div>
+    </div>
+
+    <!-- PAGES 4-10: Section Pages -->
+    {#each sections as section, i}
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">{section.title}</h2>
+          <div class="title-rule"></div>
+          <p class="section-placeholder">Content for {section.title} will appear here.</p>
+        </div>
+        <div class="page-number">
+          <p>{section.page}</p>
+        </div>
+      </div>
+    {/each}
+
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
   </div>
 </div>
 
@@ -2560,6 +2650,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     height: 85vh;
     overflow-y: auto;
   }
@@ -2611,6 +2702,13 @@
 
   .paper-preview {
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    height: 85vh;
+    overflow-y: auto;
+  }
+
+  .paper-preview {
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     width: 8.5in;
     font-family: 'Calibri', 'Carlito', sans-serif;
     font-size: 12pt;
@@ -2623,6 +2721,7 @@
   .page {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -2634,6 +2733,8 @@
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     width: 8.5in;
     height: 11in;
     background: white;
@@ -2643,6 +2744,7 @@
     border-radius: 2px;
     overflow: hidden;
     position: relative;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -2693,6 +2795,12 @@
   }
 
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    box-sizing: border-box;
+    margin-bottom: 2rem;
+  }
+
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
   .page:last-child {
     margin-bottom: 0;
   }
@@ -2700,6 +2808,7 @@
   .page-content {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -2711,12 +2820,15 @@
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     padding: 1in;
     padding-bottom: 0;
     height: calc(11in - 1in);
     box-sizing: border-box;
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -2797,11 +2909,15 @@
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+  .page-number {
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     position: absolute;
     bottom: 1in;
     left: 1in;
     right: 1in;
     text-align: center;
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -3714,12 +3830,127 @@
 =======
     border-top: 1px solid #d1d5db;
     padding-top: 1rem;
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
   }
 
-  .report-footer p {
-    font-size: 0.75rem;
-    color: #9ca3af;
+  .page-number p {
+    font-size: 12pt;
+    color: #000000;
   }
 
+<<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+  .page-title {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+    padding: 0;
+  }
+
+  .title-rule {
+    width: 100%;
+    height: 2px;
+    background-color: #000000;
+    margin-top: 6pt;
+    margin-bottom: 18pt;
+  }
+
+  /* ---- Cover page ---- */
+  .cover-page {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cover-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1in;
+    box-sizing: border-box;
+  }
+
+  .cover-title-block {
+    text-align: center;
+  }
+
+  .cover-title {
+    font-size: 24pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .cover-divider {
+    width: 4in;
+    height: 3px;
+    background-color: #000000;
+    margin: 1.5rem auto;
+  }
+
+  .cover-location {
+    font-size: 16pt;
+    color: #000000;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .cover-date {
+    font-size: 16pt;
+    color: #000000;
+    margin: 0;
+  }
+
+  .cover-footer {
+    padding: 0 1in 1in 1in;
+    text-align: center;
+  }
+
+  .cover-footer p {
+    font-size: 12pt;
+    color: #000000;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ---- Table of Contents ---- */
+  .toc-list {
+    margin-top: 1rem;
+  }
+
+  .toc-entry {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 1rem;
+    font-size: 12pt;
+    color: #000000;
+  }
+
+  .toc-label {
+    white-space: nowrap;
+  }
+
+  .toc-dots {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #000000;
+    font-size: 12pt;
+    letter-spacing: 0.2em;
+  }
+
+  .toc-page {
+    white-space: nowrap;
+    color: #000000;
+  }
+
+  /* ---- Section pages ---- */
+  .section-placeholder {
+    color: #000000;
+    margin-top: 1rem;
+  }
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 </style>
