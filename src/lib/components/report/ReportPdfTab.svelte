@@ -1,8 +1,58 @@
 <script lang="ts">
   import { projectInfo } from '$lib/stores/form';
+  import { site, allPoints } from '$lib/stores/stations';
+  import StaticMapView from '$lib/components/report/StaticMapView.svelte';
+  import placesIndex from '$lib/data/places-index.json';
+  import type { PlacesIndex } from '$lib/types';
 
   let paperPreview: HTMLDivElement;
   let isGenerating = false;
+
+  const index = placesIndex as PlacesIndex;
+
+  // Get selected location data
+  $: selectedLocation = (() => {
+    if (!$projectInfo.state || !$projectInfo.city) return null;
+    return (index[$projectInfo.state] || []).find(
+      (p) => p.city.toLowerCase() === $projectInfo.city.toLowerCase()
+    ) || null;
+  })();
+
+  // Helper to format values or show "Not specified"
+  function formatValue(value: string | number | ''): string {
+    if (value === '' || value === null || value === undefined) {
+      return 'Not specified';
+    }
+    return String(value);
+  }
+
+  function formatCoord(value: number | null): string {
+    return value === null ? 'Not specified' : value.toFixed(4);
+  }
+
+  function formatDate(dateStr: string): string {
+    if (!dateStr) return 'Not specified';
+    try {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function formatHour(hourStr: string): string {
+    if (!hourStr) return 'Not specified';
+    return hourStr;
+  }
+
+  function formatTemp(temp: number | ''): string {
+    if (temp === '') return 'Not specified';
+    return `${temp}°F`;
+  }
 
   // Get current date formatted
   function getFormattedDate(): string {
@@ -41,6 +91,8 @@
         page.style.boxShadow = 'none';
         page.style.borderRadius = '0';
       });
+
+      // StaticMapView already produces a static image with legend, no conversion needed
 
       const options = {
         margin: 0,
@@ -150,8 +202,63 @@
       </div>
     </div>
 
-    <!-- PAGES 4-10: Section Pages -->
-    {#each sections as section, i}
+    <!-- PAGE 4: Project Information -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Project Information</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">State:</span>
+            <span class="info-value">{formatValue($projectInfo.state)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">City:</span>
+            <span class="info-value">{formatValue($projectInfo.city)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Latitude:</span>
+            <span class="info-value">{formatCoord(selectedLocation?.latitude ?? null)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Longitude:</span>
+            <span class="info-value">{formatCoord(selectedLocation?.longitude ?? null)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Date:</span>
+            <span class="info-value">{formatDate($projectInfo.date)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Start Hour:</span>
+            <span class="info-value">{formatHour($projectInfo.startHour)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Construction Start Temperature:</span>
+            <span class="info-value">{formatTemp($projectInfo.startTempF)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Concrete Delivery Temperature:</span>
+            <span class="info-value">{formatTemp($projectInfo.deliveryTempF)}</span>
+          </div>
+        </div>
+
+        {#if selectedLocation?.latitude && selectedLocation?.longitude}
+          <div class="map-section">
+            <h3 class="map-title">Project Location Map</h3>
+            <div class="map-container">
+              <StaticMapView center={$site as [number, number]} points={$allPoints as [number, number][]} />
+            </div>
+          </div>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>4</p>
+      </div>
+    </div>
+
+    <!-- PAGES 5-10: Other Section Pages -->
+    {#each sections.slice(1) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
@@ -383,5 +490,45 @@
   .section-placeholder {
     color: #000000;
     margin-top: 1rem;
+  }
+
+  /* ---- Project Information section ---- */
+  .info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8pt;
+    margin-bottom: 18pt;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: baseline;
+  }
+
+  .info-label {
+    font-weight: 700;
+    min-width: 200pt;
+    color: #000000;
+  }
+
+  .info-value {
+    color: #000000;
+  }
+
+  .map-section {
+    margin-top: 18pt;
+  }
+
+  .map-title {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0 0 12pt 0;
+  }
+
+  .map-container {
+    width: 100%;
+    height: 300pt;
+    border: 1px solid #000000;
   }
 </style>
