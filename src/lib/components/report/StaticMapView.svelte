@@ -172,6 +172,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ea08282 (Fix map not appearing in preview)
 =======
 >>>>>>> ea08282 (Fix map not appearing in preview)
 =======
@@ -194,6 +197,7 @@
           }
         }, 500);
       });
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -219,6 +223,8 @@
 >>>>>>> ea08282 (Fix map not appearing in preview)
 =======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> ea08282 (Fix map not appearing in preview)
     });
   });
 </script>
@@ -230,6 +236,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
 =======
   <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
@@ -246,6 +253,9 @@
 =======
   <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+  <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
+>>>>>>> ea08282 (Fix map not appearing in preview)
 
   <!-- Static image display -->
   {#if mapLoaded && mapImageSrc}
