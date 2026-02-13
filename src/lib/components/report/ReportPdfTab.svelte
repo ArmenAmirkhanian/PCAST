@@ -254,7 +254,7 @@
           </div>
         </div>
 
-        {#if selectedLocation?.latitude && selectedLocation?.longitude}
+        {#if $site && $site.length === 2}
           <div class="map-section">
             <h3 class="map-title">Project Location Map</h3>
             <div class="map-container">
