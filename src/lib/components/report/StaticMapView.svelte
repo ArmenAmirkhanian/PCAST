@@ -14,6 +14,7 @@
   let map: any;
   let mapImageSrc = '';
   let mapLoaded = false;
+<<<<<<< HEAD
   let maplibregl: any;
 
   // Update map when center or points change
@@ -43,6 +44,8 @@
       });
     }
   }
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 
   function toPointsFC() {
     return {
@@ -70,7 +73,11 @@
   }
 
   onMount(async () => {
+<<<<<<< HEAD
     maplibregl = (await import('maplibre-gl')).default;
+=======
+    const maplibregl = (await import('maplibre-gl')).default;
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
     map = new maplibregl.Map({
       container: el,
       style: styleUrl,
@@ -126,6 +133,7 @@
       }
 
       // Wait for map to fully render, then capture as image
+<<<<<<< HEAD
       map.once('idle', () => {
         setTimeout(() => {
           const canvas = el.querySelector('canvas');
@@ -144,13 +152,26 @@
           }
         }, 500);
       });
+=======
+      setTimeout(() => {
+        const canvas = el.querySelector('canvas');
+        if (canvas) {
+          mapImageSrc = canvas.toDataURL('image/png');
+          mapLoaded = true;
+        }
+      }, 1000);
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
     });
   });
 </script>
 
 <div class="map-wrapper">
   <!-- Hidden map element for rendering -->
+<<<<<<< HEAD
   <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
+=======
+  <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 
   <!-- Static image display -->
   {#if mapLoaded && mapImageSrc}
