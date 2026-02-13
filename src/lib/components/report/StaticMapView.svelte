@@ -15,6 +15,9 @@
   let mapImageSrc = '';
   let mapLoaded = false;
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> d18491d (Make StaticMapView reactive to location changes)
   let maplibregl: any;
 
   // Update map when center or points change
@@ -44,8 +47,11 @@
       });
     }
   }
+<<<<<<< HEAD
 =======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> d18491d (Make StaticMapView reactive to location changes)
 
   function toPointsFC() {
     return {
@@ -74,10 +80,14 @@
 
   onMount(async () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     maplibregl = (await import('maplibre-gl')).default;
 =======
     const maplibregl = (await import('maplibre-gl')).default;
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+    maplibregl = (await import('maplibre-gl')).default;
+>>>>>>> d18491d (Make StaticMapView reactive to location changes)
     map = new maplibregl.Map({
       container: el,
       style: styleUrl,
