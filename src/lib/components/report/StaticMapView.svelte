@@ -134,6 +134,9 @@
 
       // Wait for map to fully render, then capture as image
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ea08282 (Fix map not appearing in preview)
       map.once('idle', () => {
         setTimeout(() => {
           const canvas = el.querySelector('canvas');
@@ -152,6 +155,7 @@
           }
         }, 500);
       });
+<<<<<<< HEAD
 =======
       setTimeout(() => {
         const canvas = el.querySelector('canvas');
@@ -161,6 +165,8 @@
         }
       }, 1000);
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> ea08282 (Fix map not appearing in preview)
     });
   });
 </script>
@@ -168,10 +174,14 @@
 <div class="map-wrapper">
   <!-- Hidden map element for rendering -->
 <<<<<<< HEAD
+<<<<<<< HEAD
   <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
 =======
   <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+  <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
+>>>>>>> ea08282 (Fix map not appearing in preview)
 
   <!-- Static image display -->
   {#if mapLoaded && mapImageSrc}
