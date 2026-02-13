@@ -97,20 +97,31 @@
       }
 
       // Wait for map to fully render, then capture as image
-      setTimeout(() => {
-        const canvas = el.querySelector('canvas');
-        if (canvas) {
-          mapImageSrc = canvas.toDataURL('image/png');
-          mapLoaded = true;
-        }
-      }, 1000);
+      map.once('idle', () => {
+        setTimeout(() => {
+          const canvas = el.querySelector('canvas');
+          if (canvas) {
+            try {
+              mapImageSrc = canvas.toDataURL('image/png');
+              mapLoaded = true;
+            } catch (err) {
+              console.error('Failed to capture map as image:', err);
+              // Keep map visible if capture fails
+              mapLoaded = false;
+            }
+          } else {
+            console.error('Canvas element not found');
+            mapLoaded = false;
+          }
+        }, 500);
+      });
     });
   });
 </script>
 
 <div class="map-wrapper">
   <!-- Hidden map element for rendering -->
-  <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
+  <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
 
   <!-- Static image display -->
   {#if mapLoaded && mapImageSrc}
