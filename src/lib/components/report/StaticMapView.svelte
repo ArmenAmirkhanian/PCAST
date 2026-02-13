@@ -14,6 +14,35 @@
   let map: any;
   let mapImageSrc = '';
   let mapLoaded = false;
+  let maplibregl: any;
+
+  // Update map when center or points change
+  $: if (map && maplibregl && map.loaded()) {
+    map.getSource('center-point')?.setData(toCenterFC());
+    map.getSource('points')?.setData(toPointsFC());
+
+    const all = [center, ...points].filter(Boolean);
+    if (all.length) {
+      const b = new maplibregl.LngLatBounds(all[0], all[0]);
+      all.forEach((p: [number, number]) => b.extend(p));
+      map.fitBounds(b, { padding: 60, duration: 0, maxZoom: 9 });
+
+      // Recapture the map after updating
+      map.once('idle', () => {
+        setTimeout(() => {
+          const canvas = el.querySelector('canvas');
+          if (canvas) {
+            try {
+              mapImageSrc = canvas.toDataURL('image/png');
+              mapLoaded = true;
+            } catch (err) {
+              console.error('Failed to recapture map:', err);
+            }
+          }
+        }, 500);
+      });
+    }
+  }
 
   function toPointsFC() {
     return {
@@ -41,7 +70,7 @@
   }
 
   onMount(async () => {
-    const maplibregl = (await import('maplibre-gl')).default;
+    maplibregl = (await import('maplibre-gl')).default;
     map = new maplibregl.Map({
       container: el,
       style: styleUrl,
