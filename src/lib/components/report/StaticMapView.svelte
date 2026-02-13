@@ -16,6 +16,7 @@
   let mapLoaded = false;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> d18491d (Make StaticMapView reactive to location changes)
   let maplibregl: any;
@@ -52,6 +53,8 @@
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> d18491d (Make StaticMapView reactive to location changes)
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 
   function toPointsFC() {
     return {
@@ -81,6 +84,7 @@
   onMount(async () => {
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     maplibregl = (await import('maplibre-gl')).default;
 =======
     const maplibregl = (await import('maplibre-gl')).default;
@@ -88,6 +92,9 @@
 =======
     maplibregl = (await import('maplibre-gl')).default;
 >>>>>>> d18491d (Make StaticMapView reactive to location changes)
+=======
+    const maplibregl = (await import('maplibre-gl')).default;
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
     map = new maplibregl.Map({
       container: el,
       style: styleUrl,
@@ -145,6 +152,7 @@
       // Wait for map to fully render, then capture as image
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> ea08282 (Fix map not appearing in preview)
       map.once('idle', () => {
@@ -167,6 +175,8 @@
       });
 <<<<<<< HEAD
 =======
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
       setTimeout(() => {
         const canvas = el.querySelector('canvas');
         if (canvas) {
@@ -174,15 +184,19 @@
           mapLoaded = true;
         }
       }, 1000);
+<<<<<<< HEAD
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> ea08282 (Fix map not appearing in preview)
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
     });
   });
 </script>
 
 <div class="map-wrapper">
   <!-- Hidden map element for rendering -->
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
   <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
@@ -192,6 +206,9 @@
 =======
   <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
 >>>>>>> ea08282 (Fix map not appearing in preview)
+=======
+  <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 
   <!-- Static image display -->
   {#if mapLoaded && mapImageSrc}
