@@ -92,7 +92,17 @@
         page.style.borderRadius = '0';
       });
 
-      // StaticMapView already produces a static image with legend, no conversion needed
+      // Wait for all images (including map) to be fully loaded
+      const images = paperPreview.querySelectorAll('img');
+      await Promise.all(
+        Array.from(images).map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = () => resolve(null);
+            img.onerror = () => resolve(null);
+          });
+        })
+      );
 
       const options = {
         margin: 0,
@@ -101,6 +111,7 @@
         html2canvas: {
           scale: 2,
           useCORS: true,
+          allowTaint: true,
           letterRendering: true
         },
         jsPDF: {
