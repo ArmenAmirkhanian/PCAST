@@ -55,6 +55,7 @@
   import { projectInfo } from '$lib/stores/form';
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 =======
@@ -94,6 +95,12 @@
 =======
   import { projectInfo } from '$lib/stores/form';
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+  import { site, allPoints } from '$lib/stores/stations';
+  import StaticMapView from '$lib/components/report/StaticMapView.svelte';
+  import placesIndex from '$lib/data/places-index.json';
+  import type { PlacesIndex } from '$lib/types';
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 
   let paperPreview: HTMLDivElement;
   let isGenerating = false;
@@ -106,6 +113,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   const index = placesIndex as PlacesIndex;
@@ -114,6 +122,10 @@
   const index = placesIndex as PlacesIndex;
 
 <<<<<<< HEAD
+=======
+  const index = placesIndex as PlacesIndex;
+
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   // Get selected location data
   $: selectedLocation = (() => {
     if (!$projectInfo.state || !$projectInfo.city) return null;
@@ -122,9 +134,12 @@
     ) || null;
   })();
 
+<<<<<<< HEAD
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   // Helper to format values or show "Not specified"
   function formatValue(value: string | number | ''): string {
     if (value === '' || value === null || value === undefined) {
@@ -140,6 +155,7 @@
   function formatDate(dateStr: string): string {
     if (!dateStr) return 'Not specified';
     try {
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -164,6 +180,9 @@
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
+=======
+      const date = new Date(dateStr);
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
@@ -176,6 +195,7 @@
 
   function formatHour(hourStr: string): string {
     if (!hourStr) return 'Not specified';
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -201,10 +221,14 @@
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
+=======
+    return hourStr;
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   }
 
   function formatTemp(temp: number | ''): string {
     if (temp === '') return 'Not specified';
+<<<<<<< HEAD
     if (snap.unitSystem !== 'us') {
       return `${Math.round((temp as number - 32) * 5 / 9)}°C`;
     }
@@ -306,6 +330,11 @@
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    return `${temp}°F`;
+  }
+
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   // Get current date formatted
   function getFormattedDate(): string {
     return new Date().toLocaleDateString('en-US', {
@@ -627,6 +656,8 @@
         page.style.boxShadow = 'none';
         page.style.borderRadius = '0';
       });
+
+      // StaticMapView already produces a static image with legend, no conversion needed
 
       const options = {
         margin: 0,
@@ -1873,8 +1904,63 @@
       </div>
     </div>
 
-    <!-- PAGES 4-10: Section Pages -->
-    {#each sections as section, i}
+    <!-- PAGE 4: Project Information -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Project Information</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">State:</span>
+            <span class="info-value">{formatValue($projectInfo.state)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">City:</span>
+            <span class="info-value">{formatValue($projectInfo.city)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Latitude:</span>
+            <span class="info-value">{formatCoord(selectedLocation?.latitude ?? null)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Longitude:</span>
+            <span class="info-value">{formatCoord(selectedLocation?.longitude ?? null)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Date:</span>
+            <span class="info-value">{formatDate($projectInfo.date)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Start Hour:</span>
+            <span class="info-value">{formatHour($projectInfo.startHour)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Construction Start Temperature:</span>
+            <span class="info-value">{formatTemp($projectInfo.startTempF)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Concrete Delivery Temperature:</span>
+            <span class="info-value">{formatTemp($projectInfo.deliveryTempF)}</span>
+          </div>
+        </div>
+
+        {#if selectedLocation?.latitude && selectedLocation?.longitude}
+          <div class="map-section">
+            <h3 class="map-title">Project Location Map</h3>
+            <div class="map-container">
+              <StaticMapView center={$site as [number, number]} points={$allPoints as [number, number][]} />
+            </div>
+          </div>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>4</p>
+      </div>
+    </div>
+
+    <!-- PAGES 5-10: Other Section Pages -->
+    {#each sections.slice(1) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
@@ -3107,5 +3193,48 @@
     color: #000000;
     margin-top: 1rem;
   }
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+
+  /* ---- Project Information section ---- */
+  .info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8pt;
+    margin-bottom: 18pt;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: baseline;
+  }
+
+  .info-label {
+    font-weight: 700;
+    min-width: 200pt;
+    color: #000000;
+  }
+
+  .info-value {
+    color: #000000;
+  }
+
+  .map-section {
+    margin-top: 18pt;
+  }
+
+  .map-title {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0 0 12pt 0;
+  }
+
+  .map-container {
+    width: 100%;
+    height: 300pt;
+    border: 1px solid #000000;
+  }
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 </style>
