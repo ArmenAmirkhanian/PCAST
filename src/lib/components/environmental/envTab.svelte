@@ -6,6 +6,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
 =======
   import { projectInfo, weatherStations } from '$lib/stores/form';
@@ -16,6 +17,9 @@
 =======
   import { projectInfo, weatherStations, chartImages, stationDisplays as stationDisplaysStore } from '$lib/stores/form';
 >>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
+=======
+  import { projectInfo, weatherStations } from '$lib/stores/form';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -239,6 +243,7 @@
     distanceKm: station.distanceKm
   })));
 
+<<<<<<< HEAD
   // Update stationDisplays store with hourly data for PDF Appendix A
   $: stationDisplaysStore.set(stationDisplays.map((station) => ({
     stationId: station.stationId,
@@ -251,6 +256,8 @@
     hourly: station.hourly
   })));
 
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   $: selectedDate = $projectInfo.date
     ? new Date(`${$projectInfo.date}T00:00:00Z`)
     : null;
