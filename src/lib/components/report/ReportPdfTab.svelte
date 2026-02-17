@@ -316,6 +316,7 @@
     { id: 'analysis', title: 'Analysis', page: 8 },
     { id: 'results', title: 'Results', page: 9 },
 <<<<<<< HEAD
+<<<<<<< HEAD
     { id: 'appendices', title: 'Appendices', page: 11 }
 =======
     { id: 'analysis', title: 'Analysis', page: 8, indent: false },
@@ -377,9 +378,12 @@
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
     { id: 'appendices', title: 'Appendices', page: 10 }
+=======
+    { id: 'appendices', title: 'Appendices', page: 11 }
+>>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
   ];
 
-  const totalPages = 10;
+  const totalPages = 11;
 
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
   async function downloadPdf() {
@@ -1500,8 +1504,8 @@
       </div>
     </div>
 
-    <!-- PAGES 7-10: Other Section Pages -->
-    {#each sections.slice(3) as section}
+    <!-- PAGES 7-9: Other Section Pages -->
+    {#each sections.slice(3, 6) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
@@ -1514,7 +1518,31 @@
       </div>
     {/each}
 
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    <!-- PAGE 10: Appendices Divider -->
+    <div class="page cover-page">
+      <div class="cover-content">
+        <div class="cover-title-block">
+          <h1 class="cover-title">APPENDICES</h1>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 11: Appendices Content -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Appendices</h2>
+        <div class="title-rule"></div>
+        <p class="section-placeholder">Content for Appendices will appear here.</p>
+      </div>
+      <div class="page-number">
+        <p>11</p>
+      </div>
+    </div>
+
+>>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
   </div>
 </div>
 
