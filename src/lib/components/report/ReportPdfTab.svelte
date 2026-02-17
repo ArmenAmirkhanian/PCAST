@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { projectInfo, materials } from '$lib/stores/form';
+  import { projectInfo, materials, slabLayout } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
+  import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
   import placesIndex from '$lib/data/places-index.json';
   import type { PlacesIndex } from '$lib/types';
@@ -66,6 +67,18 @@
       return 'Curing compound not in use.';
     }
     return curing;
+  }
+
+  function formatThickness(thickness: number | ''): string {
+    if (thickness === '') return 'Not specified';
+    const unit = $unitSystem === 'us' ? 'in' : 'mm';
+    return `${thickness} ${unit}`;
+  }
+
+  function formatJointSpacing(spacing: number | ''): string {
+    if (spacing === '') return 'Not specified';
+    const unit = $unitSystem === 'us' ? 'ft' : 'm';
+    return `${spacing} ${unit}`;
   }
 
   // Get current date formatted
@@ -315,8 +328,42 @@
       </div>
     </div>
 
-    <!-- PAGES 6-10: Other Section Pages -->
-    {#each sections.slice(2) as section}
+    <!-- PAGE 6: Slab Layout -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Slab Layout</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Slab Thickness:</span>
+            <span class="info-value">{formatThickness($slabLayout.thickness)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Joint Spacing:</span>
+            <span class="info-value">{formatJointSpacing($slabLayout.jointSpacing)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Expected Saw Cutting Time:</span>
+            <span class="info-value">{formatHour($slabLayout.sawCutHour)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Joint Type:</span>
+            <span class="info-value">{formatValue($slabLayout.jointType)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Base Type:</span>
+            <span class="info-value">{formatValue($slabLayout.baseType)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">
+        <p>6</p>
+      </div>
+    </div>
+
+    <!-- PAGES 7-10: Other Section Pages -->
+    {#each sections.slice(3) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>

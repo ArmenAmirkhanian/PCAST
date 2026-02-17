@@ -23,3 +23,11 @@ export type MaterialsForm = {
   waterCementRatio: number | '';
   curing: 'Curing Compound' | 'No Curing Compound';
 };
+
+export type SlabLayoutForm = {
+  thickness: number | '';
+  jointSpacing: number | '';
+  sawCutHour: string;
+  jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
+  baseType: string;
+};
