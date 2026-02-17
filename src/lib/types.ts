@@ -24,6 +24,9 @@ export type MaterialsForm = {
   curing: 'Curing Compound' | 'No Curing Compound';
 };
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 
 export type SlabLayoutForm = {
   thickness: number | '';
@@ -32,6 +35,7 @@ export type SlabLayoutForm = {
   jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
   baseType: string;
 };
+<<<<<<< HEAD
 
 export type WeatherStation = {
   stationId: number;
@@ -44,3 +48,5 @@ export type WeatherStation = {
 };
 =======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)

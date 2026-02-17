@@ -1,9 +1,13 @@
 import { writable } from 'svelte/store';
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 =======
 import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types';
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -31,6 +35,9 @@ export const materials = writable<MaterialsForm>({
 export function updateMaterials(patch: Partial<MaterialsForm>) {
   materials.update((m) => ({ ...m, ...patch }));
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 }
 
 export const slabLayout = writable<SlabLayoutForm>({
@@ -43,6 +50,7 @@ export const slabLayout = writable<SlabLayoutForm>({
 
 export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
   slabLayout.update((s) => ({ ...s, ...patch }));
+<<<<<<< HEAD
 }
 
 export const weatherStations = writable<WeatherStation[]>([]);
@@ -59,3 +67,6 @@ export const chartImages = writable<{
 =======
 }
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+}
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
