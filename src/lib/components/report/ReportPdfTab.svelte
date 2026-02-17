@@ -224,6 +224,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
 =======
 >>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
 =======
@@ -237,6 +240,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
       const date = new Date(dateStr);
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
@@ -255,6 +259,8 @@
 =======
       const date = new Date(dateStr);
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
