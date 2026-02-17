@@ -419,6 +419,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
     { id: 'analysis', title: 'Analysis', page: 9, indent: false },
@@ -563,10 +564,13 @@
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
+=======
+>>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
     { id: 'analysis', title: 'Analysis', page: 9, indent: false },
     { id: 'results', title: 'Results', page: 10, indent: false },
     { id: 'appendices', title: 'Appendices', page: 11, indent: false },
     { id: 'appendix-a', title: 'Appendix A', page: 12, indent: true }
+<<<<<<< HEAD
 >>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
   ];
 
@@ -584,9 +588,11 @@
 >>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
+=======
+>>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
   ];
 
-  const totalPages = 11;
+  const totalPages = 12;
 
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
   async function downloadPdf() {
@@ -2160,8 +2166,19 @@
         {:else}
           <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
         {/if}
+      </div>
+      <div class="page-number">
+        <p>7</p>
+      </div>
+    </div>
 
-        {#if $chartImages.temp || $chartImages.wind || $chartImages.cloud}
+    <!-- PAGE 8: Environment (continued) - Charts -->
+    {#if $chartImages.temp || $chartImages.wind || $chartImages.cloud}
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">Environment (continued)</h2>
+          <div class="title-rule"></div>
+
           <h3 class="section-subheading">72-Hour Charts (Plotly)</h3>
 
           <div class="charts-container">
@@ -2181,14 +2198,14 @@
               </div>
             {/if}
           </div>
-        {/if}
+        </div>
+        <div class="page-number">
+          <p>8</p>
+        </div>
       </div>
-      <div class="page-number">
-        <p>7</p>
-      </div>
-    </div>
+    {/if}
 
-    <!-- PAGES 8-9: Other Section Pages -->
+    <!-- PAGES 9-10: Other Section Pages -->
     {#each sections.slice(4, 6) as section}
       <div class="page">
         <div class="page-content">
@@ -2203,9 +2220,13 @@
     {/each}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
     <!-- PAGE 10: Appendices Divider -->
+=======
+    <!-- PAGE 11: Appendices Divider -->
+>>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
     <div class="page cover-page">
       <div class="cover-content">
         <div class="cover-title-block">
@@ -2214,7 +2235,7 @@
       </div>
     </div>
 
-    <!-- PAGE 11: Appendix A -->
+    <!-- PAGE 12: Appendix A -->
     <div class="page">
       <div class="page-content">
         <h2 class="page-title">Appendix A</h2>
@@ -2223,7 +2244,7 @@
         <p class="section-placeholder">Content for Weather Station Data will appear here.</p>
       </div>
       <div class="page-number">
-        <p>11</p>
+        <p>12</p>
       </div>
     </div>
 
