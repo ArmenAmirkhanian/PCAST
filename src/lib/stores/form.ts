@@ -120,8 +120,11 @@ export const weatherStations = writable<WeatherStation[]>([]);
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 export const stationDisplays = writable<StationDisplayData[]>([]);
 
+=======
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
@@ -137,6 +140,7 @@ export const chartImages = writable<{
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 });
 =======
 }
@@ -191,3 +195,6 @@ export const weatherStations = writable<WeatherStation[]>([]);
 
 export const weatherStations = writable<WeatherStation[]>([]);
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+});
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)

@@ -26,6 +26,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   import { get } from 'svelte/store';
 <<<<<<< HEAD
@@ -69,6 +70,9 @@
 =======
   import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+  import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
   import { site, allPoints } from '$lib/stores/stations';
   import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
@@ -2729,6 +2733,28 @@
         {:else}
           <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
         {/if}
+
+        {#if $chartImages.temp || $chartImages.wind || $chartImages.cloud}
+          <h3 class="section-subheading">72-Hour Charts (Plotly)</h3>
+
+          <div class="charts-container">
+            {#if $chartImages.temp}
+              <div class="chart-wrapper">
+                <img src={$chartImages.temp} alt="Temperature Chart" class="chart-image" />
+              </div>
+            {/if}
+            {#if $chartImages.wind}
+              <div class="chart-wrapper">
+                <img src={$chartImages.wind} alt="Wind Speed Chart" class="chart-image" />
+              </div>
+            {/if}
+            {#if $chartImages.cloud}
+              <div class="chart-wrapper">
+                <img src={$chartImages.cloud} alt="Cloud Cover Chart" class="chart-image" />
+              </div>
+            {/if}
+          </div>
+        {/if}
       </div>
       <div class="page-number">
         <p>7</p>
@@ -3447,6 +3473,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
@@ -3476,6 +3505,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   }
 
 =======
@@ -3498,6 +3528,11 @@
     max-width: 7.5in;
 =======
 >>>>>>> bf7d28e (Move chart legends below and use full page width)
+  }
+
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+    max-width: 7.5in;
   }
 
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
