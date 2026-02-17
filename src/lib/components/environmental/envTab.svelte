@@ -3,7 +3,11 @@
   export let climateNormalsHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
+<<<<<<< HEAD
   import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
+=======
+  import { projectInfo, weatherStations } from '$lib/stores/form';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';

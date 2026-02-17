@@ -36,6 +36,9 @@ export type SlabLayoutForm = {
   baseType: string;
 };
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 
 export type WeatherStation = {
   stationId: number;
@@ -46,7 +49,10 @@ export type WeatherStation = {
   elevation: number | null;
   distanceKm: number;
 };
+<<<<<<< HEAD
 =======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)

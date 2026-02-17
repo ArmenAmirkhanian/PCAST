@@ -3,7 +3,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
+=======
+  import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   import { site, allPoints } from '$lib/stores/stations';
   import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
@@ -146,6 +150,9 @@
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   function formatElevation(elevation: number | null): string {
     if (elevation === null) return '—';
     return `${elevation.toFixed(1)} m`;
@@ -155,6 +162,7 @@
     return `${distance.toFixed(1)} km`;
   }
 
+<<<<<<< HEAD
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
@@ -163,6 +171,8 @@
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   // Get current date formatted
   function getFormattedDate(): string {
     return new Date().toLocaleDateString('en-US', {
@@ -854,8 +864,69 @@
       </div>
     </div>
 
-    <!-- PAGES 7-9: Other Section Pages -->
-    {#each sections.slice(3, 6) as section}
+    <!-- PAGE 7: Environment -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Environment</h2>
+        <div class="title-rule"></div>
+
+        <h3 class="section-subheading">Nearest Weather Stations</h3>
+
+        {#if selectedLocation}
+          <div class="env-info">
+            <p>
+              <span class="env-label">Selected location:</span>
+              <span class="env-value">{selectedLocation.city}, {$projectInfo.state}</span>
+              <span class="env-coords">({formatCoord(selectedLocation.latitude)}, {formatCoord(selectedLocation.longitude)})</span>
+            </p>
+            <p>
+              <span class="env-label">Start date:</span>
+              <span class="env-value">{formatDate($projectInfo.date)}</span>
+              <span class="env-label">at hour</span>
+              <span class="env-value">{formatHour($projectInfo.startHour)}</span>
+            </p>
+          </div>
+        {/if}
+
+        {#if $weatherStations.length > 0}
+          <div class="weather-table-wrapper">
+            <table class="weather-table">
+              <thead>
+                <tr>
+                  <th>Station</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Elevation</th>
+                  <th>Distance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each $weatherStations as station}
+                  <tr>
+                    <td>
+                      <div class="station-name">{station.name ?? 'Station'}</div>
+                      <div class="station-id">{station.ghcnId ?? 'N/A'}</div>
+                    </td>
+                    <td>{formatCoord(station.latitude)}</td>
+                    <td>{formatCoord(station.longitude)}</td>
+                    <td>{formatElevation(station.elevation)}</td>
+                    <td>{formatDistance(station.distanceKm)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else}
+          <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>7</p>
+      </div>
+    </div>
+
+    <!-- PAGES 8-9: Other Section Pages -->
+    {#each sections.slice(4, 6) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
@@ -1297,6 +1368,7 @@
     color: #666;
   }
 
+<<<<<<< HEAD
   .charts-container {
     display: flex;
     flex-direction: column;
@@ -1316,6 +1388,8 @@
     display: block;
   }
 
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   /* ---- Project Information section ---- */
   .info-grid {
     display: flex;

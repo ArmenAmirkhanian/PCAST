@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 =======
 import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
@@ -8,6 +9,9 @@ import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
 =======
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types';
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -51,6 +55,7 @@ export const slabLayout = writable<SlabLayoutForm>({
 export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
   slabLayout.update((s) => ({ ...s, ...patch }));
 <<<<<<< HEAD
+<<<<<<< HEAD
 }
 
 export const weatherStations = writable<WeatherStation[]>([]);
@@ -70,3 +75,8 @@ export const chartImages = writable<{
 =======
 }
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+}
+
+export const weatherStations = writable<WeatherStation[]>([]);
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
