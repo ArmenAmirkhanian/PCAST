@@ -298,12 +298,11 @@
             <span class="info-value">{formatValue($materials.scm)}</span>
           </div>
           <div class="info-row">
-            <span class="info-label">w/c (m):</span>
+            <span class="info-label">
+              w/c (m):
+              <div style="font-size: 10pt; color: #666; font-weight: normal; margin-top: 2pt;">Allowed range: 0.37 - 0.45</div>
+            </span>
             <span class="info-value">{formatWaterCementRatio($materials.waterCementRatio)}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label"></span>
-            <span class="info-value" style="font-size: 10pt; color: #666;">Allowed range: 0.37 - 0.45</span>
           </div>
           <div class="info-row">
             <span class="info-label">Curing:</span>
