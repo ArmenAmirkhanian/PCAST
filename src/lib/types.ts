@@ -23,6 +23,7 @@ export type MaterialsForm = {
   waterCementRatio: number | '';
   curing: 'Curing Compound' | 'No Curing Compound';
 };
+<<<<<<< HEAD
 
 export type SlabLayoutForm = {
   thickness: number | '';
@@ -41,3 +42,5 @@ export type WeatherStation = {
   elevation: number | null;
   distanceKm: number;
 };
+=======
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
