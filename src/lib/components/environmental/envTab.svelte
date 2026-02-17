@@ -2,7 +2,7 @@
   export let explanationHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo, weatherStations } from '$lib/stores/form';
+  import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -317,6 +317,12 @@
       xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 }
     };
 
+    const capturedImages: { temp: string; wind: string; cloud: string } = {
+      temp: '',
+      wind: '',
+      cloud: ''
+    };
+
     for (const metric of metrics) {
       const target = chartRefs[metric];
       if (!target) continue;
@@ -337,7 +343,22 @@
         },
         config
       );
+
+      // Capture chart as static image for PDF
+      try {
+        const imgData = await Plotly.toImage(target, {
+          format: 'png',
+          width: 800,
+          height: 400
+        });
+        capturedImages[metric] = imgData;
+      } catch (err) {
+        console.error(`Failed to capture ${metric} chart:`, err);
+      }
     }
+
+    // Update the chartImages store with captured images
+    chartImages.set(capturedImages);
   };
 
   $: if (plotlyReady && stationDisplays.length) {

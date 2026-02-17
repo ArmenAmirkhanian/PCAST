@@ -41,3 +41,13 @@ export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
 }
 
 export const weatherStations = writable<WeatherStation[]>([]);
+
+export const chartImages = writable<{
+  temp: string;
+  wind: string;
+  cloud: string;
+}>({
+  temp: '',
+  wind: '',
+  cloud: ''
+});
