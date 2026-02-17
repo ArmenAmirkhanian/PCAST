@@ -47,7 +47,11 @@
 
   function formatHour(hourStr: string): string {
     if (!hourStr) return 'Not specified';
-    return hourStr;
+    // Convert from 24-hour format (e.g., "14:00") to 12-hour format with AM/PM
+    const [hours, minutes] = hourStr.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12; // Convert 0 to 12 for midnight
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
   }
 
   function formatTemp(temp: number | ''): string {
