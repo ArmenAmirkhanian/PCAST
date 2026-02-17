@@ -4,10 +4,14 @@
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
 <<<<<<< HEAD
+<<<<<<< HEAD
   import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
 =======
   import { projectInfo, weatherStations } from '$lib/stores/form';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+  import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -323,6 +327,7 @@
       xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 }
     };
 
+<<<<<<< HEAD
     // Layout overrides for PDF capture: legend below chart, larger fonts
     const pdfLayout: Partial<Layout> = {
       margin: { t: 50, r: 20, b: 100, l: 70 },
@@ -349,6 +354,8 @@
       showlegend: true
     };
 
+=======
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
     const capturedImages: { temp: string; wind: string; cloud: string } = {
       temp: '',
       wind: '',
@@ -376,6 +383,7 @@
         config
       );
 
+<<<<<<< HEAD
       // Capture chart as static image for PDF with legend below
       try {
         // Temporarily re-render with PDF layout for capture
@@ -406,6 +414,16 @@
           },
           config
         );
+=======
+      // Capture chart as static image for PDF
+      try {
+        const imgData = await Plotly.toImage(target, {
+          format: 'png',
+          width: 800,
+          height: 400
+        });
+        capturedImages[metric] = imgData;
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
       } catch (err) {
         console.error(`Failed to capture ${metric} chart:`, err);
       }
