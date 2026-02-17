@@ -64,13 +64,19 @@
     if (!dateStr) return 'Not specified';
     try {
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
       // Parse date components to avoid timezone issues
       const [year, month, day] = dateStr.split('-').map(Number);
       // Create date in local timezone (month is 0-indexed)
       const date = new Date(year, month - 1, day);
+<<<<<<< HEAD
 =======
       const date = new Date(dateStr);
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
