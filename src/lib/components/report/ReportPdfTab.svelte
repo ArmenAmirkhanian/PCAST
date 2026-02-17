@@ -17,6 +17,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   import { get } from 'svelte/store';
 <<<<<<< HEAD
@@ -100,7 +101,11 @@
 =======
   import { projectInfo, materials } from '$lib/stores/form';
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+  import { projectInfo, materials, slabLayout } from '$lib/stores/form';
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
   import { site, allPoints } from '$lib/stores/stations';
+  import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
   import placesIndex from '$lib/data/places-index.json';
   import type { PlacesIndex } from '$lib/types';
@@ -271,6 +276,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
@@ -287,6 +295,7 @@
     return `${spacing} ${unit}`;
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -345,6 +354,8 @@
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
   // Get current date formatted
   function getFormattedDate(): string {
     return new Date().toLocaleDateString('en-US', {
@@ -2016,8 +2027,42 @@
       </div>
     </div>
 
-    <!-- PAGES 6-10: Other Section Pages -->
-    {#each sections.slice(2) as section}
+    <!-- PAGE 6: Slab Layout -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Slab Layout</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Slab Thickness:</span>
+            <span class="info-value">{formatThickness($slabLayout.thickness)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Joint Spacing:</span>
+            <span class="info-value">{formatJointSpacing($slabLayout.jointSpacing)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Expected Saw Cutting Time:</span>
+            <span class="info-value">{formatHour($slabLayout.sawCutHour)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Joint Type:</span>
+            <span class="info-value">{formatValue($slabLayout.jointType)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Base Type:</span>
+            <span class="info-value">{formatValue($slabLayout.baseType)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">
+        <p>6</p>
+      </div>
+    </div>
+
+    <!-- PAGES 7-10: Other Section Pages -->
+    {#each sections.slice(3) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
