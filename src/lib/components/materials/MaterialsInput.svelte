@@ -41,6 +41,9 @@
       placeholder="e.g., 0.40"
 =======
       placeholder="0.40"
+<<<<<<< HEAD
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
       bind:value={$materials.waterCementRatio}
       inputmode="decimal" />

@@ -6,6 +6,7 @@ import { writable } from 'svelte/store';
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 =======
 import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
@@ -28,6 +29,9 @@ import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types'
 =======
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -54,6 +58,7 @@ export const materials = writable<MaterialsForm>({
 
 export function updateMaterials(patch: Partial<MaterialsForm>) {
   materials.update((m) => ({ ...m, ...patch }));
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -126,3 +131,6 @@ export const weatherStations = writable<WeatherStation[]>([]);
 =======
 });
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+}
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)

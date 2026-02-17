@@ -27,6 +27,7 @@ export type MaterialsForm = {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
@@ -88,3 +89,5 @@ export type StationDisplayData = WeatherStation & {
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
