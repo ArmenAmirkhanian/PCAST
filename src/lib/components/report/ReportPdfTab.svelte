@@ -34,7 +34,10 @@
   function formatDate(dateStr: string): string {
     if (!dateStr) return 'Not specified';
     try {
-      const date = new Date(dateStr);
+      // Parse date components to avoid timezone issues
+      const [year, month, day] = dateStr.split('-').map(Number);
+      // Create date in local timezone (month is 0-indexed)
+      const date = new Date(year, month - 1, day);
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
