@@ -502,6 +502,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
@@ -512,6 +515,7 @@
     { id: 'materials', title: 'Materials', page: 5, indent: false },
     { id: 'slab-layout', title: 'Slab Layout', page: 6, indent: false },
     { id: 'environment', title: 'Environment', page: 7, indent: false },
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -570,10 +574,13 @@
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
     { id: 'analysis', title: 'Analysis', page: 8, indent: false },
     { id: 'results', title: 'Results', page: 9, indent: false },
     { id: 'appendices', title: 'Appendices', page: 10, indent: false },
     { id: 'appendix-a', title: 'Appendix A', page: 11, indent: true }
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
@@ -731,6 +738,8 @@
 =======
     { id: 'appendices', title: 'Appendices', page: 11 }
 >>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
   ];
 
   const totalPages = 11;
@@ -2515,7 +2524,7 @@
         <div class="title-rule"></div>
         <div class="toc-list">
           {#each sections as section}
-            <div class="toc-entry">
+            <div class="toc-entry" class:toc-entry-indent={section.indent}>
               <span class="toc-label">{section.title}</span>
               <span class="toc-dots"> .................................................................................................................................................... </span>
               <span class="toc-page">{section.page}</span>
@@ -2676,12 +2685,13 @@
       </div>
     </div>
 
-    <!-- PAGE 11: Appendices Content -->
+    <!-- PAGE 11: Appendix A -->
     <div class="page">
       <div class="page-content">
-        <h2 class="page-title">Appendices</h2>
+        <h2 class="page-title">Appendix A</h2>
         <div class="title-rule"></div>
-        <p class="section-placeholder">Content for Appendices will appear here.</p>
+        <h3 class="section-subheading">Weather Station Data</h3>
+        <p class="section-placeholder">Content for Weather Station Data will appear here.</p>
       </div>
       <div class="page-number">
         <p>11</p>
@@ -3251,6 +3261,7 @@
     padding-left: 0.25in;
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -4157,6 +4168,8 @@
     color: #000000;
   }
 
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
   .toc-label {
     white-space: nowrap;
   }
@@ -4176,6 +4189,15 @@
   }
 
   /* ---- Section pages ---- */
+  .section-subheading {
+    font-family: Calibri, sans-serif;
+    font-size: 14pt;
+    font-weight: bold;
+    color: #000000;
+    margin-top: 18pt;
+    margin-bottom: 6pt;
+  }
+
   .section-placeholder {
     color: #000000;
     margin-top: 1rem;
