@@ -42,6 +42,9 @@
 =======
       placeholder="0.40"
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
 =======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
