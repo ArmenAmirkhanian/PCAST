@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { projectInfo, materials, slabLayout } from '$lib/stores/form';
+  import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
   import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
@@ -86,6 +86,15 @@
     if (spacing === '') return 'Not specified';
     const unit = $unitSystem === 'us' ? 'ft' : 'm';
     return `${spacing} ${unit}`;
+  }
+
+  function formatElevation(elevation: number | null): string {
+    if (elevation === null) return '—';
+    return `${elevation.toFixed(1)} m`;
+  }
+
+  function formatDistance(distance: number): string {
+    return `${distance.toFixed(1)} km`;
   }
 
   // Get current date formatted
@@ -370,8 +379,69 @@
       </div>
     </div>
 
-    <!-- PAGES 7-9: Other Section Pages -->
-    {#each sections.slice(3, 6) as section}
+    <!-- PAGE 7: Environment -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Environment</h2>
+        <div class="title-rule"></div>
+
+        <h3 class="section-subheading">Nearest Weather Stations</h3>
+
+        {#if selectedLocation}
+          <div class="env-info">
+            <p>
+              <span class="env-label">Selected location:</span>
+              <span class="env-value">{selectedLocation.city}, {$projectInfo.state}</span>
+              <span class="env-coords">({formatCoord(selectedLocation.latitude)}, {formatCoord(selectedLocation.longitude)})</span>
+            </p>
+            <p>
+              <span class="env-label">Start date:</span>
+              <span class="env-value">{formatDate($projectInfo.date)}</span>
+              <span class="env-label">at hour</span>
+              <span class="env-value">{formatHour($projectInfo.startHour)}</span>
+            </p>
+          </div>
+        {/if}
+
+        {#if $weatherStations.length > 0}
+          <div class="weather-table-wrapper">
+            <table class="weather-table">
+              <thead>
+                <tr>
+                  <th>Station</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Elevation</th>
+                  <th>Distance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each $weatherStations as station}
+                  <tr>
+                    <td>
+                      <div class="station-name">{station.name ?? 'Station'}</div>
+                      <div class="station-id">{station.ghcnId ?? 'N/A'}</div>
+                    </td>
+                    <td>{formatCoord(station.latitude)}</td>
+                    <td>{formatCoord(station.longitude)}</td>
+                    <td>{formatElevation(station.elevation)}</td>
+                    <td>{formatDistance(station.distanceKm)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else}
+          <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>7</p>
+      </div>
+    </div>
+
+    <!-- PAGES 8-9: Other Section Pages -->
+    {#each sections.slice(4, 6) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
@@ -638,6 +708,72 @@
   .section-placeholder {
     color: #000000;
     margin-top: 1rem;
+  }
+
+  .no-data-message {
+    font-family: Calibri, sans-serif;
+    font-size: 12pt;
+    color: #666;
+    margin-top: 12pt;
+    font-style: italic;
+  }
+
+  /* ---- Environment section ---- */
+  .env-info {
+    font-family: Calibri, sans-serif;
+    font-size: 12pt;
+    color: #000000;
+    margin-top: 12pt;
+    margin-bottom: 12pt;
+    line-height: 1.5;
+  }
+
+  .env-label {
+    font-weight: normal;
+  }
+
+  .env-value {
+    font-weight: bold;
+  }
+
+  .env-coords {
+    font-weight: normal;
+    color: #666;
+  }
+
+  .weather-table-wrapper {
+    margin-top: 12pt;
+    overflow-x: auto;
+  }
+
+  .weather-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Calibri, sans-serif;
+    font-size: 10pt;
+    color: #000000;
+  }
+
+  .weather-table th {
+    background-color: #f3f4f6;
+    padding: 6pt 8pt;
+    text-align: left;
+    font-weight: bold;
+    border: 1px solid #d1d5db;
+  }
+
+  .weather-table td {
+    padding: 6pt 8pt;
+    border: 1px solid #d1d5db;
+  }
+
+  .station-name {
+    font-weight: bold;
+  }
+
+  .station-id {
+    font-size: 8pt;
+    color: #666;
   }
 
   /* ---- Project Information section ---- */

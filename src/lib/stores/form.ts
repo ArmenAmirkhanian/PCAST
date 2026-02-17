@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types';
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -39,3 +39,5 @@ export const slabLayout = writable<SlabLayoutForm>({
 export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
   slabLayout.update((s) => ({ ...s, ...patch }));
 }
+
+export const weatherStations = writable<WeatherStation[]>([]);

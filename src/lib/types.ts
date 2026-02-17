@@ -31,3 +31,13 @@ export type SlabLayoutForm = {
   jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
   baseType: string;
 };
+
+export type WeatherStation = {
+  stationId: number;
+  ghcnId: string | null;
+  name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  elevation: number | null;
+  distanceKm: number;
+};

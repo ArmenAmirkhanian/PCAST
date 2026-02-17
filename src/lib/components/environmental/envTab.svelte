@@ -2,7 +2,7 @@
   export let explanationHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo } from '$lib/stores/form';
+  import { projectInfo, weatherStations } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -213,6 +213,17 @@
     ...station,
     hourly: toHourlyRows(station.readings)
   }));
+
+  // Update weatherStations store when station data changes
+  $: weatherStations.set(groupedStations.map((station) => ({
+    stationId: station.stationId,
+    ghcnId: station.ghcnId,
+    name: station.name,
+    latitude: station.latitude,
+    longitude: station.longitude,
+    elevation: station.elevation,
+    distanceKm: station.distanceKm
+  })));
 
   $: selectedDate = $projectInfo.date
     ? new Date(`${$projectInfo.date}T00:00:00Z`)
