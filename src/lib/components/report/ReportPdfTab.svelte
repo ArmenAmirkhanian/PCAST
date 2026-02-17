@@ -144,6 +144,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
 =======
 >>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
     // Convert from 24-hour format (e.g., "14:00") to 12-hour format with AM/PM
@@ -151,6 +154,7 @@
     const period = hours >= 12 ? 'PM' : 'AM';
     const hour12 = hours % 12 || 12; // Convert 0 to 12 for midnight
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
     return hourStr;
@@ -160,6 +164,8 @@
 =======
     return hourStr;
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
   }
 
   function formatTemp(temp: number | ''): string {
