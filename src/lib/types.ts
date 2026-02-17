@@ -26,6 +26,9 @@ export type MaterialsForm = {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 
@@ -36,6 +39,7 @@ export type SlabLayoutForm = {
   jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
   baseType: string;
 };
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 =======
@@ -76,3 +80,5 @@ export type StationDisplayData = WeatherStation & {
 >>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
 =======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
