@@ -16,3 +16,10 @@ export type CityLocation = {
 };
 
 export type PlacesIndex = Record<string, CityLocation[]>;
+
+export type MaterialsForm = {
+  cementType: 'Type I/II' | 'Type I/II with 5% limestone';
+  scm: 'None' | '25% C Ash' | '25% F ash' | '25% slag';
+  waterCementRatio: number | '';
+  curing: 'Curing Compound' | 'No Curing Compound';
+};

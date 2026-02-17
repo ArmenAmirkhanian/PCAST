@@ -1,45 +1,9 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
+  import { materials } from '$lib/stores/form';
 
   const CEMENT_TYPES = ['Type I/II', 'Type I/II with 5% limestone'] as const;
   const SCM_OPTIONS = ['None', '25% C Ash', '25% F ash', '25% slag'] as const;
   const CURING_OPTIONS = ['Curing Compound', 'No Curing Compound'] as const;
-
-  export let cementType: (typeof CEMENT_TYPES)[number] = CEMENT_TYPES[0];
-  export let scm: (typeof SCM_OPTIONS)[number] = SCM_OPTIONS[0];
-  export let waterCementRatio: number | '' = '';
-  export let curing: (typeof CURING_OPTIONS)[number] = CURING_OPTIONS[0];
-
-  const dispatch = createEventDispatcher<{
-    change: {
-      cementType: (typeof CEMENT_TYPES)[number];
-      scm: (typeof SCM_OPTIONS)[number];
-      waterCementRatio: number | '';
-      curing: (typeof CURING_OPTIONS)[number];
-    }
-  }>();
-
-  function emit() {
-    dispatch('change', { cementType, scm, waterCementRatio, curing });
-  }
-
-  function handleWaterChange(event: Event) {
-    const raw = (event.target as HTMLInputElement).value;
-    waterCementRatio = raw === '' ? '' : Number(raw);
-    emit();
-  }
-
-  function handleSelectChange(event: Event, field: 'cement' | 'scm') {
-    const value = (event.target as HTMLSelectElement).value;
-    if (field === 'cement') cementType = value as (typeof CEMENT_TYPES)[number];
-    if (field === 'scm') scm = value as (typeof SCM_OPTIONS)[number];
-    emit();
-  }
-
-  function handleCuringChange(event: Event) {
-    curing = (event.target as HTMLInputElement).value as (typeof CURING_OPTIONS)[number];
-    emit();
-  }
 </script>
 
 <div class="space-y-4">
@@ -47,8 +11,7 @@
     <label class="font-medium">Cement Type</label>
     <select
       class="border rounded-lg p-2"
-      bind:value={cementType}
-      on:change={(e) => handleSelectChange(e, 'cement')}>
+      bind:value={$materials.cementType}>
       {#each CEMENT_TYPES as option}
         <option value={option}>{option}</option>
       {/each}
@@ -59,8 +22,7 @@
     <label class="font-medium">SCM</label>
     <select
       class="border rounded-lg p-2"
-      bind:value={scm}
-      on:change={(e) => handleSelectChange(e, 'scm')}>
+      bind:value={$materials.scm}>
       {#each SCM_OPTIONS as option}
         <option value={option}>{option}</option>
       {/each}
@@ -76,8 +38,7 @@
       max="0.45"
       step="0.01"
       placeholder="0.40"
-      bind:value={waterCementRatio}
-      on:input={handleWaterChange}
+      bind:value={$materials.waterCementRatio}
       inputmode="decimal" />
     <p class="text-xs text-gray-600">Allowed range: 0.37 - 0.45</p>
   </div>
@@ -91,8 +52,7 @@
             type="radio"
             name="curing"
             value={option}
-            checked={curing === option}
-            on:change={handleCuringChange} />
+            bind:group={$materials.curing} />
           <span>{option}</span>
         </label>
       {/each}

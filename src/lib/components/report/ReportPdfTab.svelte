@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { projectInfo } from '$lib/stores/form';
+  import { projectInfo, materials } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
   import placesIndex from '$lib/data/places-index.json';
@@ -52,6 +52,20 @@
   function formatTemp(temp: number | ''): string {
     if (temp === '') return 'Not specified';
     return `${temp}°F`;
+  }
+
+  function formatWaterCementRatio(ratio: number | ''): string {
+    if (ratio === '') return 'Not specified';
+    return String(ratio);
+  }
+
+  function formatCuring(curing: string): string {
+    if (curing === 'Curing Compound') {
+      return 'Curing compound in use.';
+    } else if (curing === 'No Curing Compound') {
+      return 'Curing compound not in use.';
+    }
+    return curing;
   }
 
   // Get current date formatted
@@ -268,8 +282,42 @@
       </div>
     </div>
 
-    <!-- PAGES 5-10: Other Section Pages -->
-    {#each sections.slice(1) as section}
+    <!-- PAGE 5: Materials -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Materials</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Cement Type:</span>
+            <span class="info-value">{formatValue($materials.cementType)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">SCM:</span>
+            <span class="info-value">{formatValue($materials.scm)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">w/c (m):</span>
+            <span class="info-value">{formatWaterCementRatio($materials.waterCementRatio)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label"></span>
+            <span class="info-value" style="font-size: 10pt; color: #666;">Allowed range: 0.37 - 0.45</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Curing:</span>
+            <span class="info-value">{formatCuring($materials.curing)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">
+        <p>5</p>
+      </div>
+    </div>
+
+    <!-- PAGES 6-10: Other Section Pages -->
+    {#each sections.slice(2) as section}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">{section.title}</h2>
