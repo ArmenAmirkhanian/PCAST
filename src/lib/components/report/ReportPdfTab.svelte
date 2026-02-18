@@ -828,7 +828,6 @@
     width: 100%;
     height: auto;
     display: block;
-    max-width: 7.5in;
   }
 
   /* ---- Project Information section ---- */
