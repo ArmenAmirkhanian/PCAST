@@ -434,27 +434,29 @@
         {:else}
           <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
         {/if}
+
+        {#if $chartImages.temp}
+          <h3 class="section-subheading">72-Hour Charts (Plotly)</h3>
+          <div class="charts-container">
+            <div class="chart-wrapper">
+              <img src={$chartImages.temp} alt="Temperature Chart" class="chart-image" />
+            </div>
+          </div>
+        {/if}
       </div>
       <div class="page-number">
         <p>7</p>
       </div>
     </div>
 
-    <!-- PAGE 8: Environment (continued) - Charts -->
-    {#if $chartImages.temp || $chartImages.wind || $chartImages.cloud}
+    <!-- PAGE 8: Environment - Remaining Charts -->
+    {#if $chartImages.wind || $chartImages.cloud}
       <div class="page">
         <div class="page-content">
-          <h2 class="page-title">Environment (continued)</h2>
+          <h2 class="page-title">Environment</h2>
           <div class="title-rule"></div>
 
-          <h3 class="section-subheading">72-Hour Charts (Plotly)</h3>
-
           <div class="charts-container">
-            {#if $chartImages.temp}
-              <div class="chart-wrapper">
-                <img src={$chartImages.temp} alt="Temperature Chart" class="chart-image" />
-              </div>
-            {/if}
             {#if $chartImages.wind}
               <div class="chart-wrapper">
                 <img src={$chartImages.wind} alt="Wind Speed Chart" class="chart-image" />
