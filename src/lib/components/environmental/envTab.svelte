@@ -373,6 +373,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     // Layout overrides for PDF capture: legend below chart, larger fonts
     const pdfLayout: Partial<Layout> = {
       margin: { t: 50, r: 20, b: 100, l: 70 },
@@ -469,12 +470,31 @@
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
     // Layout overrides for PDF capture: legend below chart, more bottom margin
+=======
+    // Layout overrides for PDF capture: legend below chart, larger fonts
+>>>>>>> f9aa5e4 (Increase font sizes on PDF chart axes and legends)
     const pdfLayout: Partial<Layout> = {
-      margin: { t: 40, r: 20, b: 90, l: 55 },
+      margin: { t: 50, r: 20, b: 100, l: 70 },
       height: 540,
       hovermode: 'x unified',
-      xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 },
-      legend: { orientation: 'h', y: -0.3, x: 0.5, xanchor: 'center' },
+      xaxis: {
+        title: { text: 'Offset hour (0–71)', font: { size: 16 } },
+        tickfont: { size: 14 },
+        dtick: 6,
+        tick0: 0
+      },
+      yaxis: {
+        titlefont: { size: 16 },
+        tickfont: { size: 14 }
+      },
+      legend: {
+        orientation: 'h',
+        y: -0.25,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 14 }
+      },
+      title: { font: { size: 18 } },
       showlegend: true
     };
 
