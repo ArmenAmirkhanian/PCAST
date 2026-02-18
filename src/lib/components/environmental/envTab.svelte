@@ -386,6 +386,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     // Layout overrides for PDF capture: legend below chart, larger fonts
     const pdfLayout: Partial<Layout> = {
       margin: { t: 50, r: 20, b: 100, l: 70 },
@@ -513,6 +514,18 @@
 >>>>>>> bf7d28e (Move chart legends below and use full page width)
 =======
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+    // Layout overrides for PDF capture: legend below chart, more bottom margin
+    const pdfLayout: Partial<Layout> = {
+      margin: { t: 40, r: 20, b: 90, l: 55 },
+      height: 400,
+      hovermode: 'x unified',
+      xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 },
+      legend: { orientation: 'h', y: -0.3, x: 0.5, xanchor: 'center' },
+      showlegend: true
+    };
+
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
     const capturedImages: { temp: string; wind: string; cloud: string } = {
       temp: '',
       wind: '',
@@ -540,6 +553,7 @@
         config
       );
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -693,14 +707,42 @@
 >>>>>>> bf7d28e (Move chart legends below and use full page width)
 =======
       // Capture chart as static image for PDF
+=======
+      // Capture chart as static image for PDF with legend below
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
       try {
+        // Temporarily re-render with PDF layout for capture
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...pdfLayout,
+            title: METRIC_DETAILS[metric].title,
+            yaxis: { title: METRIC_DETAILS[metric].unit }
+          },
+          { ...config, staticPlot: true }
+        );
         const imgData = await Plotly.toImage(target, {
           format: 'png',
-          width: 800,
-          height: 400
+          width: 1200,
+          height: 480
         });
         capturedImages[metric] = imgData;
+<<<<<<< HEAD
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+        // Restore the interactive layout for the webpage
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...baseLayout,
+            title: METRIC_DETAILS[metric].title,
+            yaxis: { title: METRIC_DETAILS[metric].unit }
+          },
+          config
+        );
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
       } catch (err) {
         console.error(`Failed to capture ${metric} chart:`, err);
       }
