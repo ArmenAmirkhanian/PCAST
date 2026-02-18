@@ -320,7 +320,7 @@
     // Layout overrides for PDF capture: legend below chart, more bottom margin
     const pdfLayout: Partial<Layout> = {
       margin: { t: 40, r: 20, b: 90, l: 55 },
-      height: 400,
+      height: 540,
       hovermode: 'x unified',
       xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 },
       legend: { orientation: 'h', y: -0.3, x: 0.5, xanchor: 'center' },
@@ -370,7 +370,7 @@
         const imgData = await Plotly.toImage(target, {
           format: 'png',
           width: 1200,
-          height: 480
+          height: 646
         });
         capturedImages[metric] = imgData;
         // Restore the interactive layout for the webpage
