@@ -1439,12 +1439,15 @@
     height: auto;
     display: block;
 <<<<<<< HEAD
+<<<<<<< HEAD
   }
 
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 =======
     max-width: 7.5in;
+=======
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
   }
 
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
