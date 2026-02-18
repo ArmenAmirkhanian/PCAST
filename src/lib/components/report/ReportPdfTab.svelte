@@ -2873,6 +2873,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   }
 
 =======
@@ -2893,6 +2894,8 @@
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
     max-width: 7.5in;
+=======
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
   }
 
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
