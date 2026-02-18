@@ -317,13 +317,29 @@
       xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 }
     };
 
-    // Layout overrides for PDF capture: legend below chart, more bottom margin
+    // Layout overrides for PDF capture: legend below chart, larger fonts
     const pdfLayout: Partial<Layout> = {
-      margin: { t: 40, r: 20, b: 90, l: 55 },
+      margin: { t: 50, r: 20, b: 100, l: 70 },
       height: 540,
       hovermode: 'x unified',
-      xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 },
-      legend: { orientation: 'h', y: -0.3, x: 0.5, xanchor: 'center' },
+      xaxis: {
+        title: { text: 'Offset hour (0–71)', font: { size: 16 } },
+        tickfont: { size: 14 },
+        dtick: 6,
+        tick0: 0
+      },
+      yaxis: {
+        titlefont: { size: 16 },
+        tickfont: { size: 14 }
+      },
+      legend: {
+        orientation: 'h',
+        y: -0.25,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 14 }
+      },
+      title: { font: { size: 18 } },
       showlegend: true
     };
 
@@ -362,8 +378,8 @@
           traces,
           {
             ...pdfLayout,
-            title: METRIC_DETAILS[metric].title,
-            yaxis: { title: METRIC_DETAILS[metric].unit }
+            title: { text: METRIC_DETAILS[metric].title, font: { size: 18 } },
+            yaxis: { title: { text: METRIC_DETAILS[metric].unit, font: { size: 16 } }, tickfont: { size: 14 } }
           },
           { ...config, staticPlot: true }
         );
