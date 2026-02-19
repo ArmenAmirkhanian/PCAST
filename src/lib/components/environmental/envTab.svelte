@@ -1,5 +1,6 @@
 <script lang="ts">
-  export let explanationHtml: string;
+  export let stationExplanationHtml: string;
+  export let climateNormalsHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
   import { projectInfo } from '$lib/stores/form';
@@ -74,9 +75,33 @@
   let sqlProgress: string[] = [];
   let sqlPreviewOpen = false;
   let haverExplaOpen = false;
+  let normalExplaOpen = false;
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
+
+  // Track previous projectInfo to detect changes and reset state
+  let prevProjectInfoJson = '';
+
+  function resetEnvState() {
+    lastLookupMessage = '';
+    lastLookupTime = '';
+    sqlProgress = [];
+    sqlPreviewOpen = false;
+    haverExplaOpen = false;
+    errorMessage = '';
+    rows = [];
+    clearCharts();
+  }
+
+  // Reset environment data when projectInfo changes
+  $: {
+    const currentJson = JSON.stringify($projectInfo);
+    if (prevProjectInfoJson && prevProjectInfoJson !== currentJson) {
+      resetEnvState();
+    }
+    prevProjectInfoJson = currentJson;
+  }
   let groupedStations: StationGroup[] = [];
   let stationDisplays: StationDisplay[] = [];
   let Plotly: typeof import('plotly.js-dist-min') | null = null;
@@ -487,6 +512,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
     lastLookupTime = new Date().toLocaleString();
     sqlPreviewOpen = false;
     haverExplaOpen = false;
+    normalExplaOpen = false;
 
     isLoading = true;
     try {
@@ -615,7 +641,25 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
 
           {#if haverExplaOpen}
             <div class="prose prose-sm max-w-none">
-              {@html explanationHtml}
+              {@html stationExplanationHtml}
+            </div>
+          {/if}
+        </div>
+
+        <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
+          <div class="flex items-center justify-between">
+            <p class="font-medium">Explanation of Climate Normals</p>
+            <button
+              class="text-xs text-blue-600 hover:underline"
+              type="button"
+              on:click={() => (normalExplaOpen = !normalExplaOpen)}>
+              {normalExplaOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          {#if normalExplaOpen}
+            <div class="prose prose-sm max-w-none">
+              {@html climateNormalsHtml}
             </div>
           {/if}
         </div>

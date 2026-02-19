@@ -1,7 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
 
-  const CEMENT_TYPES = ['Type I/II', 'Type I/II with 5% limestone'] as const;
+  const CEMENT_TYPES = ['PLC','Type I/II', 'Type I/II with 5% limestone'] as const;
   const SCM_OPTIONS = ['None', '25% C Ash', '25% F ash', '25% slag'] as const;
   const CURING_OPTIONS = ['Curing Compound', 'No Curing Compound'] as const;
 
