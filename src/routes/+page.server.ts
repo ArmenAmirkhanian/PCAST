@@ -4,7 +4,8 @@ import { renderMath } from '$lib/server/renderMath';
 export function load() {
   return {
     explanations: {
-      haversineApprox: renderMath(EXPLANATIONS.haversineApprox)
+      haversineApprox: renderMath(EXPLANATIONS.haversineApprox),
+      climateNormals: renderMath(EXPLANATIONS.climateNormalsExplanation)
     }
   };
 }

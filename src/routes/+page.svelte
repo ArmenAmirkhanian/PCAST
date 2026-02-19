@@ -8,9 +8,10 @@
 	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 
-   export let data: {
+  export let data: {
     explanations: {
       haversineApprox: string;
+      climateNormals: string;
     };
   };
 
