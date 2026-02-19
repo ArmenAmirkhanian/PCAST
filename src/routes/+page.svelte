@@ -9,9 +9,10 @@
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 
-   export let data: {
+  export let data: {
     explanations: {
       haversineApprox: string;
+      climateNormals: string;
     };
   };
 

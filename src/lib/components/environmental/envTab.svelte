@@ -1,5 +1,6 @@
 <script lang="ts">
-  export let explanationHtml: string;
+  export let stationExplanationHtml: string;
+  export let climateNormalsHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
   import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
@@ -74,6 +75,7 @@
   let sqlProgress: string[] = [];
   let sqlPreviewOpen = false;
   let haverExplaOpen = false;
+  let normalExplaOpen = false;
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
@@ -590,6 +592,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
     lastLookupTime = new Date().toLocaleString();
     sqlPreviewOpen = false;
     haverExplaOpen = false;
+    normalExplaOpen = false;
 
     isLoading = true;
     try {
@@ -718,7 +721,25 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
 
           {#if haverExplaOpen}
             <div class="prose prose-sm max-w-none">
-              {@html explanationHtml}
+              {@html stationExplanationHtml}
+            </div>
+          {/if}
+        </div>
+
+        <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
+          <div class="flex items-center justify-between">
+            <p class="font-medium">Explanation of Climate Normals</p>
+            <button
+              class="text-xs text-blue-600 hover:underline"
+              type="button"
+              on:click={() => (normalExplaOpen = !normalExplaOpen)}>
+              {normalExplaOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
+
+          {#if normalExplaOpen}
+            <div class="prose prose-sm max-w-none">
+              {@html climateNormalsHtml}
             </div>
           {/if}
         </div>
