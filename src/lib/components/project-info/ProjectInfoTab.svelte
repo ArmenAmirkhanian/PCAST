@@ -19,10 +19,22 @@
     ) || null;
   })();
 
-  // Update map center when user selects a city and clear old stations
+  // Update map center when user selects a city and fetch nearest weather stations
   $: if (selected?.longitude != null && selected?.latitude != null) {
     site.set([selected.longitude, selected.latitude]);
-    stations.set([]);
+
+    // Fetch the 3 nearest weather stations from the database
+    fetch(`/api/nearest?lat=${selected.latitude}&lon=${selected.longitude}&k=3`)
+      .then(res => res.json())
+      .then(data => {
+        // Convert station data to [longitude, latitude] format for the map
+        const stationCoords = data.map((s: { longitude: number; latitude: number }) => [s.longitude, s.latitude]);
+        stations.set(stationCoords);
+      })
+      .catch(err => {
+        console.error('Failed to fetch nearest stations:', err);
+        stations.set([]);
+      });
   }
 
   const formatCoord = (value: number | null) => value === null ? '' : value.toFixed(4);

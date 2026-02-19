@@ -42,22 +42,24 @@
 
   <Tabs tabs={sections} useHash={true}>
   <div slot="panels" class="mt-4" let:active>
-    {#if active === 'project'}
+    <div class:hidden={active !== 'project'}>
       <ProjectInfoTab {placesIndex} />
-    {:else if active === 'materials'}
+    </div>
+    <div class:hidden={active !== 'materials'}>
       <MaterialsInput />
-    {:else if active === 'slabs'} 
+    </div>
+    <div class:hidden={active !== 'slabs'}>
       <SlabInputs />
-    {:else if active === 'environment'}
-      <EnvTab
-        stationExplanationHtml={data.explanations.haversineApprox}
-        climateNormalsHtml={data.explanations.climateNormals}
-      />
-    {:else if active === 'analysis'}
+    </div>
+    <div class:hidden={active !== 'environment'}>
+      <EnvTab explanationHtml={data.explanations.haversineApprox} />
+    </div>
+    <div class:hidden={active !== 'analysis'}>
       <p class="text-gray-600">Analysis tab coming soon…</p>
-    {:else if active === 'results'}
+    </div>
+    <div class:hidden={active !== 'results'}>
       <p class="text-gray-600">Results tab coming soon…</p>
-    {/if}
+    </div>
   </div>
 </Tabs>
 
