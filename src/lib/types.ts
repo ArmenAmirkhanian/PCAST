@@ -16,3 +16,28 @@ export type CityLocation = {
 };
 
 export type PlacesIndex = Record<string, CityLocation[]>;
+
+export type MaterialsForm = {
+  cementType: 'Type I/II' | 'Type I/II with 5% limestone';
+  scm: 'None' | '25% C Ash' | '25% F ash' | '25% slag';
+  waterCementRatio: number | '';
+  curing: 'Curing Compound' | 'No Curing Compound';
+};
+
+export type SlabLayoutForm = {
+  thickness: number | '';
+  jointSpacing: number | '';
+  sawCutHour: string;
+  jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
+  baseType: string;
+};
+
+export type WeatherStation = {
+  stationId: number;
+  ghcnId: string | null;
+  name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  elevation: number | null;
+  distanceKm: number;
+};

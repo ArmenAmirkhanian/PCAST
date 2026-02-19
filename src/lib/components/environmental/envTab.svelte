@@ -3,7 +3,7 @@
   export let climateNormalsHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo } from '$lib/stores/form';
+  import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -216,6 +216,17 @@
     hourly: toHourlyRows(station.readings)
   }));
 
+  // Update weatherStations store when station data changes
+  $: weatherStations.set(groupedStations.map((station) => ({
+    stationId: station.stationId,
+    ghcnId: station.ghcnId,
+    name: station.name,
+    latitude: station.latitude,
+    longitude: station.longitude,
+    elevation: station.elevation,
+    distanceKm: station.distanceKm
+  })));
+
   $: selectedDate = $projectInfo.date
     ? new Date(`${$projectInfo.date}T00:00:00Z`)
     : null;
@@ -308,6 +319,38 @@
       xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 }
     };
 
+    // Layout overrides for PDF capture: legend below chart, larger fonts
+    const pdfLayout: Partial<Layout> = {
+      margin: { t: 50, r: 20, b: 100, l: 70 },
+      height: 540,
+      hovermode: 'x unified',
+      xaxis: {
+        title: { text: 'Offset hour (0–71)', font: { size: 16 } },
+        tickfont: { size: 14 },
+        dtick: 6,
+        tick0: 0
+      },
+      yaxis: {
+        titlefont: { size: 16 },
+        tickfont: { size: 14 }
+      },
+      legend: {
+        orientation: 'h',
+        y: -0.25,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 14 }
+      },
+      title: { font: { size: 18 } },
+      showlegend: true
+    };
+
+    const capturedImages: { temp: string; wind: string; cloud: string } = {
+      temp: '',
+      wind: '',
+      cloud: ''
+    };
+
     for (const metric of metrics) {
       const target = chartRefs[metric];
       if (!target) continue;
@@ -328,7 +371,44 @@
         },
         config
       );
+
+      // Capture chart as static image for PDF with legend below
+      try {
+        // Temporarily re-render with PDF layout for capture
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...pdfLayout,
+            title: { text: METRIC_DETAILS[metric].title, font: { size: 18 } },
+            yaxis: { title: { text: METRIC_DETAILS[metric].unit, font: { size: 16 } }, tickfont: { size: 14 } }
+          },
+          { ...config, staticPlot: true }
+        );
+        const imgData = await Plotly.toImage(target, {
+          format: 'png',
+          width: 1200,
+          height: 646
+        });
+        capturedImages[metric] = imgData;
+        // Restore the interactive layout for the webpage
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...baseLayout,
+            title: METRIC_DETAILS[metric].title,
+            yaxis: { title: METRIC_DETAILS[metric].unit }
+          },
+          config
+        );
+      } catch (err) {
+        console.error(`Failed to capture ${metric} chart:`, err);
+      }
     }
+
+    // Update the chartImages store with captured images
+    chartImages.set(capturedImages);
   };
 
   $: if (plotlyReady && stationDisplays.length) {
