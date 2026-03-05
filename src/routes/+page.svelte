@@ -54,7 +54,10 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <SlabInputs />
     </div>
     <div class:hidden={active !== 'environment'}>
-      <EnvTab explanationHtml={data.explanations.haversineApprox} />
+      <EnvTab
+        stationExplanationHtml={data.explanations.haversineApprox}
+        climateNormalsHtml={data.explanations.climateNormals}
+      />
     </div>
     <div class:hidden={active !== 'analysis'}>
       <p class="text-gray-600">Analysis tab coming soon…</p>
