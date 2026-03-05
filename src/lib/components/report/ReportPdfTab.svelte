@@ -1,5 +1,6 @@
 <script lang="ts">
   import { get } from 'svelte/store';
+  import { onMount } from 'svelte';
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
   import { unitSystem } from '$lib/stores/units';
@@ -52,6 +53,9 @@
 
   function formatTemp(temp: number | ''): string {
     if (temp === '') return 'Not specified';
+    if (snap.unitSystem !== 'us') {
+      return `${Math.round((temp as number - 32) * 5 / 9)}°C`;
+    }
     return `${temp}°F`;
   }
 
@@ -71,10 +75,16 @@
 
   function formatElevation(elevation: number | null): string {
     if (elevation === null) return '—';
+    if (snap.unitSystem === 'us') {
+      return `${(elevation * 3.28084).toFixed(1)} ft`;
+    }
     return `${elevation.toFixed(1)} m`;
   }
 
   function formatDistance(distance: number): string {
+    if (snap.unitSystem === 'us') {
+      return `${(distance * 0.621371).toFixed(1)} mi`;
+    }
     return `${distance.toFixed(1)} km`;
   }
 
@@ -123,9 +133,21 @@
   }
 
   let snap = buildSnapshot();
+  let isDirty = false;
+
+  // Mark the button dirty whenever any input store changes after mount.
+  onMount(() => {
+    const stores = [projectInfo, materials, slabLayout, weatherStations, chartImages, unitSystem, site, allPoints];
+    const unsubs = stores.map((s) => s.subscribe(() => { isDirty = true; }));
+    // Each subscribe fires immediately with the current value — reset so we
+    // only flash after the user actually changes something.
+    isDirty = false;
+    return () => unsubs.forEach((u) => u());
+  });
 
   function updatePdf() {
     snap = buildSnapshot();
+    isDirty = false;
   }
 
   // These depend on snap.unitSystem so must come after snap is declared.
@@ -205,7 +227,7 @@
 </script>
 
 <div class="toolbar">
-  <button class="update-btn" on:click={updatePdf} disabled={isGenerating}>
+  <button class="update-btn" class:dirty={isDirty} on:click={updatePdf} disabled={isGenerating}>
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="23 4 23 10 17 10"></polyline>
       <polyline points="1 20 1 14 7 14"></polyline>
@@ -580,6 +602,25 @@
     color: #93c5fd;
     border-color: #93c5fd;
     cursor: not-allowed;
+  }
+
+  .update-btn.dirty {
+    animation: update-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes update-pulse {
+    0%, 100% {
+      background-color: white;
+      color: #2563eb;
+      border-color: #2563eb;
+      box-shadow: none;
+    }
+    50% {
+      background-color: #dbeafe;
+      color: #1d4ed8;
+      border-color: #1d4ed8;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    }
   }
 
   .download-btn {
