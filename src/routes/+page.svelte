@@ -55,13 +55,19 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
     </div>
     <div class:hidden={active !== 'environment'}>
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
       <EnvTab
         stationExplanationHtml={data.explanations.haversineApprox}
         climateNormalsHtml={data.explanations.climateNormals}
       />
+<<<<<<< HEAD
 =======
       <EnvTab explanationHtml={data.explanations.haversineApprox} />
 >>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
     </div>
     <div class:hidden={active !== 'analysis'}>
       <p class="text-gray-600">Analysis tab coming soon…</p>
