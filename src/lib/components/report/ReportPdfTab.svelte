@@ -32,6 +32,7 @@
   import { get } from 'svelte/store';
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
   import { onMount } from 'svelte';
@@ -45,6 +46,9 @@
 =======
   import { get } from 'svelte/store';
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+  import { onMount } from 'svelte';
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
 =======
   import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
@@ -340,6 +344,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 =======
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     if (snap.unitSystem !== 'us') {
@@ -434,6 +441,7 @@
       return `${(elevation * 3.28084).toFixed(1)} ft`;
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
   function formatElevation(elevation: number | null): string {
     if (elevation === null) return '—';
@@ -444,6 +452,8 @@
   function formatElevation(elevation: number | null): string {
     if (elevation === null) return '—';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     return `${elevation.toFixed(1)} m`;
   }
 
@@ -451,6 +461,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 =======
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     if (snap.unitSystem === 'us') {
@@ -672,6 +685,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 =======
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   let isDirty = false;
@@ -685,6 +701,7 @@
     isDirty = false;
     return () => unsubs.forEach((u) => u());
   });
+<<<<<<< HEAD
 <<<<<<< HEAD
 
 <<<<<<< HEAD
@@ -713,9 +730,12 @@
   // These depend on snap.unitSystem so must come after snap is declared.
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 
   function updatePdf() {
     snap = buildSnapshot();
+    isDirty = false;
   }
 
   // These depend on snap.unitSystem so must come after snap is declared.
@@ -1099,6 +1119,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   <button class="refresh-btn" on:click={refreshPreview} disabled={isGenerating}>
 =======
   <button class="update-btn" on:click={updatePdf} disabled={isGenerating}>
@@ -1115,6 +1136,9 @@
 =======
   <button class="update-btn" on:click={updatePdf} disabled={isGenerating}>
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+  <button class="update-btn" class:dirty={isDirty} on:click={updatePdf} disabled={isGenerating}>
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="23 4 23 10 17 10"></polyline>
       <polyline points="1 20 1 14 7 14"></polyline>
@@ -2983,8 +3007,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 =======
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   .update-btn.dirty {
@@ -3007,6 +3034,7 @@
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -3018,6 +3046,8 @@
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   .download-btn {
     display: flex;
     align-items: center;
