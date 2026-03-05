@@ -13,6 +13,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+  import { get } from 'svelte/store';
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
 =======
   import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
@@ -95,6 +99,7 @@
 =======
   const index = placesIndex as PlacesIndex;
 
+<<<<<<< HEAD
   // Get selected location data
   $: selectedLocation = (() => {
     if (!$projectInfo.state || !$projectInfo.city) return null;
@@ -104,6 +109,8 @@
   })();
 
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   // Helper to format values or show "Not specified"
   function formatValue(value: string | number | ''): string {
     if (value === '' || value === null || value === undefined) {
@@ -214,6 +221,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
@@ -240,6 +248,8 @@
 >>>>>>> 1a81cfc (Freeze PDF preview until user explicitly refreshes)
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   function formatElevation(elevation: number | null): string {
     if (elevation === null) return '—';
     return `${elevation.toFixed(1)} m`;
@@ -352,10 +362,15 @@
 
   const totalPages = 12;
 
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
   // Build a frozen snapshot of all store values for the preview.
   // The preview only updates when the user explicitly requests a refresh.
+=======
+  // Snapshot of all store values — only updated when the user clicks "Update PDF".
+  // The preview renders from this snapshot so it never changes on its own.
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   function buildSnapshot() {
     const pi = get(projectInfo);
     const loc = (index[pi.state] || []).find(
@@ -368,7 +383,10 @@
       slabLayout: { ...get(slabLayout) },
       weatherStations: [...get(weatherStations)],
       chartImages: { ...get(chartImages) },
+<<<<<<< HEAD
       stationDisplays: get(stationDisplays).map((s) => ({ ...s, hourly: [...s.hourly] })),
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
       site: get(site),
       allPoints: ap ? [...ap] : [],
       unitSystem: get(unitSystem),
@@ -378,11 +396,19 @@
 
   let snap = buildSnapshot();
 
+<<<<<<< HEAD
   function refreshPreview() {
     snap = buildSnapshot();
   }
 
   // These format functions reference snap.unitSystem so must be declared after snap.
+=======
+  function updatePdf() {
+    snap = buildSnapshot();
+  }
+
+  // These depend on snap.unitSystem so must come after snap is declared.
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   function formatThickness(thickness: number | ''): string {
     if (thickness === '') return 'Not specified';
     const unit = snap.unitSystem === 'us' ? 'in' : 'mm';
@@ -395,6 +421,7 @@
     return `${spacing} ${unit}`;
   }
 
+<<<<<<< HEAD
 >>>>>>> 1a81cfc (Freeze PDF preview until user explicitly refreshes)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -416,6 +443,8 @@
   const totalPages = 12;
 
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   async function downloadPdf() {
     if (isGenerating) return;
     isGenerating = true;
@@ -598,16 +627,25 @@
 
 <div class="toolbar">
 <<<<<<< HEAD
+<<<<<<< HEAD
   <button class="refresh-btn" on:click={refreshPreview} disabled={isGenerating}>
+=======
+  <button class="update-btn" on:click={updatePdf} disabled={isGenerating}>
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="23 4 23 10 17 10"></polyline>
       <polyline points="1 20 1 14 7 14"></polyline>
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
     </svg>
+<<<<<<< HEAD
     Refresh Preview
   </button>
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    Update PDF
+  </button>
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   <button class="download-btn" on:click={downloadPdf} disabled={isGenerating}>
     {#if isGenerating}
       <svg class="spinner" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1039,8 +1077,8 @@
           <h1 class="cover-title">Pavement Cracking<br/>Analysis Report</h1>
           <div class="cover-divider"></div>
           <p class="cover-location">
-            {#if $projectInfo.city && $projectInfo.state}
-              {$projectInfo.city}, {$projectInfo.state}
+            {#if snap.projectInfo.city && snap.projectInfo.state}
+              {snap.projectInfo.city}, {snap.projectInfo.state}
             {:else}
               Location not specified
             {/if}
@@ -1421,43 +1459,43 @@
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">State:</span>
-            <span class="info-value">{formatValue($projectInfo.state)}</span>
+            <span class="info-value">{formatValue(snap.projectInfo.state)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">City:</span>
-            <span class="info-value">{formatValue($projectInfo.city)}</span>
+            <span class="info-value">{formatValue(snap.projectInfo.city)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Latitude:</span>
-            <span class="info-value">{formatCoord(selectedLocation?.latitude ?? null)}</span>
+            <span class="info-value">{formatCoord(snap.selectedLocation?.latitude ?? null)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Longitude:</span>
-            <span class="info-value">{formatCoord(selectedLocation?.longitude ?? null)}</span>
+            <span class="info-value">{formatCoord(snap.selectedLocation?.longitude ?? null)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Date:</span>
-            <span class="info-value">{formatDate($projectInfo.date)}</span>
+            <span class="info-value">{formatDate(snap.projectInfo.date)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Start Hour:</span>
-            <span class="info-value">{formatHour($projectInfo.startHour)}</span>
+            <span class="info-value">{formatHour(snap.projectInfo.startHour)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Construction Start Temperature:</span>
-            <span class="info-value">{formatTemp($projectInfo.startTempF)}</span>
+            <span class="info-value">{formatTemp(snap.projectInfo.startTempF)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Concrete Delivery Temperature:</span>
-            <span class="info-value">{formatTemp($projectInfo.deliveryTempF)}</span>
+            <span class="info-value">{formatTemp(snap.projectInfo.deliveryTempF)}</span>
           </div>
         </div>
 
-        {#if $site && $site.length === 2}
+        {#if snap.site && snap.site.length === 2}
           <div class="map-section">
             <h3 class="map-title">Project Location Map</h3>
             <div class="map-container">
-              <StaticMapView center={$site as [number, number]} points={$allPoints as [number, number][]} />
+              <StaticMapView center={snap.site as [number, number]} points={snap.allPoints as [number, number][]} />
             </div>
           </div>
         {/if}
@@ -1476,22 +1514,22 @@
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Cement Type:</span>
-            <span class="info-value">{formatValue($materials.cementType)}</span>
+            <span class="info-value">{formatValue(snap.materials.cementType)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">SCM:</span>
-            <span class="info-value">{formatValue($materials.scm)}</span>
+            <span class="info-value">{formatValue(snap.materials.scm)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">
               w/c (m):
               <div style="font-size: 10pt; color: #666; font-weight: normal; margin-top: 2pt;">Allowed range: 0.37 - 0.45</div>
             </span>
-            <span class="info-value">{formatWaterCementRatio($materials.waterCementRatio)}</span>
+            <span class="info-value">{formatWaterCementRatio(snap.materials.waterCementRatio)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Curing:</span>
-            <span class="info-value">{formatCuring($materials.curing)}</span>
+            <span class="info-value">{formatCuring(snap.materials.curing)}</span>
           </div>
         </div>
       </div>
@@ -1509,23 +1547,23 @@
         <div class="info-grid">
           <div class="info-row">
             <span class="info-label">Slab Thickness:</span>
-            <span class="info-value">{formatThickness($slabLayout.thickness)}</span>
+            <span class="info-value">{formatThickness(snap.slabLayout.thickness)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Joint Spacing:</span>
-            <span class="info-value">{formatJointSpacing($slabLayout.jointSpacing)}</span>
+            <span class="info-value">{formatJointSpacing(snap.slabLayout.jointSpacing)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Expected Saw Cutting Time:</span>
-            <span class="info-value">{formatHour($slabLayout.sawCutHour)}</span>
+            <span class="info-value">{formatHour(snap.slabLayout.sawCutHour)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Joint Type:</span>
-            <span class="info-value">{formatValue($slabLayout.jointType)}</span>
+            <span class="info-value">{formatValue(snap.slabLayout.jointType)}</span>
           </div>
           <div class="info-row">
             <span class="info-label">Base Type:</span>
-            <span class="info-value">{formatValue($slabLayout.baseType)}</span>
+            <span class="info-value">{formatValue(snap.slabLayout.baseType)}</span>
           </div>
         </div>
       </div>
@@ -1542,23 +1580,23 @@
 
         <h3 class="section-subheading">Nearest Weather Stations</h3>
 
-        {#if selectedLocation}
+        {#if snap.selectedLocation}
           <div class="env-info">
             <p>
               <span class="env-label">Selected location:</span>
-              <span class="env-value">{selectedLocation.city}, {$projectInfo.state}</span>
-              <span class="env-coords">({formatCoord(selectedLocation.latitude)}, {formatCoord(selectedLocation.longitude)})</span>
+              <span class="env-value">{snap.selectedLocation.city}, {snap.projectInfo.state}</span>
+              <span class="env-coords">({formatCoord(snap.selectedLocation.latitude)}, {formatCoord(snap.selectedLocation.longitude)})</span>
             </p>
             <p>
               <span class="env-label">Start date:</span>
-              <span class="env-value">{formatDate($projectInfo.date)}</span>
+              <span class="env-value">{formatDate(snap.projectInfo.date)}</span>
               <span class="env-label">at hour</span>
-              <span class="env-value">{formatHour($projectInfo.startHour)}</span>
+              <span class="env-value">{formatHour(snap.projectInfo.startHour)}</span>
             </p>
           </div>
         {/if}
 
-        {#if $weatherStations.length > 0}
+        {#if snap.weatherStations.length > 0}
           <div class="weather-table-wrapper">
             <table class="weather-table">
               <thead>
@@ -1571,7 +1609,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each $weatherStations as station}
+                {#each snap.weatherStations as station}
                   <tr>
                     <td>
                       <div class="station-name">{station.name ?? 'Station'}</div>
@@ -1590,11 +1628,11 @@
           <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
         {/if}
 
-        {#if $chartImages.temp}
+        {#if snap.chartImages.temp}
           <h3 class="section-subheading">72-Hour Charts (Plotly)</h3>
           <div class="charts-container">
             <div class="chart-wrapper">
-              <img src={$chartImages.temp} alt="Temperature Chart" class="chart-image" />
+              <img src={snap.chartImages.temp} alt="Temperature Chart" class="chart-image" />
             </div>
           </div>
         {/if}
@@ -1605,21 +1643,21 @@
     </div>
 
     <!-- PAGE 8: Environment - Remaining Charts -->
-    {#if $chartImages.wind || $chartImages.cloud}
+    {#if snap.chartImages.wind || snap.chartImages.cloud}
       <div class="page">
         <div class="page-content">
           <h2 class="page-title">Environment</h2>
           <div class="title-rule"></div>
 
           <div class="charts-container">
-            {#if $chartImages.wind}
+            {#if snap.chartImages.wind}
               <div class="chart-wrapper">
-                <img src={$chartImages.wind} alt="Wind Speed Chart" class="chart-image" />
+                <img src={snap.chartImages.wind} alt="Wind Speed Chart" class="chart-image" />
               </div>
             {/if}
-            {#if $chartImages.cloud}
+            {#if snap.chartImages.cloud}
               <div class="chart-wrapper">
-                <img src={$chartImages.cloud} alt="Cloud Cover Chart" class="chart-image" />
+                <img src={snap.chartImages.cloud} alt="Cloud Cover Chart" class="chart-image" />
               </div>
             {/if}
           </div>
@@ -1682,27 +1720,41 @@
     display: flex;
     justify-content: flex-end;
 <<<<<<< HEAD
+<<<<<<< HEAD
     gap: 0.75rem;
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    gap: 0.75rem;
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
     padding: 1rem 2rem;
     background-color: #f3f4f6;
     border-bottom: 1px solid #e5e7eb;
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   .refresh-btn {
+=======
+  .update-btn {
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
     display: flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.625rem 1.25rem;
     background-color: white;
+<<<<<<< HEAD
     color: #374151;
     border: 1px solid #d1d5db;
+=======
+    color: #2563eb;
+    border: 1.5px solid #2563eb;
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
     border-radius: 0.5rem;
     font-weight: 500;
     font-size: 0.875rem;
     cursor: pointer;
+<<<<<<< HEAD
     transition: background-color 0.2s, border-color 0.2s;
   }
 
@@ -1718,6 +1770,25 @@
 
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    transition: background-color 0.2s, color 0.2s;
+  }
+
+  .update-btn:hover {
+    background-color: #eff6ff;
+  }
+
+  .update-btn:active {
+    background-color: #dbeafe;
+  }
+
+  .update-btn:disabled {
+    color: #93c5fd;
+    border-color: #93c5fd;
+    cursor: not-allowed;
+  }
+
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   .download-btn {
     display: flex;
     align-items: center;
