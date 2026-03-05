@@ -41,3 +41,17 @@ export type WeatherStation = {
   elevation: number | null;
   distanceKm: number;
 };
+
+export type HourlyRow = {
+  offsetHr: number;
+  month: number;
+  day: number;
+  hour: number;
+  temp: number | null;
+  cloud: number | null;
+  wind: number | null;
+};
+
+export type StationDisplayData = WeatherStation & {
+  hourly: HourlyRow[];
+};

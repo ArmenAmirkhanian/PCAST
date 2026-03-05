@@ -2,7 +2,7 @@
   export let explanationHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
+  import { projectInfo, weatherStations, chartImages, stationDisplays as stationDisplaysStore } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -223,6 +223,18 @@
     longitude: station.longitude,
     elevation: station.elevation,
     distanceKm: station.distanceKm
+  })));
+
+  // Update stationDisplays store with hourly data for PDF Appendix A
+  $: stationDisplaysStore.set(stationDisplays.map((station) => ({
+    stationId: station.stationId,
+    ghcnId: station.ghcnId,
+    name: station.name,
+    latitude: station.latitude,
+    longitude: station.longitude,
+    elevation: station.elevation,
+    distanceKm: station.distanceKm,
+    hourly: station.hourly
   })));
 
   $: selectedDate = $projectInfo.date
