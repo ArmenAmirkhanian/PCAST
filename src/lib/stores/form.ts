@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 =======
 import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
@@ -12,6 +13,9 @@ import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types'
 =======
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation, StationDisplayData } from '$lib/types';
+>>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -59,6 +63,8 @@ export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
 }
 
 export const weatherStations = writable<WeatherStation[]>([]);
+
+export const stationDisplays = writable<StationDisplayData[]>([]);
 
 export const chartImages = writable<{
   temp: string;

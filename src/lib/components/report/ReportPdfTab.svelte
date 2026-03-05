@@ -5,6 +5,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
 =======
   import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
@@ -12,6 +13,9 @@
 =======
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+  import { projectInfo, materials, slabLayout, weatherStations, chartImages, stationDisplays } from '$lib/stores/form';
+>>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
   import { site, allPoints } from '$lib/stores/stations';
   import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
@@ -203,11 +207,24 @@
     { id: 'analysis', title: 'Analysis', page: 9, indent: false },
     { id: 'results', title: 'Results', page: 10, indent: false },
     { id: 'appendices', title: 'Appendices', page: 11, indent: false },
+<<<<<<< HEAD
     { id: 'appendix-a', title: 'Appendix A', page: 12, indent: true }
 <<<<<<< HEAD
+=======
+    { id: 'appendix-a', title: 'Appendix A: Weather Station Data', page: 12, indent: true }
+>>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
   ];
 
-  const totalPages = 12;
+  const totalPages = 17;
+
+  // Helpers for 72-hour normals tables
+  function formatTs(row: { month: number; day: number; hour: number }): string {
+    return `${String(row.month).padStart(2, '0')}-${String(row.day).padStart(2, '0')} ${String(row.hour).padStart(2, '0')}:00`;
+  }
+
+  function formatNumber(value: number | null, digits = 1): string {
+    return value === null ? '\u2014' : value.toFixed(digits);
+  }
 
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -671,18 +688,97 @@
       </div>
     </div>
 
-    <!-- PAGE 12: Appendix A -->
-    <div class="page">
-      <div class="page-content">
-        <h2 class="page-title">Appendix A</h2>
-        <div class="title-rule"></div>
-        <h3 class="section-subheading">Weather Station Data</h3>
-        <p class="section-placeholder">Content for Weather Station Data will appear here.</p>
+    <!-- PAGES 12-17: Appendix A - Weather Station Data (two pages per station) -->
+    {#each $stationDisplays as station, i}
+      <!-- First page: rows 0-44 -->
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">Appendix A: Weather Station Data</h2>
+          <div class="title-rule"></div>
+
+          {#if i === 0}
+            <p class="normals-heading">72-hour normals (HLY-TEMP-NORMAL, HLY-CLDH-NORMAL, HLY-WIND-AVGSPD)</p>
+          {/if}
+
+          <div class="normals-station-header">
+            <p class="normals-station-name">{station.name ?? 'Station'} ({station.ghcnId ?? 'N/A'})</p>
+            <p class="normals-station-info">
+              Offset span: 0–71 hrs &middot; Distance {station.distanceKm.toFixed(1)} km
+              &middot; Lat/Lon {formatCoord(station.latitude)}, {formatCoord(station.longitude)}
+              &middot; Elev {formatElevation(station.elevation)}
+            </p>
+          </div>
+
+          <div class="normals-table-wrapper">
+            <table class="normals-table">
+              <thead>
+                <tr>
+                  <th>Offset hr</th>
+                  <th>Month-Day Hr</th>
+                  <th>HLY Temp</th>
+                  <th>HLY Cloud</th>
+                  <th>HLY Wind</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each station.hourly.slice(0, 45) as reading}
+                  <tr>
+                    <td>{reading.offsetHr}</td>
+                    <td>{formatTs(reading)}</td>
+                    <td>{formatNumber(reading.temp)}</td>
+                    <td>{formatNumber(reading.cloud)}</td>
+                    <td>{formatNumber(reading.wind)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="page-number">
+          <p>{12 + i * 2}</p>
+        </div>
       </div>
-      <div class="page-number">
-        <p>12</p>
+
+      <!-- Second page: rows 45-71 -->
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">Appendix A: Weather Station Data</h2>
+          <div class="title-rule"></div>
+
+          <div class="normals-station-header">
+            <p class="normals-station-name">{station.name ?? 'Station'} ({station.ghcnId ?? 'N/A'}) — continued</p>
+          </div>
+
+          <div class="normals-table-wrapper">
+            <table class="normals-table">
+              <thead>
+                <tr>
+                  <th>Offset hr</th>
+                  <th>Month-Day Hr</th>
+                  <th>HLY Temp</th>
+                  <th>HLY Cloud</th>
+                  <th>HLY Wind</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each station.hourly.slice(45) as reading}
+                  <tr>
+                    <td>{reading.offsetHr}</td>
+                    <td>{formatTs(reading)}</td>
+                    <td>{formatNumber(reading.temp)}</td>
+                    <td>{formatNumber(reading.cloud)}</td>
+                    <td>{formatNumber(reading.wind)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="page-number">
+          <p>{13 + i * 2}</p>
+        </div>
       </div>
-    </div>
+    {/each}
 
 =======
     <div class="paper-content">
@@ -1669,5 +1765,64 @@
     height: 300pt;
     border: 1px solid #000000;
   }
+<<<<<<< HEAD
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+
+  /* ---- Appendix A: 72-hour normals tables ---- */
+  .normals-heading {
+    font-family: Calibri, sans-serif;
+    font-size: 11pt;
+    font-weight: bold;
+    color: #000000;
+    margin-top: 6pt;
+    margin-bottom: 6pt;
+  }
+
+  .normals-station-header {
+    margin-bottom: 4pt;
+  }
+
+  .normals-station-name {
+    font-family: Calibri, sans-serif;
+    font-size: 9pt;
+    font-weight: bold;
+    color: #000000;
+    margin: 0;
+  }
+
+  .normals-station-info {
+    font-family: Calibri, sans-serif;
+    font-size: 7pt;
+    color: #666;
+    margin: 1pt 0 0 0;
+  }
+
+  .normals-table-wrapper {
+    margin-top: 4pt;
+  }
+
+  .normals-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Calibri, sans-serif;
+    font-size: 7pt;
+    color: #000000;
+    line-height: 1.1;
+  }
+
+  .normals-table th {
+    background-color: #f3f4f6;
+    padding: 2pt 4pt;
+    text-align: left;
+    font-weight: bold;
+    border: 0.5pt solid #d1d5db;
+    font-size: 7pt;
+  }
+
+  .normals-table td {
+    padding: 1.5pt 4pt;
+    border: 0.5pt solid #d1d5db;
+  }
+>>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
 </style>
