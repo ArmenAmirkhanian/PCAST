@@ -1,4 +1,4 @@
-import { EXPLANATIONS } from '$lib/explanations';
+import { EXPLANATIONS, HYDRATION_MODEL_EQUATIONS } from '$lib/explanations';
 import { renderMath } from '$lib/server/renderMath';
 
 export function load() {
@@ -6,6 +6,9 @@ export function load() {
     explanations: {
       haversineApprox: renderMath(EXPLANATIONS.haversineApprox),
       climateNormals: renderMath(EXPLANATIONS.climateNormalsExplanation)
-    }
+    },
+    hydrationModelEquations: Object.fromEntries(
+      Object.entries(HYDRATION_MODEL_EQUATIONS).map(([k, v]) => [k, renderMath(v)])
+    ) as Record<string, string>
   };
 }

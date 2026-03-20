@@ -14,6 +14,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       haversineApprox: string;
       climateNormals: string;
     };
+    hydrationModelEquations: Record<string, string>;
   };
 
   let system: 'us'|'metric' = 'us';
@@ -48,7 +49,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <ProjectInfoTab {placesIndex} />
     </div>
     <div class:hidden={active !== 'materials'}>
-      <MaterialsInput />
+      <MaterialsInput hydrationModelEquations={data.hydrationModelEquations} />
     </div>
     <div class:hidden={active !== 'slabs'}>
       <SlabInputs />
@@ -94,7 +95,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 <<<<<<< HEAD
 <<<<<<< HEAD
     <div class:hidden={active !== 'report'}>
-      <ReportPdfTab />
+      <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
     </div>
 =======
 >>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)

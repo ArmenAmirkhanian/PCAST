@@ -17,11 +17,15 @@ export type CityLocation = {
 
 export type PlacesIndex = Record<string, CityLocation[]>;
 
+export type HydrationModel = 'bentz' | 'schindler-folliard' | 'knudsen-linear' | 'knudsen-parabolic' | 'lam';
+
 export type MaterialsForm = {
   cementType: 'Type I/II' | 'Type I/II with 5% limestone';
   scm: 'None' | '25% C Ash' | '25% F ash' | '25% slag';
   waterCementRatio: number | '';
   curing: 'Curing Compound' | 'No Curing Compound';
+  hydrationModel: HydrationModel | null;
+  hydrationModelInputs: Record<string, number | ''>;
 };
 <<<<<<< HEAD
 <<<<<<< HEAD
