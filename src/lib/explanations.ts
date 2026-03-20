@@ -1,3 +1,29 @@
+export const HYDRATION_MODEL_EQUATIONS: Record<string, string> = {
+  'bentz': `
+$$\\alpha_2 = \\frac{p\\left\\{\\exp[R(1-p)t]-1\\right\\}}{\\exp[R(1-p)t]-p}$$
+
+$$p = \\dfrac{\\rho_{\\mathrm{cem}}(w/c)}{f_{\\mathrm{exp}}+\\rho_{\\mathrm{cem}}\\,CS}$$
+
+$$R = \\dfrac{m(f_{\\mathrm{exp}}+\\rho_{\\mathrm{cem}}\\,CS)}{\\left[1+\\rho_{\\mathrm{cem}}(w/c)\\right]^{2}}$$
+`.trim(),
+
+  'schindler-folliard': `
+$$\\alpha = \\alpha_u \\cdot \\exp\\!\\left(-\\left[\\frac{\\tau}{t_e}\\right]^{\\!\\beta}\\right)$$
+
+$$\\tau = 66.78\\,p_{C_3\\!A}^{-0.154}\\,p_{C_3\\!S}^{-0.401}\\,\\mathrm{Blaine}^{-0.804}\\,p_{SO_3}^{-0.758}\\cdot\\exp(2.187\\,p_{\\mathrm{SLAG}}+9.5\\,p_{\\mathrm{FA}}\\,p_{\\mathrm{FA\\text{-}CaO}})$$
+
+$$\\beta = 181.4\\,p_{C_3\\!A}^{0.146}\\,p_{C_3\\!S}^{0.227}\\,\\mathrm{Blaine}^{-0.535}\\,p_{SO_3}^{-0.558}\\cdot\\exp(-0.647\\,p_{\\mathrm{SLAG}})$$
+
+$$\\alpha_u = \\frac{1.031\\,(w/c)}{0.194+w/c}+0.50\\,p_{\\mathrm{FA}}+0.30\\,p_{\\mathrm{SLAG}}\\leq 1.0$$
+`.trim(),
+
+  'knudsen-linear': `$$\\alpha_1 = \\alpha_u\\cdot\\frac{m(t-t_0)}{1+m(t-t_0)}$$`.trim(),
+
+  'knudsen-parabolic': `$$\\alpha_2 = \\alpha_u\\cdot\\frac{m\\sqrt{t-t_0}}{1+m\\sqrt{t-t_0}}$$`.trim(),
+
+  'lam': `$$\\alpha = m_1\\cdot e^{-m_2/(w/c)}$$`.trim()
+};
+
 export const EXPLANATIONS: Record<string, string> = {
   haversineApprox: `
 This lookup begins with a target latitude and longitude from the input table and searches for nearby weather stations using a spatial RTree index. It first defines a series of expanding rectangular search windows centered on the input point, starting with a tight bounding box and progressively enlarging it until at least three stations are guaranteed to fall inside. For the selected window, stations whose RTree bounding boxes overlap the search rectangle are retrieved. A fast preliminary sorting is then performed using a simple squared degree-distance measure, $(\\Delta \\text{lat})^2 + (\\Delta \\text{lon})^2$, to keep only the closest candidate stations while avoiding expensive trigonometric calculations on the full dataset.

@@ -14,6 +14,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       haversineApprox: string;
       climateNormals: string;
     };
+    hydrationModelEquations: Record<string, string>;
   };
 
   let system: 'us'|'metric' = 'us';
@@ -48,7 +49,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <ProjectInfoTab {placesIndex} />
     </div>
     <div class:hidden={active !== 'materials'}>
-      <MaterialsInput />
+      <MaterialsInput hydrationModelEquations={data.hydrationModelEquations} />
     </div>
     <div class:hidden={active !== 'slabs'}>
       <SlabInputs />
@@ -66,7 +67,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <p class="text-gray-600">Results tab coming soon…</p>
     </div>
     <div class:hidden={active !== 'report'}>
-      <ReportPdfTab />
+      <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
     </div>
   </div>
 </Tabs>

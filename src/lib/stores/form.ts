@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
+import type { HydrationModel } from '$lib/types';
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -21,7 +22,9 @@ export const materials = writable<MaterialsForm>({
   cementType: 'Type I/II',
   scm: 'None',
   waterCementRatio: '',
-  curing: 'Curing Compound'
+  curing: 'Curing Compound',
+  hydrationModel: null,
+  hydrationModelInputs: {}
 });
 
 export function updateMaterials(patch: Partial<MaterialsForm>) {
@@ -51,3 +54,5 @@ export const chartImages = writable<{
   wind: '',
   cloud: ''
 });
+
+export const hydrationModelResults = writable<Partial<Record<HydrationModel, Record<string, number>>>>({});

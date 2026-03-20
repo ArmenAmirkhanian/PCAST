@@ -1,12 +1,16 @@
 <script lang="ts">
   import { get } from 'svelte/store';
   import { onMount } from 'svelte';
-  import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
+  import { projectInfo, materials, slabLayout, weatherStations, chartImages, hydrationModelResults } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
+  import { HYDRATION_MODEL_NAMES, MODEL_VARIABLES, WC_NOTE_MODELS, MODEL_RESULT_LABELS } from '$lib/hydration-models';
+  import type { HydrationModel } from '$lib/types';
   import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
   import placesIndex from '$lib/data/places-index.json';
   import type { PlacesIndex } from '$lib/types';
+
+  export let hydrationModelEquations: Record<string, string>;
 
   let paperPreview: HTMLDivElement;
   let isGenerating = false;
@@ -99,17 +103,17 @@
 
   // Section definitions for TOC and section pages
   const sections = [
-    { id: 'project-info', title: 'Project Information', page: 4, indent: false },
-    { id: 'materials', title: 'Materials', page: 5, indent: false },
-    { id: 'slab-layout', title: 'Slab Layout', page: 6, indent: false },
-    { id: 'environment', title: 'Environment', page: 7, indent: false },
-    { id: 'analysis', title: 'Analysis', page: 9, indent: false },
-    { id: 'results', title: 'Results', page: 10, indent: false },
-    { id: 'appendices', title: 'Appendices', page: 11, indent: false },
-    { id: 'appendix-a', title: 'Appendix A', page: 12, indent: true }
+    { id: 'project-info', title: 'Project Information', page: 4,  indent: false },
+    { id: 'materials',    title: 'Materials',            page: 5,  indent: false },
+    { id: 'slab-layout',  title: 'Slab Layout',          page: 7,  indent: false },
+    { id: 'environment',  title: 'Environment',          page: 8,  indent: false },
+    { id: 'analysis',     title: 'Analysis',             page: 10, indent: false },
+    { id: 'results',      title: 'Results',              page: 11, indent: false },
+    { id: 'appendices',   title: 'Appendices',           page: 12, indent: false },
+    { id: 'appendix-a',   title: 'Appendix A',           page: 13, indent: true }
   ];
 
-  const totalPages = 12;
+  const totalPages = 13;
 
   // Snapshot of all store values — only updated when the user clicks "Update PDF".
   // The preview renders from this snapshot so it never changes on its own.
@@ -125,6 +129,7 @@
       slabLayout: { ...get(slabLayout) },
       weatherStations: [...get(weatherStations)],
       chartImages: { ...get(chartImages) },
+      hydrationModelResults: { ...get(hydrationModelResults) },
       site: get(site),
       allPoints: ap ? [...ap] : [],
       unitSystem: get(unitSystem),
@@ -137,7 +142,7 @@
 
   // Mark the button dirty whenever any input store changes after mount.
   onMount(() => {
-    const stores = [projectInfo, materials, slabLayout, weatherStations, chartImages, unitSystem, site, allPoints];
+    const stores = [projectInfo, materials, slabLayout, weatherStations, chartImages, hydrationModelResults, unitSystem, site, allPoints];
     const unsubs = stores.map((s) => s.subscribe(() => { isDirty = true; }));
     // Each subscribe fires immediately with the current value — reset so we
     // only flash after the user actually changes something.
@@ -161,6 +166,19 @@
     if (spacing === '') return 'Not specified';
     const unit = snap.unitSystem === 'us' ? 'ft' : 'm';
     return `${spacing} ${unit}`;
+  }
+
+  function fmt(n: number): string {
+    const abs = Math.abs(n);
+    if (abs === 0) return '0';
+    if (abs >= 0.001 && abs < 100000) return parseFloat(n.toPrecision(4)).toString();
+    return n.toExponential(3);
+  }
+
+  function fmtInput(modelId: HydrationModel, key: string): string {
+    const val = snap.materials.hydrationModelInputs[`${modelId}__${key}`];
+    if (val === '' || val === undefined) return 'Not specified';
+    return String(val);
   }
 
   async function downloadPdf() {
@@ -390,13 +408,107 @@
             <span class="info-value">{formatCuring(snap.materials.curing)}</span>
           </div>
         </div>
+
+        {#if snap.materials.hydrationModel}
+          {@const modelId = snap.materials.hydrationModel as HydrationModel}
+          <h3 class="section-subheading">Cement Hydration Model</h3>
+          <div class="info-grid">
+            <div class="info-row">
+              <span class="info-label">Model:</span>
+              <span class="info-value">{HYDRATION_MODEL_NAMES[modelId]}</span>
+            </div>
+          </div>
+          <div class="hydration-equation prose prose-sm max-w-none">
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+            {@html hydrationModelEquations[modelId]}
+          </div>
+        {:else}
+          <p class="no-data-message" style="margin-top: 12pt;">No hydration model selected.</p>
+        {/if}
       </div>
       <div class="page-number">
         <p>5</p>
       </div>
     </div>
 
-    <!-- PAGE 6: Slab Layout -->
+    <!-- PAGE 6: Hydration Model Variables & Results -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Materials (cont'd)</h2>
+        <div class="title-rule"></div>
+
+        {#if snap.materials.hydrationModel}
+          {@const modelId = snap.materials.hydrationModel as HydrationModel}
+          {@const results = snap.hydrationModelResults[modelId]}
+
+          <h3 class="section-subheading">Input Variables — {HYDRATION_MODEL_NAMES[modelId]}</h3>
+
+          <table class="hydration-table">
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Description</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#if WC_NOTE_MODELS.includes(modelId)}
+                <tr>
+                  <td class="mono">w/c</td>
+                  <td>Water-cement ratio</td>
+                  <td class="mono">{formatWaterCementRatio(snap.materials.waterCementRatio)}</td>
+                </tr>
+              {/if}
+              {#each MODEL_VARIABLES[modelId].filter(v => !v.isConstant) as v (v.key)}
+                <tr>
+                  <td class="mono">{v.symbol}</td>
+                  <td>{v.definition}{v.unit ? ` (${v.unit})` : ''}</td>
+                  <td class="mono">{fmtInput(modelId, v.key)}</td>
+                </tr>
+              {/each}
+              {#each MODEL_VARIABLES[modelId].filter(v => v.isConstant) as v (v.key)}
+                <tr class="constant-row">
+                  <td class="mono">{v.symbol}</td>
+                  <td>{v.definition}{v.unit ? ` (${v.unit})` : ''} <em>(constant)</em></td>
+                  <td class="mono">{v.constantValue}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+
+          {#if results !== undefined}
+            <h3 class="section-subheading" style="margin-top: 14pt;">Results</h3>
+            <table class="hydration-table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Description</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each MODEL_RESULT_LABELS[modelId] as r (r.key)}
+                  <tr class:result-final={r.key === 'alpha'}>
+                    <td class="mono">{r.symbol}</td>
+                    <td>{r.definition}{r.unit ? ` (${r.unit})` : ''}</td>
+                    <td class="mono">{fmt((results as Record<string, number>)[r.key])}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {:else}
+            <p class="no-data-message">Calculate the model in the Materials tab to show results here.</p>
+          {/if}
+        {:else}
+          <p class="no-data-message">No hydration model selected.</p>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>6</p>
+      </div>
+    </div>
+
+    <!-- PAGE 7: Slab Layout -->
     <div class="page">
       <div class="page-content">
         <h2 class="page-title">Slab Layout</h2>
@@ -426,11 +538,11 @@
         </div>
       </div>
       <div class="page-number">
-        <p>6</p>
+        <p>7</p>
       </div>
     </div>
 
-    <!-- PAGE 7: Environment -->
+    <!-- PAGE 8: Environment -->
     <div class="page">
       <div class="page-content">
         <h2 class="page-title">Environment</h2>
@@ -496,11 +608,11 @@
         {/if}
       </div>
       <div class="page-number">
-        <p>7</p>
+        <p>8</p>
       </div>
     </div>
 
-    <!-- PAGE 8: Environment - Remaining Charts -->
+    <!-- PAGE 9: Environment - Remaining Charts -->
     {#if snap.chartImages.wind || snap.chartImages.cloud}
       <div class="page">
         <div class="page-content">
@@ -521,12 +633,12 @@
           </div>
         </div>
         <div class="page-number">
-          <p>8</p>
+          <p>9</p>
         </div>
       </div>
     {/if}
 
-    <!-- PAGES 9-10: Other Section Pages -->
+    <!-- PAGES 10-11: Other Section Pages -->
     {#each sections.slice(4, 6) as section}
       <div class="page">
         <div class="page-content">
@@ -558,7 +670,7 @@
         <p class="section-placeholder">Content for Weather Station Data will appear here.</p>
       </div>
       <div class="page-number">
-        <p>12</p>
+        <p>13</p>
       </div>
     </div>
 
@@ -968,5 +1080,46 @@
     width: 100%;
     height: 300pt;
     border: 1px solid #000000;
+  }
+
+  /* ---- Hydration model section ---- */
+  .hydration-equation {
+    margin: 10pt 0 14pt 0;
+    text-align: center;
+  }
+
+  .hydration-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+    color: #000000;
+    margin-bottom: 6pt;
+  }
+
+  .hydration-table th {
+    background-color: #f3f4f6;
+    padding: 5pt 8pt;
+    text-align: left;
+    font-weight: bold;
+    border: 1px solid #d1d5db;
+  }
+
+  .hydration-table td {
+    padding: 4pt 8pt;
+    border: 1px solid #d1d5db;
+  }
+
+  .hydration-table .mono {
+    font-family: 'Courier New', monospace;
+  }
+
+  .hydration-table .constant-row td {
+    color: #555;
+    background-color: #fafafa;
+  }
+
+  .hydration-table .result-final td {
+    font-weight: bold;
+    background-color: #eff6ff;
   }
 </style>
