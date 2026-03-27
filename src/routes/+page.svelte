@@ -14,6 +14,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       haversineApprox: string;
       climateNormals: string;
     };
+    hydrationModelEquations: Record<string, string>;
   };
 
   let system: 'us'|'metric' = 'us';
@@ -48,7 +49,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
       <ProjectInfoTab {placesIndex} />
     </div>
     <div class:hidden={active !== 'materials'}>
-      <MaterialsInput />
+      <MaterialsInput hydrationModelEquations={data.hydrationModelEquations} />
     </div>
     <div class:hidden={active !== 'slabs'}>
       <SlabInputs />
@@ -56,6 +57,10 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
     <div class:hidden={active !== 'environment'}>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
       <EnvTab
@@ -63,6 +68,12 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
         climateNormalsHtml={data.explanations.climateNormals}
       />
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+      <EnvTab explanationHtml={data.explanations.haversineApprox} />
+>>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
       <EnvTab explanationHtml={data.explanations.haversineApprox} />
 >>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
@@ -81,9 +92,18 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+    <div class:hidden={active !== 'report'}>
+      <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
+    </div>
+=======
+>>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
+=======
     <div class:hidden={active !== 'report'}>
       <ReportPdfTab />
     </div>
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> 1721d66 (Persist Environment tab state across tab switches and reset on project changes)
 =======

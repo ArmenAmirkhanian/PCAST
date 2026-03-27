@@ -10,6 +10,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
 =======
   import { projectInfo, weatherStations } from '$lib/stores/form';
@@ -20,6 +22,12 @@
 =======
   import { projectInfo, weatherStations, chartImages, stationDisplays as stationDisplaysStore } from '$lib/stores/form';
 >>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
+=======
+  import { projectInfo, weatherStations } from '$lib/stores/form';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+  import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
   import { projectInfo, weatherStations } from '$lib/stores/form';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
@@ -257,6 +265,7 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   // Update stationDisplays store with hourly data for PDF Appendix A
   $: stationDisplaysStore.set(stationDisplays.map((station) => ({
     stationId: station.stationId,
@@ -269,6 +278,8 @@
     hourly: station.hourly
   })));
 
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 =======
@@ -374,6 +385,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     // Layout overrides for PDF capture: legend below chart, larger fonts
     const pdfLayout: Partial<Layout> = {
       margin: { t: 50, r: 20, b: 100, l: 70 },
@@ -400,6 +414,39 @@
       showlegend: true
     };
 
+=======
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+    // Layout overrides for PDF capture: legend below chart, more bottom margin
+=======
+    // Layout overrides for PDF capture: legend below chart, larger fonts
+>>>>>>> f9aa5e4 (Increase font sizes on PDF chart axes and legends)
+    const pdfLayout: Partial<Layout> = {
+      margin: { t: 50, r: 20, b: 100, l: 70 },
+      height: 540,
+      hovermode: 'x unified',
+      xaxis: {
+        title: { text: 'Offset hour (0–71)', font: { size: 16 } },
+        tickfont: { size: 14 },
+        dtick: 6,
+        tick0: 0
+      },
+      yaxis: {
+        titlefont: { size: 16 },
+        tickfont: { size: 14 }
+      },
+      legend: {
+        orientation: 'h',
+        y: -0.25,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 14 }
+      },
+      title: { font: { size: 18 } },
+      showlegend: true
+    };
+
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
 =======
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
@@ -532,6 +579,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
       // Capture chart as static image for PDF with legend below
       try {
         // Temporarily re-render with PDF layout for capture
@@ -562,6 +611,44 @@
           },
           config
         );
+=======
+      // Capture chart as static image for PDF
+=======
+      // Capture chart as static image for PDF with legend below
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
+      try {
+        // Temporarily re-render with PDF layout for capture
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...pdfLayout,
+            title: METRIC_DETAILS[metric].title,
+            yaxis: { title: METRIC_DETAILS[metric].unit }
+          },
+          { ...config, staticPlot: true }
+        );
+        const imgData = await Plotly.toImage(target, {
+          format: 'png',
+          width: 1200,
+          height: 646
+        });
+        capturedImages[metric] = imgData;
+<<<<<<< HEAD
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+        // Restore the interactive layout for the webpage
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...baseLayout,
+            title: METRIC_DETAILS[metric].title,
+            yaxis: { title: METRIC_DETAILS[metric].unit }
+          },
+          config
+        );
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
 =======
       // Capture chart as static image for PDF
 =======

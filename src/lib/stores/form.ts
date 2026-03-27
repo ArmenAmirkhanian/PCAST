@@ -9,7 +9,11 @@ import { writable } from 'svelte/store';
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
+<<<<<<< HEAD
 =======
 import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
@@ -40,6 +44,18 @@ import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types'
 =======
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm } from '$lib/types';
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm } from '$lib/types';
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+import type { HydrationModel } from '$lib/types';
+>>>>>>> d8810cb (Add cement hydration model selection, calculation, and PDF export)
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -61,7 +77,9 @@ export const materials = writable<MaterialsForm>({
   cementType: 'Type I/II',
   scm: 'None',
   waterCementRatio: '',
-  curing: 'Curing Compound'
+  curing: 'Curing Compound',
+  hydrationModel: null,
+  hydrationModelInputs: {}
 });
 
 export function updateMaterials(patch: Partial<MaterialsForm>) {
@@ -72,6 +90,10 @@ export function updateMaterials(patch: Partial<MaterialsForm>) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
@@ -96,14 +118,19 @@ export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 }
 
 export const weatherStations = writable<WeatherStation[]>([]);
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 export const stationDisplays = writable<StationDisplayData[]>([]);
 
+=======
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
@@ -119,6 +146,8 @@ export const chartImages = writable<{
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 });
 =======
 }
@@ -162,3 +191,22 @@ export const weatherStations = writable<WeatherStation[]>([]);
 =======
 });
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+}
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+}
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+}
+
+export const weatherStations = writable<WeatherStation[]>([]);
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+});
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+});
+
+export const hydrationModelResults = writable<Partial<Record<HydrationModel, Record<string, number>>>>({});
+>>>>>>> d8810cb (Add cement hydration model selection, calculation, and PDF export)
