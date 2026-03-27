@@ -37,7 +37,7 @@
       min="0.37"
       max="0.45"
       step="0.01"
-      placeholder="0.40"
+      placeholder="e.g., 0.40"
       bind:value={$materials.waterCementRatio}
       inputmode="decimal" />
     <p class="text-xs text-gray-600">Allowed range: 0.37 - 0.45</p>

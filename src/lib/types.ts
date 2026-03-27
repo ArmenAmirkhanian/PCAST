@@ -23,6 +23,10 @@ export type MaterialsForm = {
   waterCementRatio: number | '';
   curing: 'Curing Compound' | 'No Curing Compound';
 };
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 
 export type SlabLayoutForm = {
   thickness: number | '';
@@ -31,6 +35,10 @@ export type SlabLayoutForm = {
   jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
   baseType: string;
 };
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 
 export type WeatherStation = {
   stationId: number;
@@ -41,3 +49,27 @@ export type WeatherStation = {
   elevation: number | null;
   distanceKm: number;
 };
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+
+export type HourlyRow = {
+  offsetHr: number;
+  month: number;
+  day: number;
+  hour: number;
+  temp: number | null;
+  cloud: number | null;
+  wind: number | null;
+};
+
+export type StationDisplayData = WeatherStation & {
+  hourly: HourlyRow[];
+};
+>>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
