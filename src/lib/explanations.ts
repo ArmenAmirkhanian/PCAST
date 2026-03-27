@@ -12,7 +12,7 @@ $$\\alpha = \\alpha_u \\cdot \\exp\\!\\left(-\\left[\\frac{\\tau}{t_e}\\right]^{
 
 $$\\tau = 66.78\\,p_{C_3\\!A}^{-0.154}\\,p_{C_3\\!S}^{-0.401}\\,\\mathrm{Blaine}^{-0.804}\\,p_{SO_3}^{-0.758}\\cdot\\exp(2.187\\,p_{\\mathrm{SLAG}}+9.5\\,p_{\\mathrm{FA}}\\,p_{\\mathrm{FA\\text{-}CaO}})$$
 
-$$\\beta = 181.4\\,p_{C_3\\!A}^{0.146}\\,p_{C_3\\!S}^{0.227}\\,\\mathrm{Blaine}^{-0.535}\\,p_{SO_3}^{-0.558}\\cdot\\exp(-0.647\\,p_{\\mathrm{SLAG}})$$
+$$\\beta = 181.4\\,p_{C_3\\!A}^{0.146}\\,p_{C_3\\!S}^{0.227}\\,\\mathrm{Blaine}^{-0.535}\\,p_{SO_3}^{0.558}\\cdot\\exp(-0.647\\,p_{\\mathrm{SLAG}})$$
 
 $$\\alpha_u = \\frac{1.031\\,(w/c)}{0.194+w/c}+0.50\\,p_{\\mathrm{FA}}+0.30\\,p_{\\mathrm{SLAG}}\\leq 1.0$$
 `.trim(),

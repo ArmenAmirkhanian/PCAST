@@ -1,0 +1,19 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Git Pull All Branches on Startup",
+			"type": "shell",
+			"command": "current=$(git branch --show-current) && for branch in $(git branch --format='%(refname:short)'); do echo \"Pulling $branch...\" && git checkout $branch && git pull origin $branch; done && git checkout $current && echo \"Done! Back on $current.\"",
+			"runOptions": {
+				"runOn": "folderOpen"
+			},
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared",
+				"close": true
+			},
+			"problemMatcher": []
+		}
+	]
+}

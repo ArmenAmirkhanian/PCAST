@@ -96,7 +96,7 @@
                   Math.pow(Blaine, -0.804) * Math.pow(pSO3, -0.758) *
                   Math.exp(2.187 * pSLAG + 9.5 * pFA * pFACaO);
     const beta  = 181.4 * Math.pow(pC3A, 0.146) * Math.pow(pC3S, 0.227) *
-                  Math.pow(Blaine, -0.535) * Math.pow(pSO3, -0.558) *
+                  Math.pow(Blaine, -0.535) * Math.pow(pSO3, 0.558) *
                   Math.exp(-0.647 * pSLAG);
     const au    = Math.min(1.031 * wcn / (0.194 + wcn) + 0.50 * pFA + 0.30 * pSLAG, 1.0);
     const T_K   = T + 273.15;
