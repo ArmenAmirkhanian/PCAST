@@ -21,6 +21,8 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   // Update map center when user selects a city and fetch nearest weather stations
   $: if (selected?.longitude != null && selected?.latitude != null) {
     site.set([selected.longitude, selected.latitude]);
@@ -38,15 +40,23 @@
         stations.set([]);
       });
 =======
+=======
+>>>>>>> d35c6c3 (Updated Maptiler so that the homepage map automatically animates to show the new coordinates when user inputs informaton.)
   // Update map center when user selects a city and clear old stations
   $: if (selected?.longitude != null && selected?.latitude != null) {
     site.set([selected.longitude, selected.latitude]);
     stations.set([]);
+<<<<<<< HEAD
 >>>>>>> d35c6c3 (Updated Maptiler so that the homepage map automatically animates to show the new coordinates when user inputs informaton.)
 =======
   // Update map center when user selects a city and fetch nearest weather stations
   $: if (selected?.longitude != null && selected?.latitude != null) {
     site.set([selected.longitude, selected.latitude]);
+=======
+  // Update map center when user selects a city and fetch nearest weather stations
+  $: if (selected?.longitude != null && selected?.latitude != null) {
+    site.set([selected.longitude, selected.latitude]);
+>>>>>>> 65ade0c (Add dynamic nearest weather stations to map)
 
     // Fetch the 3 nearest weather stations from the database
     fetch(`/api/nearest?lat=${selected.latitude}&lon=${selected.longitude}&k=3`)
@@ -60,6 +70,11 @@
         console.error('Failed to fetch nearest stations:', err);
         stations.set([]);
       });
+<<<<<<< HEAD
+>>>>>>> 65ade0c (Add dynamic nearest weather stations to map)
+=======
+>>>>>>> d35c6c3 (Updated Maptiler so that the homepage map automatically animates to show the new coordinates when user inputs informaton.)
+=======
 >>>>>>> 65ade0c (Add dynamic nearest weather stations to map)
   }
 

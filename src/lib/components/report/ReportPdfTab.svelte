@@ -14,9 +14,23 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 =======
   import { get } from 'svelte/store';
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+  import { onMount } from 'svelte';
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
+=======
+  import { get } from 'svelte/store';
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
   import { onMount } from 'svelte';
@@ -41,6 +55,12 @@
 =======
   import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
+=======
+  import { projectInfo, materials, slabLayout, weatherStations } from '$lib/stores/form';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+  import { projectInfo, materials, slabLayout, weatherStations, chartImages } from '$lib/stores/form';
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
   import { site, allPoints } from '$lib/stores/stations';
   import { unitSystem } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
@@ -53,6 +73,26 @@
   import { projectInfo } from '$lib/stores/form';
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+=======
+  import { projectInfo, materials } from '$lib/stores/form';
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+  import { projectInfo, materials, slabLayout } from '$lib/stores/form';
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+  import { site, allPoints } from '$lib/stores/stations';
+  import { unitSystem } from '$lib/stores/units';
+  import StaticMapView from '$lib/components/report/StaticMapView.svelte';
+  import placesIndex from '$lib/data/places-index.json';
+  import type { PlacesIndex } from '$lib/types';
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+  // Report PDF Tab - displays a preview of the 8.5x11 report
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+  import { projectInfo } from '$lib/stores/form';
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 =======
@@ -96,14 +136,22 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   const index = placesIndex as PlacesIndex;
 
+<<<<<<< HEAD
 =======
   const index = placesIndex as PlacesIndex;
 
 <<<<<<< HEAD
+=======
+  const index = placesIndex as PlacesIndex;
+
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
   // Get selected location data
   $: selectedLocation = (() => {
     if (!$projectInfo.state || !$projectInfo.city) return null;
@@ -112,6 +160,11 @@
     ) || null;
   })();
 
+<<<<<<< HEAD
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
@@ -134,6 +187,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
 =======
 >>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
 =======
@@ -144,6 +201,12 @@
       const date = new Date(year, month - 1, day);
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+      const date = new Date(dateStr);
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> 2463e27 (Fix date off-by-one error in Report PDF)
 =======
       const date = new Date(dateStr);
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
@@ -170,6 +233,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
 =======
 >>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
 =======
@@ -181,6 +248,12 @@
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+    return hourStr;
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> 76eabbd (Add AM/PM formatting to time fields in Report PDF)
 =======
     return hourStr;
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
@@ -195,6 +268,10 @@
 
   function formatTemp(temp: number | ''): string {
     if (temp === '') return 'Not specified';
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     if (snap.unitSystem !== 'us') {
       return `${Math.round((temp as number - 32) * 5 / 9)}°C`;
     }
@@ -205,6 +282,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
 =======
 >>>>>>> 1c27bc7 (Add Materials section to Report PDF)
 =======
@@ -229,6 +309,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
@@ -249,6 +334,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 =======
@@ -257,15 +344,28 @@
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
   function formatElevation(elevation: number | null): string {
     if (elevation === null) return '—';
     if (snap.unitSystem === 'us') {
       return `${(elevation * 3.28084).toFixed(1)} ft`;
     }
+<<<<<<< HEAD
+=======
+  function formatElevation(elevation: number | null): string {
+    if (elevation === null) return '—';
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     return `${elevation.toFixed(1)} m`;
   }
 
   function formatDistance(distance: number): string {
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
     if (snap.unitSystem === 'us') {
       return `${(distance * 0.621371).toFixed(1)} mi`;
     }
@@ -294,6 +394,22 @@
 >>>>>>> fa18172 (Add Slab Layout section to Report PDF)
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    return `${temp}°F`;
+  }
+
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> 1c27bc7 (Add Materials section to Report PDF)
+=======
+>>>>>>> fa18172 (Add Slab Layout section to Report PDF)
+=======
+    return `${distance.toFixed(1)} km`;
+  }
+
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
   // Get current date formatted
   function getFormattedDate(): string {
     return new Date().toLocaleDateString('en-US', {
@@ -309,6 +425,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
@@ -317,6 +437,8 @@
     { id: 'materials', title: 'Materials', page: 5, indent: false },
     { id: 'slab-layout', title: 'Slab Layout', page: 6, indent: false },
     { id: 'environment', title: 'Environment', page: 7, indent: false },
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -351,6 +473,8 @@
 =======
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
     { id: 'project-info', title: 'Project Information', page: 4 },
     { id: 'materials', title: 'Materials', page: 5 },
     { id: 'slab-layout', title: 'Slab Layout', page: 6 },
@@ -359,14 +483,19 @@
     { id: 'results', title: 'Results', page: 9 },
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     { id: 'appendices', title: 'Appendices', page: 11 }
 =======
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
     { id: 'analysis', title: 'Analysis', page: 8, indent: false },
     { id: 'results', title: 'Results', page: 9, indent: false },
     { id: 'appendices', title: 'Appendices', page: 10, indent: false },
     { id: 'appendix-a', title: 'Appendix A', page: 11, indent: true }
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
@@ -376,10 +505,15 @@
   const totalPages = 12;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
   // Build a frozen snapshot of all store values for the preview.
   // The preview only updates when the user explicitly requests a refresh.
+=======
+  // Snapshot of all store values — only updated when the user clicks "Update PDF".
+  // The preview renders from this snapshot so it never changes on its own.
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
   // Snapshot of all store values — only updated when the user clicks "Update PDF".
   // The preview renders from this snapshot so it never changes on its own.
@@ -397,7 +531,10 @@
       weatherStations: [...get(weatherStations)],
       chartImages: { ...get(chartImages) },
 <<<<<<< HEAD
+<<<<<<< HEAD
       stationDisplays: get(stationDisplays).map((s) => ({ ...s, hourly: [...s.hourly] })),
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
       site: get(site),
@@ -408,6 +545,10 @@
   }
 
   let snap = buildSnapshot();
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   let isDirty = false;
 
   // Mark the button dirty whenever any input store changes after mount.
@@ -419,6 +560,7 @@
     isDirty = false;
     return () => unsubs.forEach((u) => u());
   });
+<<<<<<< HEAD
 
 <<<<<<< HEAD
   function refreshPreview() {
@@ -427,6 +569,17 @@
 
   // These format functions reference snap.unitSystem so must be declared after snap.
 =======
+  function updatePdf() {
+    snap = buildSnapshot();
+    isDirty = false;
+  }
+
+  // These depend on snap.unitSystem so must come after snap is declared.
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
+
   function updatePdf() {
     snap = buildSnapshot();
     isDirty = false;
@@ -447,6 +600,7 @@
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 1a81cfc (Freeze PDF preview until user explicitly refreshes)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -458,10 +612,31 @@
 =======
 >>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
 =======
+=======
+>>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
     { id: 'analysis', title: 'Analysis', page: 9, indent: false },
     { id: 'results', title: 'Results', page: 10, indent: false },
     { id: 'appendices', title: 'Appendices', page: 11, indent: false },
     { id: 'appendix-a', title: 'Appendix A', page: 12, indent: true }
+<<<<<<< HEAD
+>>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
+  ];
+
+  const totalPages = 12;
+
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    { id: 'appendices', title: 'Appendices', page: 10 }
+=======
+    { id: 'appendices', title: 'Appendices', page: 11 }
+>>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
+=======
 >>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
   ];
 
@@ -474,6 +649,7 @@
     if (isGenerating) return;
     isGenerating = true;
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     // Refresh the snapshot so the downloaded PDF reflects the latest inputs
     refreshPreview();
@@ -589,6 +765,43 @@
 =======
           allowTaint: true,
 >>>>>>> 2c32951 (Fix map not appearing in downloaded PDF)
+=======
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      // Temporarily adjust styles for PDF generation
+      paperPreview.style.zoom = '1';
+      const pages = paperPreview.querySelectorAll<HTMLElement>('.page');
+      pages.forEach((page) => {
+        page.style.marginBottom = '0';
+        page.style.boxShadow = 'none';
+        page.style.borderRadius = '0';
+      });
+
+      // Wait for all images (including map) to be fully loaded
+      const images = paperPreview.querySelectorAll('img');
+      await Promise.all(
+        Array.from(images).map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = () => resolve(null);
+            img.onerror = () => resolve(null);
+          });
+        })
+      );
+
+      const options = {
+        margin: 0,
+        filename: 'pavement-cracking-report.pdf',
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+<<<<<<< HEAD
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+          allowTaint: true,
+>>>>>>> 2c32951 (Fix map not appearing in downloaded PDF)
           letterRendering: true
         },
         jsPDF: {
@@ -598,7 +811,15 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
           orientation: 'portrait' as const
+=======
+          orientation: 'portrait'
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+          orientation: 'portrait' as const
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
           orientation: 'portrait'
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -619,6 +840,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
@@ -633,6 +858,11 @@
       });
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
@@ -654,7 +884,16 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   <button class="refresh-btn" on:click={refreshPreview} disabled={isGenerating}>
+=======
+  <button class="update-btn" on:click={updatePdf} disabled={isGenerating}>
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
+  <button class="update-btn" class:dirty={isDirty} on:click={updatePdf} disabled={isGenerating}>
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
 =======
   <button class="update-btn" on:click={updatePdf} disabled={isGenerating}>
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
@@ -667,8 +906,15 @@
       <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
     </svg>
 <<<<<<< HEAD
+<<<<<<< HEAD
     Refresh Preview
   </button>
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    Update PDF
+  </button>
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
@@ -694,6 +940,8 @@
 
 <div class="report-container">
   <div class="paper-preview" bind:this={paperPreview}>
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -1089,12 +1337,15 @@
 =======
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     <div class="paper-content">
       <!-- Header -->
       <div class="report-header">
         <h1>Pavement Cracking Analysis Report</h1>
         <p class="subtitle">Generated Report Preview</p>
       </div>
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
@@ -1365,6 +1616,328 @@
             {#if $chartImages.cloud}
               <div class="chart-wrapper">
                 <img src={$chartImages.cloud} alt="Cloud Cover Chart" class="chart-image" />
+              </div>
+            {/if}
+          </div>
+        </div>
+        <div class="page-number">
+          <p>8</p>
+        </div>
+      </div>
+    {/if}
+
+    <!-- PAGES 9-10: Other Section Pages -->
+    {#each sections.slice(4, 6) as section}
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">{section.title}</h2>
+          <div class="title-rule"></div>
+          <p class="section-placeholder">Content for {section.title} will appear here.</p>
+        </div>
+        <div class="page-number">
+          <p>{section.page}</p>
+        </div>
+      </div>
+    {/each}
+
+<<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    <!-- PAGE 10: Appendices Divider -->
+=======
+    <!-- PAGE 11: Appendices Divider -->
+>>>>>>> b2bba06 (Split Environment section to prevent chart cutoff)
+    <div class="page cover-page">
+      <div class="cover-content">
+        <div class="cover-title-block">
+          <h1 class="cover-title">APPENDICES</h1>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 12: Appendix A -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Appendix A</h2>
+        <div class="title-rule"></div>
+        <h3 class="section-subheading">Weather Station Data</h3>
+        <p class="section-placeholder">Content for Weather Station Data will appear here.</p>
+      </div>
+      <div class="page-number">
+        <p>12</p>
+      </div>
+    </div>
+
+>>>>>>> 588e01c (Add APPENDICES divider page before Appendices section)
+=======
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+
+    <!-- PAGE 1: Cover Page -->
+    <div class="page cover-page">
+      <div class="cover-content">
+        <div class="cover-title-block">
+          <h1 class="cover-title">Pavement Cracking<br/>Analysis Report</h1>
+          <div class="cover-divider"></div>
+          <p class="cover-location">
+            {#if snap.projectInfo.city && snap.projectInfo.state}
+              {snap.projectInfo.city}, {snap.projectInfo.state}
+            {:else}
+              Location not specified
+            {/if}
+          </p>
+          <p class="cover-date">{getFormattedDate()}</p>
+        </div>
+      </div>
+      <div class="cover-footer">
+        <p>Report generated using Pavement Cracking Tool website, developed by the Civil, Construction and Environmental Engineering Department at The University of Alabama. Roll Tide.</p>
+      </div>
+    </div>
+<<<<<<< HEAD
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+
+    <!-- PAGE 2: Disclaimer -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Disclaimer</h2>
+        <div class="title-rule"></div>
+        <p>Armen, you gotta say something official here so they know that if something goes wrong it's not our fault.</p>
+      </div>
+      <div class="page-number">
+        <p>2</p>
+      </div>
+    </div>
+
+    <!-- PAGE 3: Table of Contents -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Table of Contents</h2>
+        <div class="title-rule"></div>
+        <div class="toc-list">
+          {#each sections as section}
+            <div class="toc-entry" class:toc-entry-indent={section.indent}>
+              <span class="toc-label">{section.title}</span>
+              <span class="toc-dots"> .................................................................................................................................................... </span>
+              <span class="toc-page">{section.page}</span>
+            </div>
+          {/each}
+        </div>
+      </div>
+      <div class="page-number">
+        <p>3</p>
+      </div>
+    </div>
+
+    <!-- PAGE 4: Project Information -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Project Information</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">State:</span>
+            <span class="info-value">{formatValue(snap.projectInfo.state)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">City:</span>
+            <span class="info-value">{formatValue(snap.projectInfo.city)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Latitude:</span>
+            <span class="info-value">{formatCoord(snap.selectedLocation?.latitude ?? null)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Longitude:</span>
+            <span class="info-value">{formatCoord(snap.selectedLocation?.longitude ?? null)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Date:</span>
+            <span class="info-value">{formatDate(snap.projectInfo.date)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Start Hour:</span>
+            <span class="info-value">{formatHour(snap.projectInfo.startHour)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Construction Start Temperature:</span>
+            <span class="info-value">{formatTemp(snap.projectInfo.startTempF)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Concrete Delivery Temperature:</span>
+            <span class="info-value">{formatTemp(snap.projectInfo.deliveryTempF)}</span>
+          </div>
+        </div>
+
+        {#if snap.site && snap.site.length === 2}
+          <div class="map-section">
+            <h3 class="map-title">Project Location Map</h3>
+            <div class="map-container">
+              <StaticMapView center={snap.site as [number, number]} points={snap.allPoints as [number, number][]} />
+            </div>
+          </div>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>4</p>
+      </div>
+    </div>
+
+    <!-- PAGE 5: Materials -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Materials</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Cement Type:</span>
+            <span class="info-value">{formatValue(snap.materials.cementType)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">SCM:</span>
+            <span class="info-value">{formatValue(snap.materials.scm)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">
+              w/c (m):
+              <div style="font-size: 10pt; color: #666; font-weight: normal; margin-top: 2pt;">Allowed range: 0.37 - 0.45</div>
+            </span>
+            <span class="info-value">{formatWaterCementRatio(snap.materials.waterCementRatio)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Curing:</span>
+            <span class="info-value">{formatCuring(snap.materials.curing)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">
+        <p>5</p>
+      </div>
+    </div>
+
+    <!-- PAGE 6: Slab Layout -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Slab Layout</h2>
+        <div class="title-rule"></div>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Slab Thickness:</span>
+            <span class="info-value">{formatThickness(snap.slabLayout.thickness)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Joint Spacing:</span>
+            <span class="info-value">{formatJointSpacing(snap.slabLayout.jointSpacing)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Expected Saw Cutting Time:</span>
+            <span class="info-value">{formatHour(snap.slabLayout.sawCutHour)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Joint Type:</span>
+            <span class="info-value">{formatValue(snap.slabLayout.jointType)}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Base Type:</span>
+            <span class="info-value">{formatValue(snap.slabLayout.baseType)}</span>
+          </div>
+        </div>
+      </div>
+      <div class="page-number">
+        <p>6</p>
+      </div>
+    </div>
+
+    <!-- PAGE 7: Environment -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Environment</h2>
+        <div class="title-rule"></div>
+
+        <h3 class="section-subheading">Nearest Weather Stations</h3>
+
+        {#if snap.selectedLocation}
+          <div class="env-info">
+            <p>
+              <span class="env-label">Selected location:</span>
+              <span class="env-value">{snap.selectedLocation.city}, {snap.projectInfo.state}</span>
+              <span class="env-coords">({formatCoord(snap.selectedLocation.latitude)}, {formatCoord(snap.selectedLocation.longitude)})</span>
+            </p>
+            <p>
+              <span class="env-label">Start date:</span>
+              <span class="env-value">{formatDate(snap.projectInfo.date)}</span>
+              <span class="env-label">at hour</span>
+              <span class="env-value">{formatHour(snap.projectInfo.startHour)}</span>
+            </p>
+          </div>
+        {/if}
+
+        {#if snap.weatherStations.length > 0}
+          <div class="weather-table-wrapper">
+            <table class="weather-table">
+              <thead>
+                <tr>
+                  <th>Station</th>
+                  <th>Latitude</th>
+                  <th>Longitude</th>
+                  <th>Elevation</th>
+                  <th>Distance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each snap.weatherStations as station}
+                  <tr>
+                    <td>
+                      <div class="station-name">{station.name ?? 'Station'}</div>
+                      <div class="station-id">{station.ghcnId ?? 'N/A'}</div>
+                    </td>
+                    <td>{formatCoord(station.latitude)}</td>
+                    <td>{formatCoord(station.longitude)}</td>
+                    <td>{formatElevation(station.elevation)}</td>
+                    <td>{formatDistance(station.distanceKm)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {:else}
+          <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
+        {/if}
+
+        {#if snap.chartImages.temp}
+          <h3 class="section-subheading">72-Hour Charts (Plotly)</h3>
+          <div class="charts-container">
+            <div class="chart-wrapper">
+              <img src={snap.chartImages.temp} alt="Temperature Chart" class="chart-image" />
+            </div>
+          </div>
+        {/if}
+      </div>
+      <div class="page-number">
+        <p>7</p>
+      </div>
+    </div>
+
+    <!-- PAGE 8: Environment - Remaining Charts -->
+    {#if snap.chartImages.wind || snap.chartImages.cloud}
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">Environment</h2>
+          <div class="title-rule"></div>
+
+          <div class="charts-container">
+            {#if snap.chartImages.wind}
+              <div class="chart-wrapper">
+                <img src={snap.chartImages.wind} alt="Wind Speed Chart" class="chart-image" />
+              </div>
+            {/if}
+            {#if snap.chartImages.cloud}
+              <div class="chart-wrapper">
+                <img src={snap.chartImages.cloud} alt="Cloud Cover Chart" class="chart-image" />
               </div>
             {/if}
           </div>
@@ -1750,7 +2323,14 @@
     justify-content: flex-end;
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     gap: 0.75rem;
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+    gap: 0.75rem;
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
@@ -1763,7 +2343,12 @@
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   .refresh-btn {
+=======
+  .update-btn {
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
   .update-btn {
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
@@ -1773,8 +2358,13 @@
     padding: 0.625rem 1.25rem;
     background-color: white;
 <<<<<<< HEAD
+<<<<<<< HEAD
     color: #374151;
     border: 1px solid #d1d5db;
+=======
+    color: #2563eb;
+    border: 1.5px solid #2563eb;
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
     color: #2563eb;
     border: 1.5px solid #2563eb;
@@ -1783,6 +2373,7 @@
     font-weight: 500;
     font-size: 0.875rem;
     cursor: pointer;
+<<<<<<< HEAD
 <<<<<<< HEAD
     transition: background-color 0.2s, border-color 0.2s;
   }
@@ -1800,6 +2391,8 @@
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
     transition: background-color 0.2s, color 0.2s;
   }
 
@@ -1818,8 +2411,12 @@
   }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
 =======
+=======
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   .update-btn.dirty {
     animation: update-pulse 1.8s ease-in-out infinite;
   }
@@ -1839,6 +2436,13 @@
     }
   }
 
+<<<<<<< HEAD
+>>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> cedb080 (Freeze PDF preview until user explicitly clicks Update PDF)
+=======
 >>>>>>> fe6cc5f (Add dirty-state flash to Update PDF button and unit-aware formatting)
   .download-btn {
     display: flex;
@@ -1890,6 +2494,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     height: 85vh;
     overflow-y: auto;
   }
@@ -1908,11 +2514,14 @@
 =======
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     min-height: 80vh;
   }
 
   .paper-preview {
     /* 8.5 x 11 inches - exact dimensions */
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
@@ -1921,6 +2530,13 @@
   }
 
   .paper-preview {
+=======
+    height: 85vh;
+    overflow-y: auto;
+  }
+
+  .paper-preview {
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
     height: 85vh;
     overflow-y: auto;
@@ -1939,6 +2555,11 @@
   /* ---- Shared page styles ---- */
   .page {
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -1957,6 +2578,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     box-sizing: border-box;
     margin-bottom: 2rem;
   }
@@ -1969,12 +2592,15 @@
 =======
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 1rem;
     line-height: 1.5;
   }
 
   .paper-content {
+<<<<<<< HEAD
 <<<<<<< HEAD
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
@@ -1988,12 +2614,23 @@
   }
 
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+    box-sizing: border-box;
+    margin-bottom: 2rem;
+  }
+
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
   .page:last-child {
     margin-bottom: 0;
   }
 
   .page-content {
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
 >>>>>>> 7b4388f (Update Report PDF formatting and structure)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
@@ -2009,8 +2646,12 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   .page-number {
 =======
+=======
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
   .report-header {
@@ -2060,6 +2701,12 @@
 
   .report-footer {
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+  .page-number {
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
 >>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
 =======
   .page-number {
@@ -2074,6 +2721,8 @@
     left: 1in;
     right: 1in;
     text-align: center;
+<<<<<<< HEAD
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -2176,6 +2825,7 @@
     padding-left: 0.25in;
   }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
   .toc-label {
@@ -2281,6 +2931,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
 >>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
@@ -2306,10 +2960,19 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   }
 
 =======
 >>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+=======
+    max-width: 7.5in;
+=======
+>>>>>>> bf7d28e (Move chart legends below and use full page width)
+  }
+
+>>>>>>> 9e24379 (Add 72-hour Plotly charts to Report PDF Environment section)
 =======
     max-width: 7.5in;
 =======
@@ -2604,6 +3267,188 @@
     border: 0.5pt solid #d1d5db;
   }
 >>>>>>> 4d385f5 (User interface updates: Appendix A weather station tables and input placeholder fix)
+=======
+    border-top: 1px solid #d1d5db;
+    padding-top: 1rem;
+=======
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+  }
+
+  .page-number p {
+    font-size: 12pt;
+    color: #000000;
+  }
+
+<<<<<<< HEAD
+>>>>>>> bab3b5f (Add Report PDF tab with downloadable PDF generation)
+=======
+  .page-title {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+    padding: 0;
+  }
+
+  .title-rule {
+    width: 100%;
+    height: 2px;
+    background-color: #000000;
+    margin-top: 6pt;
+    margin-bottom: 18pt;
+  }
+
+  /* ---- Cover page ---- */
+  .cover-page {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .cover-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1in;
+    box-sizing: border-box;
+  }
+
+  .cover-title-block {
+    text-align: center;
+  }
+
+  .cover-title {
+    font-size: 24pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0;
+    line-height: 1.3;
+  }
+
+  .cover-divider {
+    width: 4in;
+    height: 3px;
+    background-color: #000000;
+    margin: 1.5rem auto;
+  }
+
+  .cover-location {
+    font-size: 16pt;
+    color: #000000;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .cover-date {
+    font-size: 16pt;
+    color: #000000;
+    margin: 0;
+  }
+
+  .cover-footer {
+    padding: 0 1in 1in 1in;
+    text-align: center;
+  }
+
+  .cover-footer p {
+    font-size: 12pt;
+    color: #000000;
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* ---- Table of Contents ---- */
+  .toc-list {
+    margin-top: 1rem;
+  }
+
+  .toc-entry {
+    display: flex;
+    align-items: baseline;
+    margin-bottom: 1rem;
+    font-size: 12pt;
+    color: #000000;
+  }
+
+=======
+>>>>>>> 7e87b88 (Update Appendices structure in Report PDF)
+  .toc-label {
+    white-space: nowrap;
+  }
+
+  .toc-dots {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    color: #000000;
+    font-size: 12pt;
+    letter-spacing: 0.2em;
+  }
+
+  .toc-page {
+    white-space: nowrap;
+    color: #000000;
+  }
+
+  /* ---- Section pages ---- */
+  .section-subheading {
+    font-family: Calibri, sans-serif;
+    font-size: 14pt;
+    font-weight: bold;
+    color: #000000;
+    margin-top: 18pt;
+    margin-bottom: 6pt;
+  }
+
+  .section-placeholder {
+    color: #000000;
+    margin-top: 1rem;
+  }
+<<<<<<< HEAD
+>>>>>>> 7b4388f (Update Report PDF formatting and structure)
+=======
+
+=======
+>>>>>>> 17e3f7e (Add Environment section with weather station data to Report PDF)
+  /* ---- Project Information section ---- */
+  .info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8pt;
+    margin-bottom: 18pt;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: baseline;
+  }
+
+  .info-label {
+    font-weight: 700;
+    min-width: 200pt;
+    color: #000000;
+  }
+
+  .info-value {
+    color: #000000;
+  }
+
+  .map-section {
+    margin-top: 18pt;
+  }
+
+  .map-title {
+    font-size: 14pt;
+    font-weight: 700;
+    color: #000000;
+    margin: 0 0 12pt 0;
+  }
+
+  .map-container {
+    width: 100%;
+    height: 300pt;
+    border: 1px solid #000000;
+  }
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
     border-top: 1px solid #d1d5db;
     padding-top: 1rem;

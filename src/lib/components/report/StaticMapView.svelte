@@ -18,6 +18,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> d18491d (Make StaticMapView reactive to location changes)
 =======
 >>>>>>> d18491d (Make StaticMapView reactive to location changes)
 =======
@@ -53,6 +57,11 @@
   }
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> d18491d (Make StaticMapView reactive to location changes)
 =======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
@@ -92,7 +101,15 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
     maplibregl = (await import('maplibre-gl')).default;
+=======
+    const maplibregl = (await import('maplibre-gl')).default;
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+    maplibregl = (await import('maplibre-gl')).default;
+>>>>>>> d18491d (Make StaticMapView reactive to location changes)
 =======
     const maplibregl = (await import('maplibre-gl')).default;
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
@@ -164,6 +181,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ea08282 (Fix map not appearing in preview)
 =======
 >>>>>>> ea08282 (Fix map not appearing in preview)
 =======
@@ -188,7 +209,10 @@
       });
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
       setTimeout(() => {
@@ -199,6 +223,11 @@
         }
       }, 1000);
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+>>>>>>> ea08282 (Fix map not appearing in preview)
+=======
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
 =======
 >>>>>>> ea08282 (Fix map not appearing in preview)
@@ -216,7 +245,15 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
   <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
+=======
+  <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
+>>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
+=======
+  <div bind:this={el} class="map-element" style={(mapLoaded && mapImageSrc) ? 'display: none;' : ''}></div>
+>>>>>>> ea08282 (Fix map not appearing in preview)
 =======
   <div bind:this={el} class="map-element" style={mapLoaded ? 'display: none;' : ''}></div>
 >>>>>>> bfef8f9 (Adjust map zoom and fix legend in PDF download)
