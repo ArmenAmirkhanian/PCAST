@@ -7,6 +7,8 @@ From these candidates, the query computes the true great-circle distance using t
 $$d = 2R \\cdot \\arcsin\\left(\\sqrt{ \\sin^2\\left(\\Delta\\varphi/2\\right) + \\cos\\left(\\varphi_1\\right)\\cos\\left(\\varphi_2\\right)\\sin^2\\left(\\Delta\\lambda/2\\right) }\\right)$$,
 
 where $R$ = 6371 km is the Earth’s radius, $\\varphi_1$ is the input latitude in radians, $\\varphi_2$ is the station latitude in radians, and $\\Delta\\varphi$ and $\\Delta\\lambda$ are the latitude and longitude differences in radians. The stations are then sorted by this computed distance, and the nearest three weather stations are returned.
+
+Once the nearest stations are identified, their climate data are combined using Inverse-Distance Weighting (IDW) with a power of 2. Under typical conditions, all three stations contribute to the blended weather input, with closer stations receiving proportionally greater weight. However, when one or two stations are significantly closer to the selected location than the rest, only those nearby stations are used. Specifically, if the single nearest station is within 3 miles of the target coordinates, only that station’s data is used. If two stations are both within 10 miles while the third is farther away, only those two stations are blended. This prevents distant stations from diluting the influence of highly representative nearby observations.
 `.trim(),
 
   climateNormalsExplanation: `
