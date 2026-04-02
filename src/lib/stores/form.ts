@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
-import type { ProjectInfoForm } from '$lib/types';
+import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
+import type { HydrationModel } from '$lib/types';
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -16,3 +17,45 @@ export const projectInfo = writable<ProjectInfoForm>({
 export function updateProjectInfo(patch: Partial<ProjectInfoForm>) {
   projectInfo.update((f) => ({ ...f, ...patch }));
 }
+
+export const materials = writable<MaterialsForm>({
+  cementType: 'Type I/II',
+  scm: 'None',
+  waterCementRatio: '',
+  curing: 'Curing Compound',
+  hydrationModel: null,
+  hydrationModelInputs: {}
+});
+
+export function updateMaterials(patch: Partial<MaterialsForm>) {
+  materials.update((m) => ({ ...m, ...patch }));
+}
+
+export const slabLayout = writable<SlabLayoutForm>({
+  thickness: '',
+  jointSpacing: '',
+  sawCutHour: '',
+  jointType: 'Aggregate Interlock',
+  baseType: 'Granular'
+});
+
+export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
+  slabLayout.update((s) => ({ ...s, ...patch }));
+}
+
+export const weatherStations = writable<WeatherStation[]>([]);
+
+/** When true, all three fetched stations are used in calculations regardless of distance. */
+export const forceAllStations = writable(false);
+
+export const chartImages = writable<{
+  temp: string;
+  wind: string;
+  cloud: string;
+}>({
+  temp: '',
+  wind: '',
+  cloud: ''
+});
+
+export const hydrationModelResults = writable<Partial<Record<HydrationModel, Record<string, number>>>>({});

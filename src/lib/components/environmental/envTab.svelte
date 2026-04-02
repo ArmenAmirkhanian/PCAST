@@ -3,7 +3,8 @@
   export let climateNormalsHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo } from '$lib/stores/form';
+  import { projectInfo, weatherStations, chartImages, forceAllStations } from '$lib/stores/form';
+  import { computeIdwWeights } from '$lib/models/illitherm/weather';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -79,6 +80,15 @@
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
+  let sqlButtonFlash = false;
+
+  async function toggleForceAllStations() {
+    forceAllStations.update(v => !v);
+    sqlButtonFlash = false;
+    await tick();
+    sqlButtonFlash = true;
+    setTimeout(() => { sqlButtonFlash = false; }, 1050);
+  }
 
   // Track previous projectInfo to detect changes and reset state
   let prevProjectInfoJson = '';
@@ -216,6 +226,25 @@
     hourly: toHourlyRows(station.readings)
   }));
 
+  // Stations actually used in calculations — all three when override is active,
+  // otherwise only those with a non-zero IDW weight.
+  $: activeStationDisplays = (() => {
+    if ($forceAllStations) return stationDisplays;
+    const weights = computeIdwWeights(groupedStations.map(s => s.distanceKm * 0.621371));
+    return stationDisplays.filter((_, i) => (weights[i] ?? 0) > 0);
+  })();
+
+  // Update weatherStations store with only the active (calculation) stations
+  $: weatherStations.set(activeStationDisplays.map((station) => ({
+    stationId: station.stationId,
+    ghcnId: station.ghcnId,
+    name: station.name,
+    latitude: station.latitude,
+    longitude: station.longitude,
+    elevation: station.elevation,
+    distanceKm: station.distanceKm
+  })));
+
   $: selectedDate = $projectInfo.date
     ? new Date(`${$projectInfo.date}T00:00:00Z`)
     : null;
@@ -242,8 +271,8 @@
     }
   });
 
-  const buildTraces = (metric: MetricKey): PlotData[] => {
-    return stationDisplays
+  const buildTraces = (metric: MetricKey, displays: StationDisplay[]): PlotData[] => {
+    return displays
       .map((station) => {
         const x: number[] = [];
         const y: number[] = [];
@@ -280,9 +309,10 @@
     });
   };
 
-  const renderCharts = async () => {
+  const renderCharts = async (displays: StationDisplay[]) => {
     if (!browser || !Plotly) return;
     chartError = '';
+    console.log('[renderCharts] called with', displays.length, 'station(s):', displays.map(s => s.name));
     await tick();
 
     const config: Partial<Config> = {
@@ -308,10 +338,42 @@
       xaxis: { title: 'Offset hour (0–71)', dtick: 6, tick0: 0 }
     };
 
+    // Layout overrides for PDF capture: legend below chart, larger fonts
+    const pdfLayout: Partial<Layout> = {
+      margin: { t: 50, r: 20, b: 100, l: 70 },
+      height: 540,
+      hovermode: 'x unified',
+      xaxis: {
+        title: { text: 'Offset hour (0–71)', font: { size: 16 } },
+        tickfont: { size: 14 },
+        dtick: 6,
+        tick0: 0
+      },
+      yaxis: {
+        titlefont: { size: 16 },
+        tickfont: { size: 14 }
+      },
+      legend: {
+        orientation: 'h',
+        y: -0.25,
+        x: 0.5,
+        xanchor: 'center',
+        font: { size: 14 }
+      },
+      title: { font: { size: 18 } },
+      showlegend: true
+    };
+
+    const capturedImages: { temp: string; wind: string; cloud: string } = {
+      temp: '',
+      wind: '',
+      cloud: ''
+    };
+
     for (const metric of metrics) {
       const target = chartRefs[metric];
       if (!target) continue;
-      const traces = buildTraces(metric);
+      const traces = buildTraces(metric, displays);
       if (!traces.length) {
         Plotly.purge(target);
         target.innerHTML =
@@ -328,12 +390,49 @@
         },
         config
       );
+
+      // Capture chart as static image for PDF with legend below
+      try {
+        // Temporarily re-render with PDF layout for capture
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...pdfLayout,
+            title: { text: METRIC_DETAILS[metric].title, font: { size: 18 } },
+            yaxis: { title: { text: METRIC_DETAILS[metric].unit, font: { size: 16 } }, tickfont: { size: 14 } }
+          },
+          { ...config, staticPlot: true }
+        );
+        const imgData = await Plotly.toImage(target, {
+          format: 'png',
+          width: 1200,
+          height: 646
+        });
+        capturedImages[metric] = imgData;
+        // Restore the interactive layout for the webpage
+        await Plotly.react(
+          target,
+          traces,
+          {
+            ...baseLayout,
+            title: METRIC_DETAILS[metric].title,
+            yaxis: { title: METRIC_DETAILS[metric].unit }
+          },
+          config
+        );
+      } catch (err) {
+        console.error(`Failed to capture ${metric} chart:`, err);
+      }
     }
+
+    // Update the chartImages store with captured images
+    chartImages.set(capturedImages);
   };
 
-  $: if (plotlyReady && stationDisplays.length) {
-    renderCharts();
-  } else if (plotlyReady && !stationDisplays.length) {
+  $: if (plotlyReady && activeStationDisplays.length) {
+    renderCharts(activeStationDisplays);
+  } else if (plotlyReady && !activeStationDisplays.length) {
     clearCharts();
   }
 
@@ -483,6 +582,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
   }
 
   async function runSqlLookup() {
+    sqlButtonFlash = false;
     errorMessage = '';
     rows = [];
     sqlProgress = [];
@@ -554,6 +654,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
       </div>
       <button
         class="w-full md:w-auto rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+        class:sql-btn-flash={sqlButtonFlash}
         on:click={runSqlLookup}
         disabled={!selectedLocation || isLoading}>
         {#if isLoading}
@@ -644,6 +745,20 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
               {@html stationExplanationHtml}
             </div>
           {/if}
+
+          <div class="pt-1">
+            <button
+              type="button"
+              class="rounded-lg border px-3 py-1.5 text-sm font-medium transition
+                {$forceAllStations
+                  ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700'
+                  : 'border-gray-400 bg-white text-gray-700 hover:bg-gray-50'}"
+              on:click={toggleForceAllStations}>
+              {$forceAllStations
+                ? 'Override active: using all 3 stations'
+                : 'Use all 3 stations regardless of distance'}
+            </button>
+          </div>
         </div>
 
         <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
@@ -670,6 +785,9 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
           <div class="space-y-2">
             <p class="text-sm text-gray-600">
               Returned {rows.length} rows across {stationDisplays.length} station(s) for the next 72 hours.
+              {#if activeStationDisplays.length < stationDisplays.length}
+                Using {activeStationDisplays.length} station{activeStationDisplays.length === 1 ? '' : 's'} in calculations based on proximity.
+              {/if}
             </p>
             <div class="overflow-x-auto rounded border bg-white shadow-sm">
               <table class="min-w-full text-left text-sm">
@@ -683,7 +801,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
                   </tr>
                 </thead>
                 <tbody class="divide-y">
-                  {#each stationDisplays as station}
+                  {#each activeStationDisplays as station}
                     <tr>
                       <td class="px-3 py-2">
                         <div class="font-semibold">{station.name ?? 'Station'}</div>
@@ -730,7 +848,7 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
             <p class="text-sm font-semibold text-gray-700">
               72-hour normals (HLY-TEMP-NORMAL, HLY-CLDH-NORMAL, HLY-WIND-AVGSPD)
             </p>
-            {#each stationDisplays as station}
+            {#each activeStationDisplays as station}
               <div class="rounded border bg-white p-3 shadow-sm">
                 <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                   <div>
@@ -775,3 +893,15 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
     </div>
   </div>
 </div>
+
+<style>
+  @keyframes sql-flash {
+    0%,
+    100% { background-color: #2563eb; } /* blue-600 */
+    50%  { background-color: #f59e0b; } /* amber-500 */
+  }
+
+  .sql-btn-flash {
+    animation: sql-flash 0.35s ease-in-out 3;
+  }
+</style>
