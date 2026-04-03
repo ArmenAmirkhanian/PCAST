@@ -1,6 +1,7 @@
 <script lang="ts">
   import { materials, hydrationModelResults } from '$lib/stores/form';
   import type { HydrationModel } from '$lib/types';
+  import ConcreteMaturitySection from '$lib/components/materials/ConcreteMaturitySection.svelte';
   import {
     HYDRATION_MODELS,
     MODEL_VARIABLES,
@@ -219,12 +220,43 @@
       <h3 class="font-medium">Cement Hydration Model</h3>
       <p class="text-xs text-gray-600 mt-1">
         Choose the cement hydration model you would like to use for your pavement design.
-        Design inputs needed may vary between models. Models from Magazine of Concrete Research,
-        Volume 65 Issue 9 (May 2013).
+        Design inputs needed may vary between models.
       </p>
     </div>
 
     <div class="flex flex-col gap-2">
+      <!-- Default option: Concrete Maturity Model -->
+      <label
+        class="flex items-start gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+        class:border-blue-500={$materials.hydrationModel === null}
+        class:bg-blue-50={$materials.hydrationModel === null}>
+        <input
+          type="radio"
+          name="hydrationModel"
+          value={null}
+          bind:group={$materials.hydrationModel}
+          class="mt-1 shrink-0" />
+        <div class="min-w-0 w-full">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium text-sm">Concrete Maturity Model</span>
+            <span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">Default</span>
+            <span class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">Recommended</span>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            Exponential hydration model based on (Schindler &amp; Folliard) with cement-system-specific
+            coefficients derived from w/cm, cement type, and SCM selection above. The hydration parameters 
+            were obtained through numerous hydration simulations using CemGEMS. Outputs
+            equivalent age, degree of hydration, heat of hydration, and KIC-based early strength
+            over 72 hours.
+          </p>
+          {#if $materials.hydrationModel === null}
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <ConcreteMaturitySection />
+            </div>
+          {/if}
+        </div>
+      </label>
+
       {#each HYDRATION_MODELS as model (model.id)}
         <label
           class="flex items-start gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -328,6 +360,7 @@
       {/each}
     </div>
   </div>
+
 </div>
 
 <style>
