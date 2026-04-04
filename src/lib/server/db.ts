@@ -11,25 +11,44 @@ export const db = new Database(uri, { uri: true, readonly: true });
 */
 
 import Database from 'better-sqlite3';
-import { env } from '$env/dynamic/private'; // SvelteKit server-only env
+import { env } from '$env/dynamic/private';
+import fs from 'node:fs';
 
 let _db: Database.Database | null = null;
+let _dbAvailable = false;
 
-function openDb(): Database.Database {
+function openDb(): Database.Database | null {
   if (_db) return _db;
 
-	const rawPath = env.DB_PATH ?? 'normals_full.db';
+  const rawPath = env.DB_PATH ?? 'normals_full.db';
+  const useMock = env.MOCK_DB === 'true';
 
-	_db = new Database(rawPath, { readonly: true });
+  if (useMock) {
+    console.warn('MOCK_DB enabled — skipping database.');
+    return null;
+  }
 
-	console.log('Opened SQLite at:', rawPath);
+  if (!fs.existsSync(rawPath)) {
+    console.warn(`Database not found at ${rawPath}. Running without DB.`);
+    return null;
+  }
 
-  _db.pragma('query_only = ON');   // blocks INSERT/UPDATE/DELETE
+  try {
+    _db = new Database(rawPath, { readonly: true });
+    _db.pragma('query_only = ON');
 
-	return _db;
+    _dbAvailable = true;
+    console.log('Opened SQLite at:', rawPath);
+
+    return _db;
+  } catch (err) {
+    console.error('Failed to open DB:', err);
+    return null;
+  }
 }
 
 export const db = openDb();
+export const dbAvailable = _dbAvailable;
 
 /** Prepared statements */
 export const nearestStmt = db.prepare(`

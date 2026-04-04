@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { materials, hydrationModelResults } from '$lib/stores/form';
+  import { materials, hydrationModelResults, bentzSeries } from '$lib/stores/form';
   import type { HydrationModel } from '$lib/types';
   import ConcreteMaturitySection from '$lib/components/materials/ConcreteMaturitySection.svelte';
   import {
@@ -63,19 +63,38 @@
   }
 
   // ── calculation functions ─────────────────────────────────────────────────
+
+  // Returns p, R, and alpha at 72 h for the summary results table.
   function calculateBentz(): Record<string, number> | null {
+    // Saturated conditions, Eq 7 in Bentz (2006)
     const wc  = $materials.waterCementRatio;
     const rho = inp('bentz', 'rho_cem');
     const fe  = inp('bentz', 'f_exp');
     const CS  = inp('bentz', 'CS');
     const m   = inp('bentz', 'm');
-    const t   = inp('bentz', 't');
-    if (!isValid(wc) || rho === null || fe === null || CS === null || m === null || t === null) return null;
-    const wcn = wc;
-    const p   = rho * wcn / (fe + rho * CS);
-    const R   = m * (fe + rho * CS) / Math.pow(1 + rho * wcn, 2);
-    const ex  = Math.exp(R * (1 - p) * t);
+    if (!isValid(wc) || rho === null || fe === null || CS === null || m === null) return null;
+    const p  = rho * wc / (fe + rho * CS);
+    const R  = m * (fe + rho * CS) / Math.pow(1 + rho * wc, 2);
+    const ex = Math.exp(R * (1 - p) * 72);
     return { p, R, alpha: p * (ex - 1) / (ex - p) };
+  }
+
+  // Returns α(t) for t = 0..72 h (one point per hour) for plotting.
+  function calculateBentzSeries(): { t: number; alpha: number }[] | null {
+    const wc  = $materials.waterCementRatio;
+    const rho = inp('bentz', 'rho_cem');
+    const fe  = inp('bentz', 'f_exp');
+    const CS  = inp('bentz', 'CS');
+    const m   = inp('bentz', 'm');
+    if (!isValid(wc) || rho === null || fe === null || CS === null || m === null) return null;
+    const p = rho * wc / (fe + rho * CS);
+    const R = m * (fe + rho * CS) / Math.pow(1 + rho * wc, 2);
+    const pts: { t: number; alpha: number }[] = [];
+    for (let t = 0; t <= 72; t++) {
+      const alpha = t === 0 ? 0 : (() => { const ex = Math.exp(R * (1 - p) * t); return p * (ex - 1) / (ex - p); })();
+      pts.push({ t, alpha });
+    }
+    return pts;
   }
 
   function calculateSchindlerFolliard(): Record<string, number> | null {
@@ -156,6 +175,7 @@
       modelDirty   = { ...modelDirty,   [modelId]: false };
       calcError    = { ...calcError,    [modelId]: '' };
       hydrationModelResults.update(r => ({ ...r, [modelId]: result as Record<string, number> }));
+      if (modelId === 'bentz') bentzSeries.set(calculateBentzSeries());
     } else {
       calcError = { ...calcError, [modelId]: 'Please fill in all required inputs.' };
     }
@@ -277,6 +297,11 @@
                 </span>
               {/if}
             </div>
+            {#if model.description}
+              <div class="prose text-xs max-w-none mt-1 text-gray-600">
+                {@html model.description}
+              </div>
+            {/if}
             <div class="prose prose-sm max-w-none mt-1">
               <!-- eslint-disable-next-line svelte/no-at-html-tags -->
               {@html hydrationModelEquations[model.id]}

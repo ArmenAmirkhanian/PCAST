@@ -56,3 +56,15 @@ export const chartImages = writable<{
 });
 
 export const hydrationModelResults = writable<Partial<Record<HydrationModel, Record<string, number>>>>({});
+
+export type BentzPoint = { t: number; alpha: number };
+export const bentzSeries = writable<BentzPoint[] | null>(null);
+
+export type MaturityPoint = {
+  hour: number;
+  equivalentAge: number;
+  degreeOfHydration: number;
+  heatOfHydration: number;
+  strength: number;
+};
+export const maturityResultsStore = writable<MaturityPoint[] | null>(null);

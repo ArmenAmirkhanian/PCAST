@@ -1,11 +1,11 @@
 import type { HydrationModel } from '$lib/types';
 
-export const HYDRATION_MODELS: { id: HydrationModel; name: string; recommended: boolean }[] = [
-  { id: 'bentz',              name: 'Bentz (2006)',                  recommended: true  },
-  { id: 'schindler-folliard', name: 'Schindler and Folliard (2005)', recommended: true  },
-  { id: 'knudsen-linear',     name: 'Knudsen Linear (1984)',         recommended: false },
-  { id: 'knudsen-parabolic',  name: 'Knudsen Parabolic (1984)',      recommended: false },
-  { id: 'lam',                name: 'Lam et al. (2000)',             recommended: false }
+export const HYDRATION_MODELS: { id: HydrationModel; name: string; recommended: boolean; description: string }[] = [
+  { id: 'bentz',              name: 'Bentz (2006)',                  recommended: true, description: 'This model is based on straight portland cements. The author noted that limestone filler was also modeled by the model but it should be cautioned that at that time, Type IL cements were not common. See <a href="https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=101163" target="_blank" rel="noopener noreferrer">Bentz (2006) 🔗</a>.'  },
+  { id: 'schindler-folliard', name: 'Schindler and Folliard (2005)', recommended: true, description: ''  },
+  { id: 'knudsen-linear',     name: 'Knudsen Linear (1984)',         recommended: false, description: '' },
+  { id: 'knudsen-parabolic',  name: 'Knudsen Parabolic (1984)',      recommended: false, description: '' },
+  { id: 'lam',                name: 'Lam et al. (2000)',             recommended: false, description: '' }
 ];
 
 export const HYDRATION_MODEL_NAMES: Record<HydrationModel, string> = Object.fromEntries(
@@ -27,10 +27,9 @@ export type Variable = {
 export const MODEL_VARIABLES: Record<HydrationModel, Variable[]> = {
   'bentz': [
     { key: 'rho_cem', symbol: 'ρ_cem', definition: 'Specific gravity of cement',                                                                             isConstant: false, step: '0.01',  min: '0' },
-    { key: 'f_exp',   symbol: 'f_exp',  definition: 'Volumetric expansion coefficient for the solid cement hydration products relative to the cement reacted', isConstant: false, step: '0.001', min: '0' },
-    { key: 'CS',      symbol: 'CS',     definition: 'Chemical shrinkage per gram of cement',                                                                  isConstant: false, step: '0.001', min: '0', unit: 'mL/g' },
-    { key: 'm',       symbol: 'm',      definition: 'Calibration constant',                                                                                   isConstant: false, step: '0.001', min: '0' },
-    { key: 't',       symbol: 't',      definition: 'Age of concrete',                                                                                        isConstant: false, step: '1',     min: '0', unit: 'days' }
+    { key: 'f_exp',   symbol: 'f_exp',  definition: 'Volumetric expansion coefficient for the solid cement hydration products relative to the cement reacted', isConstant: false, step: '0.01', min: '1.00', max: '1.50' },
+    { key: 'CS',      symbol: 'CS',     definition: 'Chemical shrinkage per gram of cement',                                                                  isConstant: false, step: '0.001', min: '0', max: '0.150', unit: 'mL/g' },
+    { key: 'm',       symbol: 'm',      definition: 'Calibration constant',                                                                                   isConstant: false, step: '0.01', min: '0', max: '0.20', unit: '/h' },
   ],
   'schindler-folliard': [
     { key: 'p_C3A',    symbol: 'p_C₃A',    definition: 'Weight ratio of C₃A in terms of total cement content',         isConstant: false, step: '0.001', min: '0', max: '1' },
@@ -71,7 +70,7 @@ export const MODEL_RESULT_LABELS: Record<HydrationModel, ResultLabel[]> = {
   'bentz': [
     { key: 'p',     symbol: 'p',  definition: 'Gel-space ratio parameter' },
     { key: 'R',     symbol: 'R',  definition: 'Reaction rate parameter' },
-    { key: 'alpha', symbol: 'α₂', definition: 'Degree of hydration' }
+    { key: 'alpha', symbol: 'α', definition: 'Degree of hydration' }
   ],
   'schindler-folliard': [
     { key: 'alpha_u', symbol: 'αᵤ', definition: 'Ultimate degree of hydration' },

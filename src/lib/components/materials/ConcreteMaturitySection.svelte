@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { tick } from 'svelte';
-  import { materials, projectInfo, slabLayout } from '$lib/stores/form';
+  import { materials, projectInfo, slabLayout, maturityResultsStore } from '$lib/stores/form';
   import { unitSystem } from '$lib/stores/units';
   import {
     runModel,
@@ -9,56 +8,37 @@
     type CementType,
     type SCMType
   } from '$lib/models/hydration/concreteMaturity';
-  import type { Layout } from 'plotly.js';
 
   let results: HourlyResult[] = [];
   let runError = '';
   let hasRun = false;
   let isDirty = false;
 
-  let Plotly: typeof import('plotly.js-dist-min') | null = null;
-  let chartDoh: HTMLDivElement;
-  let chartHeat: HTMLDivElement;
-  let chartStrength: HTMLDivElement;
-
-  // Lazy-load Plotly only in the browser
-  async function ensurePlotly() {
-    if (!Plotly) {
-      const mod = await import('plotly.js-dist-min');
-      Plotly = mod;
-    }
-    return Plotly;
-  }
-
-  // Map MaterialsForm cement type → concreteMaturity CementType
   function mapCementType(ct: string): CementType {
     if (ct === 'Type I/II with 5% limestone') return 'Type I/II w/ 5% Limestone';
-    return ct as CementType; // 'Type I/II'
+    return ct as CementType;
   }
 
-  // Map MaterialsForm scm → concreteMaturity SCMType
   function mapSCMType(scm: string): SCMType {
     if (scm === '25% F ash') return '25% F Ash';
     if (scm === '25% slag') return '25% GGBFS';
-    return scm as SCMType; // 'None', '25% C Ash'
+    return scm as SCMType;
   }
 
   function buildInputs(): ProjectInputs | null {
     const wc = $materials.waterCementRatio;
     if (typeof wc !== 'number' || isNaN(wc)) return null;
 
-    // Use delivery temp → start temp → default 73 °F (≈ 23 °C)
     const curingTempF =
       typeof $projectInfo.deliveryTempF === 'number' ? $projectInfo.deliveryTempF :
       typeof $projectInfo.startTempF    === 'number' ? $projectInfo.startTempF    :
       73;
 
-    // sawcutDepth expected in inches by kicToStrength (multiplied by 0.0254 internally)
     const t = $slabLayout.thickness;
     const thicknessIn =
       typeof t === 'number' && !isNaN(t) && t > 0
         ? ($unitSystem === 'metric' ? t / 25.4 : t)
-        : 8; // fallback 8 in
+        : 8;
 
     return {
       cementType: mapCementType($materials.cementType),
@@ -77,57 +57,13 @@
       return;
     }
     try {
-      results  = runModel(inputs, 72);
-      hasRun   = true;
-      isDirty  = false;
-      await tick(); // let {#if hasRun} render the chart divs first
-      await renderCharts();
+      results = runModel(inputs, 72);
+      hasRun  = true;
+      isDirty = false;
+      maturityResultsStore.set(results);
     } catch (e) {
       runError = `Calculation error: ${e instanceof Error ? e.message : String(e)}`;
     }
-  }
-
-  async function renderCharts() {
-    const plt = await ensurePlotly();
-    if (!results.length) return;
-
-    const hours = results.map((r) => r.hour);
-
-    const baseLayout: Partial<Layout> = {
-      margin:       { t: 10, r: 20, b: 50, l: 60 },
-      height:       280,
-      paper_bgcolor: 'white',
-      plot_bgcolor:  'white',
-      xaxis: { title: { text: 'Time (hr)' } }
-    };
-    const cfg = { displayModeBar: false, responsive: true };
-
-    await plt.react(
-      chartDoh,
-      [{ x: hours, y: results.map((r) => r.degreeOfHydration),
-         type: 'scatter', mode: 'lines', name: 'α',
-         line: { color: '#2563eb', width: 2 } }],
-      { ...baseLayout, yaxis: { title: { text: 'Degree of Hydration (α)' }, range: [0, 1] } } as Partial<Layout>,
-      cfg
-    );
-
-    await plt.react(
-      chartHeat,
-      [{ x: hours, y: results.map((r) => r.heatOfHydration),
-         type: 'scatter', mode: 'lines', name: 'q (J/g/hr)',
-         line: { color: '#dc2626', width: 2 } }],
-      { ...baseLayout, yaxis: { title: { text: 'Heat Rate (J/g/hr)' } } } as Partial<Layout>,
-      cfg
-    );
-
-    await plt.react(
-      chartStrength,
-      [{ x: hours, y: results.map((r) => r.strength),
-         type: 'scatter', mode: 'lines', name: 'Strength (psi)',
-         line: { color: '#16a34a', width: 2 } }],
-      { ...baseLayout, yaxis: { title: { text: 'Strength (psi)' } } } as Partial<Layout>,
-      cfg
-    );
   }
 
   function fmt(n: number, sig = 4): string {
@@ -137,7 +73,6 @@
     return n.toExponential(3);
   }
 
-  // Mark dirty when key inputs change after first run
   let _snap = '';
   $: {
     const snap = JSON.stringify([
@@ -162,7 +97,8 @@
       coefficients. Computes equivalent age, degree of hydration, heat of hydration rate, and
       KIC-based early strength over 72 hours. Curing temperature uses the concrete delivery
       temperature from Project Info (falls back to start temperature, then 73&nbsp;°F).
-      Saw-cut depth is derived from slab thickness (Slab Layout tab).
+      Saw-cut depth is derived from slab thickness (Slab Layout tab). Plots appear on the
+      <strong>Hydration</strong> tab.
     </p>
   </div>
 
@@ -179,23 +115,6 @@
   </div>
 
   {#if hasRun && results.length}
-    <!-- Charts -->
-    <div class="grid grid-cols-1 gap-6 mt-2">
-      <div>
-        <p class="text-xs font-medium text-gray-500 mb-1">Degree of Hydration (α) vs Time</p>
-        <div bind:this={chartDoh} class="w-full rounded border border-gray-100"></div>
-      </div>
-      <div>
-        <p class="text-xs font-medium text-gray-500 mb-1">Heat of Hydration Rate (J/g/hr) vs Time</p>
-        <div bind:this={chartHeat} class="w-full rounded border border-gray-100"></div>
-      </div>
-      <div>
-        <p class="text-xs font-medium text-gray-500 mb-1">Concrete Strength (psi) vs Time</p>
-        <div bind:this={chartStrength} class="w-full rounded border border-gray-100"></div>
-      </div>
-    </div>
-
-    <!-- Results table -->
     <div class="mt-2">
       <p class="text-xs font-medium text-gray-500 mb-2">Hourly Results Table</p>
       <div class="overflow-auto max-h-64 border rounded-lg">
