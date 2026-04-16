@@ -5,7 +5,7 @@
   import { site, allPoints } from '$lib/stores/stations';
   import { HYDRATION_MODEL_NAMES, MODEL_VARIABLES, WC_NOTE_MODELS, MODEL_RESULT_LABELS } from '$lib/hydration-models';
   import type { HydrationModel } from '$lib/types';
-  import { unitSystem } from '$lib/stores/units';
+  import { unitSystem, valueDp } from '$lib/stores/units';
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
   import placesIndex from '$lib/data/places-index.json';
   import type { PlacesIndex } from '$lib/types';
@@ -113,8 +113,6 @@
     { id: 'appendix-a',   title: 'Appendix A',           page: 13, indent: true }
   ];
 
-  const totalPages = 13;
-
   // Snapshot of all store values — only updated when the user clicks "Update PDF".
   // The preview renders from this snapshot so it never changes on its own.
   function buildSnapshot() {
@@ -156,16 +154,20 @@
   }
 
   // These depend on snap.unitSystem so must come after snap is declared.
+  // thickness is canonical inches; spacing is canonical feet.
+  // valueDp infers the user's intended precision from the canonical value.
   function formatThickness(thickness: number | ''): string {
     if (thickness === '') return 'Not specified';
-    const unit = snap.unitSystem === 'us' ? 'in' : 'mm';
-    return `${thickness} ${unit}`;
+    if (snap.unitSystem === 'us') return `${thickness} in`;
+    const dp = valueDp(thickness as number);
+    return `${parseFloat(((thickness as number) * 25.4).toFixed(dp))} mm`;
   }
 
   function formatJointSpacing(spacing: number | ''): string {
     if (spacing === '') return 'Not specified';
-    const unit = snap.unitSystem === 'us' ? 'ft' : 'm';
-    return `${spacing} ${unit}`;
+    if (snap.unitSystem === 'us') return `${spacing} ft`;
+    const dp = valueDp(spacing as number);
+    return `${parseFloat(((spacing as number) * 0.3048).toFixed(dp))} m`;
   }
 
   function fmt(n: number): string {
