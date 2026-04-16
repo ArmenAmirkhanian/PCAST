@@ -77,11 +77,4 @@ import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelt
   </div>
 </Tabs>
 
-
-  <details class="mt-6">
-    <summary class="cursor-pointer font-medium">Debug: Form State</summary>
-    <pre class="text-xs bg-gray-50 border rounded p-3 overflow-auto">
-{JSON.stringify($projectInfo, null, 2)}
-</pre>
-  </details>
 </div>
