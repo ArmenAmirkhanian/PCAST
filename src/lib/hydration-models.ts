@@ -1,11 +1,8 @@
 import type { HydrationModel } from '$lib/types';
 
-export const HYDRATION_MODELS: { id: HydrationModel; name: string; recommended: boolean; description: string }[] = [
-  { id: 'bentz',              name: 'Bentz (2006)',                  recommended: true, description: 'This model is based on straight portland cements. The author noted that limestone filler was also modeled by the model but it should be cautioned that at that time, Type IL cements were not common. See <a href="https://tsapps.nist.gov/publication/get_pdf.cfm?pub_id=101163" target="_blank" rel="noopener noreferrer">Bentz (2006) 🔗</a>.'  },
-  { id: 'schindler-folliard', name: 'Schindler and Folliard (2005)', recommended: true, description: ''  },
-  { id: 'knudsen-linear',     name: 'Knudsen Linear (1984)',         recommended: false, description: '' },
-  { id: 'knudsen-parabolic',  name: 'Knudsen Parabolic (1984)',      recommended: false, description: '' },
-  { id: 'lam',                name: 'Lam et al. (2000)',             recommended: false, description: '' }
+export const HYDRATION_MODELS: { id: HydrationModel; name: string; recommended: boolean }[] = [
+  { id: 'bentz',              name: 'Bentz (2006)',                  recommended: true  },
+  { id: 'schindler-folliard', name: 'Schindler and Folliard (2005)', recommended: true  }
 ];
 
 export const HYDRATION_MODEL_NAMES: Record<HydrationModel, string> = Object.fromEntries(
@@ -44,25 +41,9 @@ export const MODEL_VARIABLES: Record<HydrationModel, Variable[]> = {
     { key: 't',        symbol: 't',        definition: 'Age of concrete',                                               isConstant: false, step: '1',     min: '0', unit: 'hours' },
     { key: 'R',        symbol: 'R',        definition: 'Universal gas constant',                                        isConstant: true,  constantValue: 8.3144, unit: 'J/mol/K' }
   ],
-  'knudsen-linear': [
-    { key: 'alpha_u', symbol: 'αᵤ', definition: 'Ultimate degree of cement hydration', isConstant: false, step: '0.01',  min: '0', max: '1' },
-    { key: 'm',       symbol: 'm',  definition: 'Hydration rate constant',             isConstant: false, step: '0.001', min: '0' },
-    { key: 't',       symbol: 't',  definition: 'Age of concrete',                     isConstant: false, step: '1',     min: '0', unit: 'days' },
-    { key: 't_0',     symbol: 't₀', definition: 'Induction time',                      isConstant: false, step: '0.01',  min: '0', unit: 'days' }
-  ],
-  'knudsen-parabolic': [
-    { key: 'alpha_u', symbol: 'αᵤ', definition: 'Ultimate degree of cement hydration', isConstant: false, step: '0.01',  min: '0', max: '1' },
-    { key: 'm',       symbol: 'm',  definition: 'Hydration rate constant',             isConstant: false, step: '0.001', min: '0' },
-    { key: 't',       symbol: 't',  definition: 'Age of concrete',                     isConstant: false, step: '1',     min: '0', unit: 'days' },
-    { key: 't_0',     symbol: 't₀', definition: 'Induction time',                      isConstant: false, step: '0.01',  min: '0', unit: 'days' }
-  ],
-  'lam': [
-    { key: 'm1', symbol: 'm₁', definition: 'Calibration constant', isConstant: false, step: '0.001' },
-    { key: 'm2', symbol: 'm₂', definition: 'Calibration constant', isConstant: false, step: '0.001' }
-  ]
 };
 
-export const WC_NOTE_MODELS: HydrationModel[] = ['bentz', 'schindler-folliard', 'lam'];
+export const WC_NOTE_MODELS: HydrationModel[] = ['bentz', 'schindler-folliard'];
 
 export type ResultLabel = { key: string; symbol: string; definition: string; unit?: string };
 
@@ -79,7 +60,4 @@ export const MODEL_RESULT_LABELS: Record<HydrationModel, ResultLabel[]> = {
     { key: 't_e',     symbol: 'tₑ', definition: 'Equivalent age',           unit: 'hours' },
     { key: 'alpha',   symbol: 'α',  definition: 'Degree of hydration' }
   ],
-  'knudsen-linear':    [{ key: 'alpha', symbol: 'α₁', definition: 'Degree of hydration' }],
-  'knudsen-parabolic': [{ key: 'alpha', symbol: 'α₂', definition: 'Degree of hydration' }],
-  'lam':               [{ key: 'alpha', symbol: 'α',  definition: 'Degree of hydration' }]
 };
