@@ -17,11 +17,6 @@ $$\\beta = 181.4\\,p_{C_3\\!A}^{0.146}\\,p_{C_3\\!S}^{0.227}\\,\\mathrm{Blaine}^
 $$\\alpha_u = \\frac{1.031\\,(w/c)}{0.194+w/c}+0.50\\,p_{\\mathrm{FA}}+0.30\\,p_{\\mathrm{SLAG}}\\leq 1.0$$
 `.trim(),
 
-  'knudsen-linear': `$$\\alpha_1 = \\alpha_u\\cdot\\frac{m(t-t_0)}{1+m(t-t_0)}$$`.trim(),
-
-  'knudsen-parabolic': `$$\\alpha_2 = \\alpha_u\\cdot\\frac{m\\sqrt{t-t_0}}{1+m\\sqrt{t-t_0}}$$`.trim(),
-
-  'lam': `$$\\alpha = m_1\\cdot e^{-m_2/(w/c)}$$`.trim()
 };
 
 export const EXPLANATIONS: Record<string, string> = {

@@ -17,7 +17,7 @@ export type CityLocation = {
 
 export type PlacesIndex = Record<string, CityLocation[]>;
 
-export type HydrationModel = 'bentz' | 'schindler-folliard' | 'knudsen-linear' | 'knudsen-parabolic' | 'lam';
+export type HydrationModel = 'bentz' | 'schindler-folliard';
 
 export type MaterialsForm = {
   cementType: 'Type I/II' | 'Type I/II with 5% limestone';

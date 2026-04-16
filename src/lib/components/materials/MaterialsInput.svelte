@@ -105,43 +105,9 @@
     return { alpha_u: au, tau, beta, t_e, alpha };
   }
 
-  function calculateKnudsenLinear(): Record<string, number> | null {
-    const au = inp('knudsen-linear', 'alpha_u');
-    const m  = inp('knudsen-linear', 'm');
-    const t  = inp('knudsen-linear', 't');
-    const t0 = inp('knudsen-linear', 't_0');
-    if (au === null || m === null || t === null || t0 === null) return null;
-    const dt = t - t0;
-    if (dt <= 0) return null;
-    return { alpha: au * m * dt / (1 + m * dt) };
-  }
-
-  function calculateKnudsenParabolic(): Record<string, number> | null {
-    const au = inp('knudsen-parabolic', 'alpha_u');
-    const m  = inp('knudsen-parabolic', 'm');
-    const t  = inp('knudsen-parabolic', 't');
-    const t0 = inp('knudsen-parabolic', 't_0');
-    if (au === null || m === null || t === null || t0 === null) return null;
-    const dt = t - t0;
-    if (dt <= 0) return null;
-    const s = Math.sqrt(dt);
-    return { alpha: au * m * s / (1 + m * s) };
-  }
-
-  function calculateLam(): Record<string, number> | null {
-    const wc = $materials.waterCementRatio;
-    const m1 = inp('lam', 'm1');
-    const m2 = inp('lam', 'm2');
-    if (!isValid(wc) || m1 === null || m2 === null) return null;
-    return { alpha: m1 * Math.exp(-m2 / wc) };
-  }
-
   const CALC_FNS: Record<HydrationModel, () => Record<string, number> | null> = {
     'bentz':              calculateBentz,
-    'schindler-folliard': calculateSchindlerFolliard,
-    'knudsen-linear':     calculateKnudsenLinear,
-    'knudsen-parabolic':  calculateKnudsenParabolic,
-    'lam':                calculateLam
+    'schindler-folliard': calculateSchindlerFolliard
   };
 
   function calculate(modelId: HydrationModel) {
