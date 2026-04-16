@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { materials, hydrationModelResults } from '$lib/stores/form';
+  import { materials, hydrationModelResults, bentzSeries } from '$lib/stores/form';
   import type { HydrationModel } from '$lib/types';
+  import ConcreteMaturitySection from '$lib/components/materials/ConcreteMaturitySection.svelte';
   import {
     HYDRATION_MODELS,
     MODEL_VARIABLES,
@@ -62,19 +63,38 @@
   }
 
   // ── calculation functions ─────────────────────────────────────────────────
+
+  // Returns p, R, and alpha at 72 h for the summary results table.
   function calculateBentz(): Record<string, number> | null {
+    // Saturated conditions, Eq 7 in Bentz (2006)
     const wc  = $materials.waterCementRatio;
     const rho = inp('bentz', 'rho_cem');
     const fe  = inp('bentz', 'f_exp');
     const CS  = inp('bentz', 'CS');
     const m   = inp('bentz', 'm');
-    const t   = inp('bentz', 't');
-    if (!isValid(wc) || rho === null || fe === null || CS === null || m === null || t === null) return null;
-    const wcn = wc;
-    const p   = rho * wcn / (fe + rho * CS);
-    const R   = m * (fe + rho * CS) / Math.pow(1 + rho * wcn, 2);
-    const ex  = Math.exp(R * (1 - p) * t);
+    if (!isValid(wc) || rho === null || fe === null || CS === null || m === null) return null;
+    const p  = rho * wc / (fe + rho * CS);
+    const R  = m * (fe + rho * CS) / Math.pow(1 + rho * wc, 2);
+    const ex = Math.exp(R * (1 - p) * 72);
     return { p, R, alpha: p * (ex - 1) / (ex - p) };
+  }
+
+  // Returns α(t) for t = 0..72 h (one point per hour) for plotting.
+  function calculateBentzSeries(): { t: number; alpha: number }[] | null {
+    const wc  = $materials.waterCementRatio;
+    const rho = inp('bentz', 'rho_cem');
+    const fe  = inp('bentz', 'f_exp');
+    const CS  = inp('bentz', 'CS');
+    const m   = inp('bentz', 'm');
+    if (!isValid(wc) || rho === null || fe === null || CS === null || m === null) return null;
+    const p = rho * wc / (fe + rho * CS);
+    const R = m * (fe + rho * CS) / Math.pow(1 + rho * wc, 2);
+    const pts: { t: number; alpha: number }[] = [];
+    for (let t = 0; t <= 72; t++) {
+      const alpha = t === 0 ? 0 : (() => { const ex = Math.exp(R * (1 - p) * t); return p * (ex - 1) / (ex - p); })();
+      pts.push({ t, alpha });
+    }
+    return pts;
   }
 
   function calculateSchindlerFolliard(): Record<string, number> | null {
@@ -121,6 +141,7 @@
       modelDirty   = { ...modelDirty,   [modelId]: false };
       calcError    = { ...calcError,    [modelId]: '' };
       hydrationModelResults.update(r => ({ ...r, [modelId]: result as Record<string, number> }));
+      if (modelId === 'bentz') bentzSeries.set(calculateBentzSeries());
     } else {
       calcError = { ...calcError, [modelId]: 'Please fill in all required inputs.' };
     }
@@ -185,12 +206,43 @@
       <h3 class="font-medium">Cement Hydration Model</h3>
       <p class="text-xs text-gray-600 mt-1">
         Choose the cement hydration model you would like to use for your pavement design.
-        Design inputs needed may vary between models. Models from Magazine of Concrete Research,
-        Volume 65 Issue 9 (May 2013).
+        Design inputs needed may vary between models.
       </p>
     </div>
 
     <div class="flex flex-col gap-2">
+      <!-- Default option: Concrete Maturity Model -->
+      <label
+        class="flex items-start gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 transition-colors"
+        class:border-blue-500={$materials.hydrationModel === null}
+        class:bg-blue-50={$materials.hydrationModel === null}>
+        <input
+          type="radio"
+          name="hydrationModel"
+          value={null}
+          bind:group={$materials.hydrationModel}
+          class="mt-1 shrink-0" />
+        <div class="min-w-0 w-full">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-medium text-sm">Concrete Maturity Model</span>
+            <span class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-medium">Default</span>
+            <span class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">Recommended</span>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">
+            Exponential hydration model based on (Schindler &amp; Folliard) with cement-system-specific
+            coefficients derived from w/cm, cement type, and SCM selection above. The hydration parameters 
+            were obtained through numerous hydration simulations using CemGEMS. Outputs
+            equivalent age, degree of hydration, heat of hydration, and KIC-based early strength
+            over 72 hours.
+          </p>
+          {#if $materials.hydrationModel === null}
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <ConcreteMaturitySection />
+            </div>
+          {/if}
+        </div>
+      </label>
+
       {#each HYDRATION_MODELS as model (model.id)}
         <label
           class="flex items-start gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -211,6 +263,11 @@
                 </span>
               {/if}
             </div>
+            {#if model.description}
+              <div class="prose text-xs max-w-none mt-1 text-gray-600">
+                {@html model.description}
+              </div>
+            {/if}
             <div class="prose prose-sm max-w-none mt-1">
               <!-- eslint-disable-next-line svelte/no-at-html-tags -->
               {@html hydrationModelEquations[model.id]}
@@ -294,6 +351,7 @@
       {/each}
     </div>
   </div>
+
 </div>
 
 <style>

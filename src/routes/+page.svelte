@@ -8,6 +8,7 @@
 	import MaterialsInput from '$lib/components/materials/MaterialsInput.svelte';
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
+import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelte';
 
   export let data: {
     explanations: {
@@ -21,13 +22,14 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
   $: unitSystem.set(system);
 
   const sections = [
-    { id: 'project', label: 'Project Info' },
-    { id: 'materials', label: 'Materials' },
-    { id: 'slabs', label: 'Slab Layout' },
+    { id: 'project',    label: 'Project Info' },
+    { id: 'materials',  label: 'Materials' },
+    { id: 'hydration',  label: 'Hydration' },
+    { id: 'slabs',      label: 'Slab Layout' },
     { id: 'environment', label: 'Environment' },
-    { id: 'analysis', label: 'Analysis' },
-    { id: 'results', label: 'Results' },
-    { id: 'report', label: 'Report PDF' }
+    { id: 'analysis',   label: 'Analysis' },
+    { id: 'results',    label: 'Results' },
+    { id: 'report',     label: 'Report PDF' }
   ];
 </script>
 
@@ -50,6 +52,9 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
     </div>
     <div class:hidden={active !== 'materials'}>
       <MaterialsInput hydrationModelEquations={data.hydrationModelEquations} />
+    </div>
+    <div class:hidden={active !== 'hydration'}>
+      <HydrationPlotsTab />
     </div>
     <div class:hidden={active !== 'slabs'}>
       <SlabInputs />
