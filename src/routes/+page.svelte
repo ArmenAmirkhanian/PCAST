@@ -9,6 +9,7 @@
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelte';
+import About from '$lib/components/about/About.svelte';
 
   export let data: {
     explanations: {
@@ -29,7 +30,8 @@ import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelt
     { id: 'environment', label: 'Environment' },
     { id: 'analysis',   label: 'Analysis' },
     { id: 'results',    label: 'Results' },
-    { id: 'report',     label: 'Report PDF' }
+    { id: 'report',     label: 'Report PDF' },
+    { id: 'about',      label: 'About' }
   ];
 </script>
 
@@ -73,6 +75,9 @@ import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelt
     </div>
     <div class:hidden={active !== 'report'}>
       <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
+    </div>
+    <div class:hidden={active !== 'about'}>
+      <About />
     </div>
   </div>
 </Tabs>
