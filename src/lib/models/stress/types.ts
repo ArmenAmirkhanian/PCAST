@@ -37,10 +37,10 @@ export interface JointProperties {
   normalStiffnessOverE: number;
   /** Rotational stiffness / E (dimensionless) */
   rotationalStiffnessOverE: number;
-  /** Top-fibre stress-intensity influence coefficient (P1 in VBA) */
-  stressCoeffTop: number;
-  /** Bottom-fibre stress-intensity influence coefficient (P2 in VBA) */
-  stressCoeffBottom: number;
+  /** ft – dimensionless SIF geometry function for axial (normal) loading (P2 in VBA) */
+  axialSifCoeff: number;
+  /** fb – dimensionless SIF geometry function for bending loading (P1 in VBA) */
+  bendingSifCoeff: number;
 }
 
 /**
@@ -80,7 +80,18 @@ export interface StressModelInput {
   /** Last hour to analyse (nf in VBA, default 72) */
   endHour?: number;
   slab: SlabProperties;
-  /** Joint properties – defaults to a free joint when omitted */
+  /**
+   * Normalised sawcut depth α = sawcutDepth / slabThickness (dimensionless, 0–1).
+   * When provided the joint stiffness and stress-intensity coefficients are
+   * computed from fracture-mechanics integrals (joint.ts).  Takes precedence
+   * over the manual `joint` override below.
+   */
+  sawcutNormalized?: number;
+  /**
+   * Manual joint property override.
+   * Used only when `sawcutNormalized` is not provided.
+   * Defaults to a free (open) joint when both are omitted.
+   */
   joint?: Partial<JointProperties>;
   /** Creep model parameters – defaults applied when omitted */
   creep?: Partial<CreepModelParams>;

@@ -24,7 +24,8 @@ import {
   computeHorizontalFriction,
   edgeBendingFactor,
 } from './beam';
-import { matVec2, inverse2x2, solve2x2, lowerTriMatVec } from './linalg';
+import { computeJointCoefficients } from './joint';
+import { matVec2, solve2x2, lowerTriMatVec } from './linalg';
 import type {
   StressModelInput,
   StressOutput,
@@ -40,8 +41,8 @@ import type {
 const DEFAULT_JOINT: Required<JointProperties> = {
   normalStiffnessOverE: 0,
   rotationalStiffnessOverE: 0,
-  stressCoeffTop: 0,
-  stressCoeffBottom: 0,
+  axialSifCoeff: 0,
+  bendingSifCoeff: 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -59,8 +60,19 @@ export function runStressModel(input: StressModelInput): StressOutput {
   const endHour = input.endHour ?? 72;
   const nt = endHour - startHour + 1;
 
+  if (hourlyInputs.length !== nt) {
+    throw new RangeError(
+      `hourlyInputs has ${hourlyInputs.length} entries but startHour=${startHour} to endHour=${endHour} requires ${nt}`,
+    );
+  }
+
   const slab = input.slab;
-  const joint: Required<JointProperties> = { ...DEFAULT_JOINT, ...(input.joint ?? {}) };
+
+  if (slab.thickness <= 0) throw new RangeError('slab.thickness must be positive');
+  if (slab.kValue <= 0)    throw new RangeError('slab.kValue must be positive');
+  if (slab.poissonRatio < 0 || slab.poissonRatio >= 0.5) {
+    throw new RangeError('slab.poissonRatio must be in [0, 0.5)');
+  }
   const creepParams = { ...DEFAULT_CREEP_PARAMS, ...(input.creep ?? {}) };
 
   const h         = slab.thickness;
@@ -69,6 +81,31 @@ export function runStressModel(input: StressModelInput): StressOutput {
   const k         = slab.kValue;
   const spaceJT   = slab.jointSpacingFt * 12;           // ft → in
   const kh        = slab.frictionCoefficient;
+
+  // -------------------------------------------------------------------------
+  // Resolve joint geometry-dependent coefficients (constant across hours)
+  // -------------------------------------------------------------------------
+  // sawcutNormalized takes precedence over manually supplied joint overrides.
+  // The compliance entries are  coeff / E  and are re-scaled each hour.
+
+  let jointCoeffNormal = 0;
+  let jointCoeffRotational = 0;
+  let axialSifCoeff = 0;
+  let bendingSifCoeff = 0;
+
+  if (input.sawcutNormalized !== undefined) {
+    const jc = computeJointCoefficients(input.sawcutNormalized, nu, h);
+    jointCoeffNormal     = jc.normalCoeffOverE;
+    jointCoeffRotational = jc.rotationalCoeffOverE;
+    axialSifCoeff        = jc.axialSifCoeff;
+    bendingSifCoeff      = jc.bendingSifCoeff;
+  } else {
+    const j: Required<JointProperties> = { ...DEFAULT_JOINT, ...(input.joint ?? {}) };
+    jointCoeffNormal     = j.normalStiffnessOverE;
+    jointCoeffRotational = j.rotationalStiffnessOverE;
+    axialSifCoeff        = j.axialSifCoeff;
+    bendingSifCoeff      = j.bendingSifCoeff;
+  }
 
   // -------------------------------------------------------------------------
   // Step 1: Build creep compliance and Riesz transformation matrices
@@ -140,10 +177,12 @@ export function runStressModel(input: StressModelInput): StressOutput {
       [0, plateK11],
     ];
 
-    // Joint compliance matrix (normalised by E)
+    // Joint compliance matrix: coefficients / E (E varies each hour).
+    // With sawcutNormalized, coefficients are geometry integrals; otherwise
+    // they are the manually supplied stiffness-over-E values.
     const jointDataRaw: number[][] = [
-      [joint.normalStiffnessOverE / E, 0],
-      [0, joint.rotationalStiffnessOverE / E],
+      [jointCoeffNormal / E, 0],
+      [0, jointCoeffRotational / E],
     ];
     // Invert to get joint stiffness (handle zero entries)
     const jointData1 = safeInverse2x2(jointDataRaw);
@@ -167,13 +206,18 @@ export function runStressModel(input: StressModelInput): StressOutput {
     const forceJ = matVec2(jointData1, respJ);
 
     // Stress intensity factor at joint (KI)
+    // VBA: -1/√h · (forceJ(1)·P2 + forceJ(2)·P1) where P1=fb, P2=ft
     const KI = -(1 / Math.sqrt(h)) *
-               (forceJ[0] * joint.stressCoeffTop + forceJ[1] * joint.stressCoeffBottom);
+               (forceJ[0] * axialSifCoeff + forceJ[1] * bendingSifCoeff);
 
-    // Bending stress at slab edge
+    // Bending stress at slab edge (signed – preserves linearity through creep transform).
+    // Guard: if momTemp ≈ 0, forceJ[1] is also 0 but the ratio is 0/0 → NaN.
     const sfRaw = edgeBendingFactor(spaceND);
-    const sf1   = (sfRaw - 1) * forceJ[1] * h / momTemp;
-    const stressB = Math.abs((E * cote * dt2 / 2) * (1 + sf1));
+    let stressB = 0;
+    if (Math.abs(momTemp) > 1e-30) {
+      const sf1 = (sfRaw - 1) * forceJ[1] * h / momTemp;
+      stressB = (E * cote * dt2 / 2) * (1 + sf1);
+    }
 
     // Normal (axial) stress
     const stressC0 = El * (-eps0);
@@ -250,5 +294,3 @@ function safeInverse2x2(M: number[][]): number[][] {
   ];
 }
 
-// Re-export inverse2x2 for completeness (unused internally after safeInverse2x2)
-export { inverse2x2 } from './linalg';

@@ -31,7 +31,7 @@ export function radiusOfRelativeStiffness(
  * for a Winkler-beam slab loaded by a temperature gradient moment.
  *
  * Based on the exact closed-form solution of the 4th-order ODE:
- *   d⁴w/dξ⁴ + 4w = q̄
+ *   d⁴w/dξ⁴ + w = q̄
  * with symmetry (even) boundary conditions at ξ = 0 and free-end conditions
  * at ξ = A.
  *
@@ -49,7 +49,6 @@ export function computeBeamRotation(spaceND: number, momTempND: number): number 
   const sinA  = Math.sin(A / S2);
   const tanA  = Math.tan(A / S2);
   const eA    = Math.exp(A / S2);                 // e^{A/√2}
-  const eNegA = Math.exp(-A / S2);               // e^{-A/√2}
   const eSqA  = Math.exp(S2 * A);                // e^{√2·A}
   const e2SqA = Math.exp(2 * S2 * A);            // e^{2√2·A}
 
@@ -102,17 +101,17 @@ export function computeHorizontalFriction(
   eps0: number,
 ): { uc: number; stressC: number } {
   const L = L0 / 2;
-  const beta = Math.sqrt(kh) / (Math.sqrt(h) * Math.sqrt(El));
+  const beta = Math.sqrt(kh / (h * El));
+  const z = beta * L;
 
-  const expPos = Math.exp(beta * L);
-  const expNeg = Math.exp(-beta * L);
-  const c01 = eps0 / (beta * (expNeg + expPos));          // = eps0 / (2β·cosh(βL))
+  // Small-β limit (kh → 0): free slip, joint opens to ε₀·L, no mid-slab stress.
+  if (z < 1e-8) {
+    return { uc: eps0 * L, stressC: 0 };
+  }
 
-  // Joint opening at x = L
-  const uc = c01 * (-expNeg + expPos);                   // = 2·c01·sinh(βL)
-
-  // Axial stress at slab centre (x = 0)
-  const stressC = (-eps0 + beta * c01 * (1 + 1)) * El;  // = El·eps0·(1/cosh(βL) − 1)
+  // General case: u(x=L) = (ε₀/β)·tanh(βL),  σ(x=0) = El·ε₀·(1/cosh(βL) − 1)
+  const uc     = (eps0 / beta) * Math.tanh(z);
+  const stressC = El * eps0 * (1 / Math.cosh(z) - 1);
 
   return { uc, stressC };
 }

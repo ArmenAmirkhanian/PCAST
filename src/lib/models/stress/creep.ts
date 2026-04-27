@@ -32,9 +32,17 @@ export const DEFAULT_CREEP_PARAMS: Required<CreepModelParams> = {
 /**
  * Placeholder effective modulus used only for the creep compliance matrix.
  * E_eff(tʹ) = −12.135 + 7.9557·ln(tʹ)   (GPa-scale, from VBA)
+ * Becomes non-positive for tʹ < ~4.6 h, which is physically invalid.
  */
 function creepEffectiveModulus(tp: number): number {
-  return -12.135 + 7.9557 * Math.log(tp);
+  const Ep = -12.135 + 7.9557 * Math.log(tp);
+  if (Ep <= 0) {
+    throw new RangeError(
+      `Creep effective modulus is non-positive (${Ep.toFixed(3)}) at hour ${tp}; ` +
+      `the placeholder model is only valid for loading ages above ~5 h`,
+    );
+  }
+  return Ep;
 }
 
 /**
