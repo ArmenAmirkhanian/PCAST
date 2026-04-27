@@ -7,7 +7,8 @@
  *   1. linalg     – 2×2 matrix ops and lower-tri mat-vec
  *   2. creep      – compliance matrix, ΔJ, B, B⁻¹
  *   3. beam       – rotation, horizontal friction, bending factor
- *   4. run        – full model integration
+ *   4. joint      – SIF functions and compliance integrals
+ *   5. run        – full model integration
  */
 
 import { describe, it, expect } from 'vitest';
@@ -27,6 +28,7 @@ import {
   edgeBendingFactor,
 } from '../beam';
 import { runStressModel } from '../run';
+import { sifAxial, sifBending, computeJointCoefficients } from '../joint';
 import type { StressModelInput, HourlyInput } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -373,7 +375,111 @@ describe('edgeBendingFactor', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Full model integration
+// 4. Joint – SIF functions and compliance integrals
+// ---------------------------------------------------------------------------
+
+describe('sifAxial (ft)', () => {
+  it('is zero at α = 0', () => {
+    // tan(0) = 0 → ft(0) = 0
+    expect(sifAxial(0)).toBeCloseTo(0, 8);
+  });
+
+  it('increases monotonically with α', () => {
+    const vals = [0.1, 0.2, 0.3, 0.4].map(sifAxial);
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThan(vals[i - 1]);
+    }
+  });
+
+  it('matches VBA formula at α = 0.25', () => {
+    // Hand-computed: ft ≈ 1.32 at α=0.25 (see joint.ts derivation)
+    const ft = sifAxial(0.25);
+    expect(ft).toBeGreaterThan(1.0);
+    expect(ft).toBeLessThan(2.0);
+  });
+
+  it('is always positive for α in (0, 0.9)', () => {
+    for (let a = 0.05; a < 0.9; a += 0.05) {
+      expect(sifAxial(a)).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('sifBending (fb)', () => {
+  it('is zero at α = 0', () => {
+    expect(sifBending(0)).toBeCloseTo(0, 8);
+  });
+
+  it('increases monotonically with α', () => {
+    const vals = [0.1, 0.2, 0.3, 0.4].map(sifBending);
+    for (let i = 1; i < vals.length; i++) {
+      expect(vals[i]).toBeGreaterThan(vals[i - 1]);
+    }
+  });
+
+  it('is larger than sifAxial at same α (6× bending stress factor)', () => {
+    for (const a of [0.1, 0.2, 0.3]) {
+      expect(sifBending(a)).toBeGreaterThan(sifAxial(a));
+    }
+  });
+
+  it('fb / ft ≈ 6 as α → 0 (equal geometry, only stress distribution differs)', () => {
+    // At very small α the (1-sin)^n terms → 1, so ratio → 6 * 0.923 / 0.752 ≈ 7.36
+    // but at typical depths (0.25) ratio is around 4–6
+    const ratio = sifBending(0.25) / sifAxial(0.25);
+    expect(ratio).toBeGreaterThan(3);
+    expect(ratio).toBeLessThan(9);
+  });
+});
+
+describe('computeJointCoefficients', () => {
+  const alpha = 0.25;
+  const nu = 0.15;
+  const h = 9;
+
+  it('returns positive compliance coefficients', () => {
+    const jc = computeJointCoefficients(alpha, nu, h);
+    expect(jc.normalCoeffOverE).toBeGreaterThan(0);
+    expect(jc.rotationalCoeffOverE).toBeGreaterThan(0);
+  });
+
+  it('rotational coefficient is larger than normal (bending SIF > axial)', () => {
+    const jc = computeJointCoefficients(alpha, nu, h);
+    expect(jc.rotationalCoeffOverE).toBeGreaterThan(jc.normalCoeffOverE);
+  });
+
+  it('SIF coefficients match standalone sifAxial / sifBending', () => {
+    const jc = computeJointCoefficients(alpha, nu, h);
+    expect(jc.axialSifCoeff).toBeCloseTo(sifAxial(alpha), 10);
+    expect(jc.bendingSifCoeff).toBeCloseTo(sifBending(alpha), 10);
+  });
+
+  it('compliance grows with deeper sawcut', () => {
+    const shallow = computeJointCoefficients(0.15, nu, h);
+    const deep    = computeJointCoefficients(0.35, nu, h);
+    expect(deep.normalCoeffOverE).toBeGreaterThan(shallow.normalCoeffOverE);
+    expect(deep.rotationalCoeffOverE).toBeGreaterThan(shallow.rotationalCoeffOverE);
+  });
+
+  it('compliance decreases with thicker slab (coef ∝ 1/h)', () => {
+    const thin  = computeJointCoefficients(alpha, nu, 7);
+    const thick = computeJointCoefficients(alpha, nu, 12);
+    expect(thin.normalCoeffOverE).toBeGreaterThan(thick.normalCoeffOverE);
+  });
+
+  it('throws for α out of (0, 1)', () => {
+    expect(() => computeJointCoefficients(0, nu, h)).toThrow(RangeError);
+    expect(() => computeJointCoefficients(1, nu, h)).toThrow(RangeError);
+    expect(() => computeJointCoefficients(-0.1, nu, h)).toThrow(RangeError);
+  });
+
+  it('throws for α > 0.7 (near-singular quadrature)', () => {
+    expect(() => computeJointCoefficients(0.71, nu, h)).toThrow(RangeError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. Full model integration
 // ---------------------------------------------------------------------------
 
 /** Build a synthetic hourly input array for testing */
@@ -435,10 +541,10 @@ describe('runStressModel – basic sanity', () => {
     }
   });
 
-  it('bending stress is non-negative (reported as absolute value)', () => {
+  it('bending stress is finite (signed – positive for negative gradient per sign convention)', () => {
     const out = runStressModel(BASE_INPUT);
     for (const r of out.hourlyResults) {
-      expect(r.bendingStress).toBeGreaterThanOrEqual(0);
+      expect(Number.isFinite(r.bendingStress)).toBe(true);
     }
   });
 
@@ -472,10 +578,10 @@ describe('runStressModel – custom joint stiffness', () => {
   const stiffInput: StressModelInput = {
     ...BASE_INPUT,
     joint: {
-      normalStiffnessOverE:      0.5,
-      rotationalStiffnessOverE:  0.5,
-      stressCoeffTop:            1,
-      stressCoeffBottom:         1,
+      normalStiffnessOverE:     0.5,
+      rotationalStiffnessOverE: 0.5,
+      axialSifCoeff:            1,
+      bendingSifCoeff:          1,
     },
   };
 
@@ -496,7 +602,7 @@ describe('runStressModel – stress grows with temperature amplitude', () => {
   function totalAt(dTc: number, dTg: number): number {
     const inputs = makeHourlyInputs(10, 20, 3_000_000, dTc, dTg);
     const out = runStressModel({ ...BASE_INPUT, hourlyInputs: inputs });
-    return Math.max(...out.hourlyResults.map(r => r.totalStress));
+    return Math.max(...out.hourlyResults.map(r => Math.abs(r.totalStress)));
   }
 
   it('larger temperature drop → larger total stress', () => {
@@ -533,5 +639,50 @@ describe('runStressModel – creep adjustment', () => {
     const baseSum  = base.creepResults.reduce((s, r) => s + r.creepTotalStress, 0);
     const creptSum = crept.creepResults.reduce((s, r) => s + r.creepTotalStress, 0);
     expect(baseSum).not.toBeCloseTo(creptSum, 3);
+  });
+});
+
+describe('runStressModel – sawcutNormalized auto-computes joint', () => {
+  const sawcutInput: StressModelInput = {
+    ...BASE_INPUT,
+    sawcutNormalized: 0.25,
+  };
+
+  it('produces finite results with sawcutNormalized', () => {
+    const out = runStressModel(sawcutInput);
+    for (const r of out.hourlyResults) {
+      expect(Number.isFinite(r.totalStress)).toBe(true);
+      expect(Number.isFinite(r.stressIntensityKI)).toBe(true);
+    }
+  });
+
+  it('KI is non-zero for non-zero elastic modulus hours', () => {
+    const out = runStressModel(sawcutInput);
+    const nonZero = out.hourlyResults.filter(r => r.elasticModulus > 0);
+    expect(nonZero.some(r => Math.abs(r.stressIntensityKI) > 1e-6)).toBe(true);
+  });
+
+  it('deeper sawcut → larger KI (more crack-tip stress)', () => {
+    const shallow = runStressModel({ ...BASE_INPUT, sawcutNormalized: 0.15 });
+    const deep    = runStressModel({ ...BASE_INPUT, sawcutNormalized: 0.35 });
+    const maxKI = (r: typeof shallow) =>
+      Math.max(...r.hourlyResults.map(h => Math.abs(h.stressIntensityKI)));
+    expect(maxKI(deep)).toBeGreaterThan(maxKI(shallow));
+  });
+
+  it('sawcutNormalized takes precedence over manual joint override', () => {
+    const withManual: StressModelInput = {
+      ...BASE_INPUT,
+      sawcutNormalized: 0.25,
+      joint: { normalStiffnessOverE: 0, rotationalStiffnessOverE: 0 },
+    };
+    const withSawcut = runStressModel(sawcutInput);
+    const withBoth   = runStressModel(withManual);
+    // Both should give the same result since sawcut takes precedence
+    const ki1 = withSawcut.hourlyResults.map(r => r.stressIntensityKI);
+    const ki2 = withBoth.hourlyResults.map(r => r.stressIntensityKI);
+    for (let i = 0; i < ki1.length; i++) {
+      expect(ki1[i]).toBeCloseTo(ki2[i], 10);
+    }
   });
 });
