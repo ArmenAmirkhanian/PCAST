@@ -3,7 +3,7 @@
   export let climateNormalsHtml: string;
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo, weatherStations, chartImages } from '$lib/stores/form';
+  import { projectInfo, weatherStations, chartImages, weatherHourlyData } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
@@ -92,6 +92,7 @@
     errorMessage = '';
     rows = [];
     clearCharts();
+    weatherHourlyData.set([]);
   }
 
   // Reset environment data when projectInfo changes
@@ -226,6 +227,26 @@
     elevation: station.elevation,
     distanceKm: station.distanceKm
   })));
+
+  // Populate weatherHourlyData from the nearest station for use in thermal model
+  $: {
+    const nearest = stationDisplays[0];
+    if (nearest) {
+      const year = $projectInfo.date ? parseInt($projectInfo.date.split('-')[0], 10) : new Date().getFullYear();
+      weatherHourlyData.set(
+        nearest.hourly.map((row) => ({
+          offsetHr: row.offsetHr,
+          year,
+          month:    row.month,
+          day:      row.day,
+          hour:     row.hour,
+          airTempC: row.temp  ?? 20,
+          windMps:  row.wind  ?? 3,
+          cloudPct: row.cloud
+        }))
+      );
+    }
+  }
 
   $: selectedDate = $projectInfo.date
     ? new Date(`${$projectInfo.date}T00:00:00Z`)
