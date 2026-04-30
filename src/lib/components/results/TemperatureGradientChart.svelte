@@ -131,6 +131,13 @@
     }
   }
 
+  // Maps hour 1 (blue) → hour 72 (red) through the standard thermal-gradient spectrum
+  function hourColor(hour: number): string {
+    const t   = (hour - 1) / 71;          // 0 at hour 1, 1 at hour 72
+    const hue = Math.round(240 * (1 - t)); // 240 = blue, 0 = red
+    return `hsl(${hue}, 90%, 45%)`;
+  }
+
   function buildTraces(): PlotData[] {
     const results = $thermalGradientResults;
     if (!results || !$slabLayout.thickness) return [];
@@ -158,6 +165,7 @@
         y:             depthsDisplay,
         mode:          'lines',
         name:          `Hour ${label}`,
+        line:          { color: hourColor(label) },
         hovertemplate: sys === 'us'
           ? `%{x:.1f}°F at %{y:.2f} in<extra>Hour ${label}</extra>`
           : `%{x:.1f}°C at %{y:.0f} mm<extra>Hour ${label}</extra>`
@@ -171,12 +179,25 @@
     const sys    = $unitSystem;
     const traces = buildTraces();
     const layout: Partial<Layout> = {
-      title:     'Slab Temperature Gradient Over Time',
-      xaxis:     { title: sys === 'us' ? 'Temperature (°F)' : 'Temperature (°C)' },
-      yaxis:     { title: sys === 'us' ? 'Depth (in)' : 'Depth (mm)', autorange: 'reversed' },
+      title:  { text: 'Slab Temperature Gradient Over Time', font: { size: 16 } },
+      xaxis:  {
+        title: {
+          text: sys === 'us' ? 'Temperature (°F)' : 'Temperature (°C)',
+          font: { size: 13 }
+        },
+        tickfont: { size: 12 }
+      },
+      yaxis:  {
+        title: {
+          text: sys === 'us' ? 'Depth (in)' : 'Depth (mm)',
+          font: { size: 13 }
+        },
+        tickfont:  { size: 12 },
+        autorange: 'reversed'
+      },
       legend:    { title: { text: 'Hour' } },
       height:    500,
-      margin:    { t: 50, r: 20, b: 60, l: 70 },
+      margin:    { t: 55, r: 20, b: 70, l: 80 },
       hovermode: 'closest'
     };
     await Plotly.react(chartRef, traces, layout, { responsive: true, displaylogo: false });
@@ -226,10 +247,11 @@
     <h3 class="text-lg font-semibold mb-3">Thermal Model Parameters</h3>
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-lg">
       <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium">
+        <label for="input-hu" class="text-sm font-medium">
           Total Heat of Hydration, H<sub>u</sub> (J/kg)
         </label>
         <input
+          id="input-hu"
           type="number"
           class="border rounded-lg p-2 text-sm"
           bind:value={Hu}
@@ -238,10 +260,11 @@
         <p class="text-xs text-gray-500">Default: 375,000 J/kg (Type I/II)</p>
       </div>
       <div class="flex flex-col gap-1">
-        <label class="text-sm font-medium">
+        <label for="input-cc" class="text-sm font-medium">
           Cement Content, c<sub>c</sub> (kg/m³)
         </label>
         <input
+          id="input-cc"
           type="number"
           class="border rounded-lg p-2 text-sm"
           bind:value={cc}
