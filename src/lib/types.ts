@@ -29,8 +29,8 @@ export type MaterialsForm = {
 };
 
 export type SlabLayoutForm = {
-  thickness: number | '';
-  jointSpacing: number | '';
+  thickness: number | '';    // canonical internal units: inches
+  jointSpacing: number | ''; // canonical internal units: feet
   sawCutHour: string;
   jointType: 'Aggregate Interlock' | 'Aggregate Interlock with Dowels';
   baseType: string;
