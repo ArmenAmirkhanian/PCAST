@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 import type { HydrationModel } from '$lib/types';
+import type { ModelOutput } from '$lib/models/illitherm/types';
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -68,3 +69,17 @@ export type MaturityPoint = {
   strength: number;
 };
 export const maturityResultsStore = writable<MaturityPoint[] | null>(null);
+
+export type WeatherHourlyRow = {
+  offsetHr: number;
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  airTempC: number;
+  windMps: number;
+  cloudPct: number | null;
+};
+
+export const weatherHourlyData = writable<WeatherHourlyRow[]>([]);
+export const thermalGradientResults = writable<ModelOutput | null>(null);

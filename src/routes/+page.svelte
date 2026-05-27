@@ -9,6 +9,7 @@
 	import EnvTab from '$lib/components/environmental/envTab.svelte';
 import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelte';
+import TemperatureGradientChart from '$lib/components/results/TemperatureGradientChart.svelte';
 
   export let data: {
     explanations: {
@@ -69,7 +70,7 @@ import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelt
       <p class="text-gray-600">Analysis tab coming soon…</p>
     </div>
     <div class:hidden={active !== 'results'}>
-      <p class="text-gray-600">Results tab coming soon…</p>
+      <TemperatureGradientChart />
     </div>
     <div class:hidden={active !== 'report'}>
       <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
