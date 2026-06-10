@@ -11,6 +11,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelte';
 import TemperatureGradientChart from '$lib/components/results/TemperatureGradientChart.svelte';
 import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte';
+import AboutTab from '$lib/components/about/AboutTab.svelte';
 
   export let data: {
     explanations: {
@@ -31,7 +32,8 @@ import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte
     { id: 'environment', label: 'Environment' },
     { id: 'analysis',   label: 'Analysis' },
     { id: 'results',    label: 'Results' },
-    { id: 'report',     label: 'Report PDF' }
+    { id: 'report',     label: 'Report PDF' },
+    { id: 'about',      label: 'About' }
   ];
 </script>
 
@@ -75,6 +77,9 @@ import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte
     </div>
     <div class:hidden={active !== 'report'}>
       <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
+    </div>
+    <div class:hidden={active !== 'about'}>
+      <AboutTab />
     </div>
   </div>
 </Tabs>
