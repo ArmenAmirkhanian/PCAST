@@ -1,215 +1,342 @@
-# PCAST  
+# PCAST
+
 ## Pavement Cracking Analysis & Scheduling Tool
 
 PCAST is a SvelteKit-based web application for analyzing environmental conditions and material behavior related to pavement cracking and construction timing.
 
-This guide explains **exactly how to download and run the project locally**, even if you have little or no programming experience.
+This guide explains how to download and run the project locally, even if you have little or no programming experience.
 
 ---
 
-# What You Need (Install Once)
+## What You Need
 
-Before running PCAST, install these three programs:
+Before running PCAST, install these programs:
 
-1. **Visual Studio Code (VS Code)**  
+1. **Visual Studio Code (VS Code)**
    https://code.visualstudio.com/
 
-2. **Git**  
+2. **Git**
    https://git-scm.com/downloads
 
-3. **Node.js (LTS Version)**  
-   https://nodejs.org/  
+3. **Node.js — LTS Version**
+   https://nodejs.org/
    Choose the **LTS (Long Term Support)** version.
 
-After installing Node.js and Git, restart your computer (especially on Windows).
+After installing Git and Node.js, restart your computer, especially on Windows.
 
 ---
 
-# Step 1 — Verify Installation
+## Step 1 — Verify Your Installation
 
-Open **VS Code**
+Open **VS Code**.
 
-Go to:  
-**Terminal → New Terminal**
+Go to:
 
-Run:
+```text
+Terminal → New Terminal
+```
+
+Run these commands:
 
 ```bash
 git --version
 node --version
 npm --version
-````
+```
 
-If you see version numbers for all three, you're ready to continue.
+If all three commands show version numbers, you are ready to continue.
 
-If not:
+If one of them is not recognized:
 
-Git not found → install Git
+* `git` not found → install Git and restart VS Code.
+* `node` or `npm` not found → install Node.js LTS and restart VS Code.
 
-# Step 2 — Download (Clone) the Project
+---
 
-## Option A (Recommended — inside VS Code)
+## Step 2 — Download the Project
 
-Open VS Code
+You can download the project using either VS Code or the terminal.
 
-Press Ctrl + Shift + P (or Cmd + Shift + P on Mac)
+### Option A — Clone Inside VS Code
 
-Type: Git: Clone
+This is the recommended method for beginners.
 
-Paste this repository URL:
+1. Open **VS Code**.
 
-https://github.com/ArmenAmirkhanian/PCAST
+2. Press:
 
+   ```text
+   Ctrl + Shift + P
+   ```
 
-Choose a folder (Documents is fine)
+   On Mac:
 
-Click Open when prompted
+   ```text
+   Cmd + Shift + P
+   ```
 
-VS Code will now open the PCAST project.
+3. Type:
 
-## Option B (Using Terminal)
+   ```text
+   Git: Clone
+   ```
 
-Open VS Code → Terminal → New Terminal
+4. Paste this repository URL:
+
+   ```text
+   https://github.com/ArmenAmirkhanian/PCAST
+   ```
+
+5. Choose a folder, such as **Documents**.
+
+6. When VS Code asks whether to open the cloned repository, click **Open**.
+
+VS Code should now open the PCAST project folder.
+
+### Option B — Clone Using the Terminal
+
+Open **VS Code**, then open a new terminal:
+
+```text
+Terminal → New Terminal
+```
 
 Run:
-````bash
+
+```bash
 git clone https://github.com/ArmenAmirkhanian/PCAST
 cd PCAST
 code .
-````
+```
 
-# Step 3 — Install Project Dependencies
+---
 
-In VS Code:
+## Step 3 — Install Project Dependencies
 
-Open Terminal → New Terminal
+In VS Code, open a terminal:
 
-Make sure you are inside the PCAST folder.
-You should see a file named package.json in the file list.
+```text
+Terminal → New Terminal
+```
+
+Make sure you are inside the `PCAST` folder.
+
+You should see a file named:
+
+```text
+package.json
+```
 
 Now run:
-````bash
+
+```bash
 npm install
-````
+```
 
-This installs all required project dependencies.
+This installs the required project dependencies.
 
-This may take 1–5 minutes the first time.
+The first install may take a few minutes. A folder named `node_modules` will be created. That is normal.
 
-A folder called node_modules will be created. That is normal.
+---
 
-# Step 4 — Run the Application
+## Step 4 — Run the Application
 
 Start the development server:
-````bash
+
+```bash
 npm run dev
-````
+```
 
 You should see output similar to:
-````bash
+
+```text
 Local:   http://localhost:5173/
-````
+```
 
 Open that link in your browser.
 
 PCAST should now be running locally.
 
-## How to Stop the App
+---
 
-In the terminal window, press:
+## Stopping and Restarting the App
 
+To stop the app, click inside the terminal and press:
+
+```text
 Ctrl + C
+```
 
+To restart the app later, run:
 
-To restart it later:
-````bash
+```bash
 npm run dev
-````
- 
-## Build for Production (Optional)
+```
+
+---
+
+## Optional Development Commands
+
+### Check the Project
+
+```bash
+npm run check
+```
+
+### Check Formatting and Linting
+
+```bash
+npm run lint
+```
+
+### Run Tests
+
+```bash
+npm run test
+```
+
+---
+
+## Build for Production
 
 To create a production build:
-````bash
+
+```bash
 npm run build
-````
+```
 
 To preview the production build locally:
-````bash
+
+```bash
 npm run preview
-````
+```
 
-# Troubleshooting
-## ❌ "npm is not recognized"
+---
 
-Node.js is not installed or VS Code needs to be restarted.
+## Troubleshooting
 
-Solution:
+### `npm is not recognized`
 
-Install Node.js (LTS)
+Node.js is not installed, or VS Code has not been restarted since Node.js was installed.
 
-Restart VS Code
+**Solution:**
 
-## ❌ "git is not recognized"
+1. Install Node.js LTS.
+2. Restart VS Code.
+3. Try again.
 
-Git is not installed.
+---
 
-Solution:
+### `git is not recognized`
 
-Install Git
+Git is not installed, or VS Code has not been restarted since Git was installed.
 
-Restart VS Code
+**Solution:**
 
-## ❌ Port Already in Use
+1. Install Git.
+2. Restart VS Code.
+3. Try again.
 
-Try:
-````bash
+---
+
+### Port Already in Use
+
+If the default development port is already being used, run:
+
+```bash
 npm run dev -- --port 5174
-````
+```
 
-Then open the new port shown in the terminal.
+Then open the new local link shown in the terminal.
 
-## ❌ I'm in the Wrong Folder
+---
 
-Check your location:
-````bash
+### I Am in the Wrong Folder
+
+Check your current folder:
+
+```bash
 pwd
 ls
-````
+```
 
-If you do not see package.json, run:
-````bash
+You should see:
+
+```text
+package.json
+```
+
+If you do not see `package.json`, move into the project folder:
+
+```bash
 cd PCAST
-````
-# Project Structure (High-Level)
-```
-PCAST/
-├── src/           → Application source code
-├── static/        → Static assets
-├── package.json   → Project dependencies & scripts
-├── svelte.config.js
-├── vite.config.js
-└── README.md
 ```
 
-# Updating Dependencies
+Then try again.
 
-To update installed packages:
-````bash
-npm update
-````
+---
 
-To completely reinstall everything:
-````bash
+### Reinstall Dependencies
+
+If the project dependencies become corrupted or something is not working correctly, you can reinstall everything.
+
+On Mac or Linux:
+
+```bash
 rm -rf node_modules package-lock.json
 npm install
-````
+```
 
-(Windows users may need to delete the folders manually.)
+On Windows PowerShell:
 
-# Maintainer
+```powershell
+Remove-Item -Recurse -Force node_modules
+Remove-Item -Force package-lock.json
+npm install
+```
 
-Dr. Armen Amirkhanian, P.E.
+---
 
+## Project Structure
+
+```text
+PCAST/
+├── docs/             Project documentation
+├── src/              Application source code
+├── static/           Static assets
+├── package.json      Project dependencies and scripts
+├── svelte.config.js  Svelte configuration
+├── vite.config.ts    Vite configuration
+└── README.md         Project instructions
+```
+
+---
+
+## Updating Dependencies
+
+To update installed packages:
+
+```bash
+npm update
+```
+
+After updating, it is a good idea to run:
+
+```bash
+npm run check
+npm run build
+```
+
+---
+
+## License
+
+This project is licensed under the GNU Affero General Public License v3.0 or later.
+
+---
+
+## Maintainer
+
+**Dr. Armen Amirkhanian, P.E.**
 Department of Civil, Construction, and Environmental Engineering
-
 The University of Alabama
