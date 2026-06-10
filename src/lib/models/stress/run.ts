@@ -25,7 +25,7 @@ import {
   edgeBendingFactor,
 } from './beam';
 import { computeJointCoefficients } from './joint';
-import { matVec2, solve2x2, lowerTriMatVec } from './linalg';
+import { matVec2, lowerTriMatVec } from './linalg';
 import type {
   StressModelInput,
   StressOutput,
@@ -65,6 +65,19 @@ export function runStressModel(input: StressModelInput): StressOutput {
       `hourlyInputs has ${hourlyInputs.length} entries but startHour=${startHour} to endHour=${endHour} requires ${nt}`,
     );
   }
+
+  // Hour-alignment check (explanation §30.9): row i must be hour startHour + i,
+  // otherwise the creep transformation matrices (built on the assumed grid) and
+  // the load histories refer to mismatched times.
+  for (let i = 0; i < nt; i++) {
+    if (hourlyInputs[i].hour !== startHour + i) {
+      throw new RangeError(
+        `hourlyInputs[${i}].hour is ${hourlyInputs[i].hour} but must equal startHour + ${i} = ${startHour + i}`,
+      );
+    }
+  }
+
+  const warnings: string[] = [];
 
   const slab = input.slab;
 
@@ -131,8 +144,10 @@ export function runStressModel(input: StressModelInput): StressOutput {
   // -------------------------------------------------------------------------
 
   const hourlyResults: HourlyStressResult[] = [];
-  const kiHistory: number[]    = [];
+  const kiHistory: number[]     = [];
   const stressHistory: number[] = [];
+  const topHistory: number[]    = [];
+  const bottomHistory: number[] = [];
 
   for (let i = 0; i < nt; i++) {
     const row = hourlyInputs[i];
@@ -142,7 +157,9 @@ export function runStressModel(input: StressModelInput): StressOutput {
       // Before concrete set – skip (store zeros for creep transform alignment)
       kiHistory.push(0);
       stressHistory.push(0);
-      hourlyResults.push(zeroResult(row.hour, E));
+      topHistory.push(0);
+      bottomHistory.push(0);
+      hourlyResults.push(zeroResult(row.hour, E, pseudoUniform[i], pseudoGradient[i]));
       continue;
     }
 
@@ -199,8 +216,34 @@ export function runStressModel(input: StressModelInput): StressOutput {
     // Free thermal force = plate stiffness × free displacement
     const force1 = matVec2(jointPlate1, resp0);
 
-    // Joint displacement from compatibility
-    const [respJ] = solve2x2(jointPlateTot1, force1);
+    // Joint displacement from compatibility, solved per DOF.
+    // jointPlateTot1 is strictly diagonal (off-diagonals are hard-zeroed), so
+    // the two DOFs decouple. Solving each independently means a singular DOF
+    // (e.g. zero plate rotational stiffness when the pseudo-gradient is zero)
+    // yields a zero reaction in THAT DOF only — the correct physical limit —
+    // without discarding the well-posed reaction in the other DOF. A shared 2×2
+    // determinant would zero both when either diagonal vanished (explanation
+    // §19.5, §30.10).
+    const kTot0 = jointPlateTot1[0][0];
+    const kTot1 = jointPlateTot1[1][1];
+    const respJ = [0, 0];
+    let solverOk = true;
+    if (Math.abs(kTot0) > 1e-30) {
+      respJ[0] = force1[0] / kTot0;
+    } else {
+      solverOk = false;
+      warnings.push(
+        `Hour ${row.hour}: normal-DOF plate+joint stiffness is zero; normal joint reaction set to 0.`,
+      );
+    }
+    if (Math.abs(kTot1) > 1e-30) {
+      respJ[1] = force1[1] / kTot1;
+    } else {
+      solverOk = false;
+      warnings.push(
+        `Hour ${row.hour}: rotational-DOF plate+joint stiffness is zero; rotational joint reaction set to 0.`,
+      );
+    }
 
     // Joint reaction forces
     const forceJ = matVec2(jointData1, respJ);
@@ -224,10 +267,18 @@ export function runStressModel(input: StressModelInput): StressOutput {
     const wt       = normalForce !== 0 ? forceJ[0] / normalForce : 0;
     const stressC1 = (1 - wt) * stressC + wt * stressC0;
 
-    const totalStress = stressC1 + stressB;
+    // Signed extreme-fibre stresses (explanation §23.3).
+    // The creep transform is applied to each signed face history separately so
+    // that diurnal gradient reversals (which put tension on opposite faces) are
+    // not collapsed into a single magnitude.
+    const totalStress  = stressC1 + stressB;   // === stressTop
+    const stressTop    = stressC1 + stressB;
+    const stressBottom = stressC1 - stressB;
 
     kiHistory.push(KI);
     stressHistory.push(totalStress);
+    topHistory.push(stressTop);
+    bottomHistory.push(stressBottom);
 
     hourlyResults.push({
       hour:                      row.hour,
@@ -241,6 +292,13 @@ export function runStressModel(input: StressModelInput): StressOutput {
       bendingStress:             stressB,
       normalStress:              stressC1,
       totalStress,
+      stressTop,
+      stressBottom,
+      maxTensileStress:          Math.max(stressTop, stressBottom),
+      pseudoUniformTemp:         DTC2,
+      pseudoGradientTemp:        dt2,
+      edgeBendingFactor:         sfRaw,
+      solverOk,
     });
   }
 
@@ -248,23 +306,33 @@ export function runStressModel(input: StressModelInput): StressOutput {
   // Step 4: Apply B to elastic histories → creep-adjusted results (creepResults)
   // -------------------------------------------------------------------------
 
-  const creepKIHistory    = lowerTriMatVec(B, kiHistory);
+  const creepKIHistory     = lowerTriMatVec(B, kiHistory);
   const creepStressHistory = lowerTriMatVec(B, stressHistory);
+  const creepTopHistory    = lowerTriMatVec(B, topHistory);
+  const creepBottomHistory = lowerTriMatVec(B, bottomHistory);
 
   const creepResults: CreepStressResult[] = hourlyResults.map((r, i) => ({
     hour:             r.hour,
     creepKI:          creepKIHistory[i],
     creepTotalStress: creepStressHistory[i],
+    creepStressTop:    creepTopHistory[i],
+    creepStressBottom: creepBottomHistory[i],
+    creepMaxTensile:   Math.max(creepTopHistory[i], creepBottomHistory[i]),
   }));
 
-  return { hourlyResults, creepResults };
+  return { hourlyResults, creepResults, warnings };
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function zeroResult(hour: number, E: number): HourlyStressResult {
+function zeroResult(
+  hour: number,
+  E: number,
+  pseudoUniformTemp = 0,
+  pseudoGradientTemp = 0,
+): HourlyStressResult {
   return {
     hour,
     elasticModulus:            E,
@@ -277,6 +345,13 @@ function zeroResult(hour: number, E: number): HourlyStressResult {
     bendingStress:             0,
     normalStress:              0,
     totalStress:               0,
+    stressTop:                 0,
+    stressBottom:              0,
+    maxTensileStress:          0,
+    pseudoUniformTemp,
+    pseudoGradientTemp,
+    edgeBendingFactor:         0,
+    solverOk:                  true,
   };
 }
 

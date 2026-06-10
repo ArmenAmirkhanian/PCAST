@@ -302,11 +302,12 @@
   };
 
   const clearCharts = () => {
-    if (!Plotly) return;
+    const plotly = Plotly;
+    if (!plotly) return;
     metrics.forEach((metric) => {
       const target = chartRefs[metric];
       if (target) {
-        Plotly.purge(target);
+        plotly.purge(target);
         target.innerHTML = '';
       }
     });
@@ -327,7 +328,7 @@
           name: 'Download SVG',
           title: 'Download plot as SVG',
           icon: Plotly?.Icons?.camera,
-          click: (gd) => {
+          click: (gd: any) => {
             Plotly?.downloadImage(gd, { format: 'svg', filename: 'chart' });
           }
         }

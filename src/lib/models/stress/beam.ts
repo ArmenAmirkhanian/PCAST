@@ -35,6 +35,12 @@ export function radiusOfRelativeStiffness(
  * with symmetry (even) boundary conditions at ξ = 0 and free-end conditions
  * at ξ = A.
  *
+ * Note (explanation §7.3 / §30.6): this +w (not +4w) form is the one consistent
+ * with the radius ℓ = (D/k)^¼ used by radiusOfRelativeStiffness and with the
+ * A/√2 trigonometric/exponential arguments below — the roots of r⁴ = −1 are
+ * (±1 ± i)/√2. An earlier comment cited +4w, which would instead require a
+ * different characteristic length; the implementation here is the +w convention.
+ *
  * @param spaceND    Non-dimensional joint spacing L/ℓ
  * @param momTempND  Non-dimensional temperature moment M_T / (ℓ² · k)
  * @returns          Non-dimensional rotation at joint, scaled by momTempND

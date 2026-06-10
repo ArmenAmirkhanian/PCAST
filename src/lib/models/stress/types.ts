@@ -122,12 +122,33 @@ export interface HourlyStressResult {
   jointMomentPerH: number;
   /** Mode-I stress intensity factor KI (psi·in^0.5) */
   stressIntensityKI: number;
-  /** Edge bending stress (psi) */
+  /**
+   * Signed edge bending stress (psi). Positive per the model's sign
+   * convention (tension positive). Previously this was `Math.abs`-wrapped;
+   * the signed value is retained so the creep transform sees a true,
+   * sign-reversing history (see explanation §21.4).
+   */
   bendingStress: number;
-  /** Normal (axial) stress at slab mid-plane (psi) */
+  /** Normal (axial) stress at slab mid-plane (psi), signed (tension +) */
   normalStress: number;
-  /** Total stress = normal + bending (psi) */
+  /** Total stress = normal + signed bending (psi) — equals stressTop */
   totalStress: number;
+  // --- Signed extreme-fibre stresses (explanation §23.3 / §30.3) ----------
+  /** Top-fibre stress = normalStress + bendingStress (psi, tension +) */
+  stressTop: number;
+  /** Bottom-fibre stress = normalStress − bendingStress (psi, tension +) */
+  stressBottom: number;
+  /** Most tensile of the two faces this hour = max(stressTop, stressBottom) */
+  maxTensileStress: number;
+  // --- Diagnostics (explanation §30.11) -----------------------------------
+  /** Pseudo-uniform temperature DTC* used this hour (°F) — post B⁻¹ */
+  pseudoUniformTemp: number;
+  /** Pseudo-gradient temperature ΔT_g* used this hour (°F) — post B⁻¹ */
+  pseudoGradientTemp: number;
+  /** Raw edge bending factor sfRaw = edgeBendingFactor(spaceND) */
+  edgeBendingFactor: number;
+  /** False if the 2×2 joint compatibility system was singular this hour */
+  solverOk: boolean;
 }
 
 /** Creep-adjusted result for one hour (post B-matrix transformation) */
@@ -135,8 +156,14 @@ export interface CreepStressResult {
   hour: number;
   /** Creep-adjusted stress intensity factor (psi·in^0.5) */
   creepKI: number;
-  /** Creep-adjusted total stress (psi) */
+  /** Creep-adjusted total stress (psi) — B applied to totalStress history */
   creepTotalStress: number;
+  /** Creep-adjusted top-fibre stress (psi) — B applied to stressTop history */
+  creepStressTop: number;
+  /** Creep-adjusted bottom-fibre stress (psi) — B applied to stressBottom history */
+  creepStressBottom: number;
+  /** Most tensile creep-adjusted face = max(creepStressTop, creepStressBottom) */
+  creepMaxTensile: number;
 }
 
 /** Full output of the stress & creep model */
@@ -145,4 +172,6 @@ export interface StressOutput {
   hourlyResults: HourlyStressResult[];
   /** Creep-adjusted results (B-matrix applied to elastic stresses) */
   creepResults: CreepStressResult[];
+  /** Non-fatal diagnostics raised during the run (singular hours, etc.) */
+  warnings: string[];
 }
