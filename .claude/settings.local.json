@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vitest:*)",
+      "Bash(npm run *)",
+      "Bash(grep -iE \"StressAnalysisTab|stress/inputs|stress\\\\\\\\\\\\\\\\inputs|stress/run|stress\\\\\\\\\\\\\\\\run|stress/types|stress\\\\\\\\\\\\\\\\types|stress/beam|stress\\\\\\\\\\\\\\\\beam|stores\\\\\\\\\\\\\\\\form|stores/form\")",
+      "Bash(grep -iB0 \"Error:\")",
+      "Bash(grep -oiE \"src[\\\\\\\\\\\\\\\\/][^:]+\")",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"try{const c=require\\('fs'\\).readFileSync\\('./svelte.config.js','utf8'\\);console.log\\(c\\)}catch\\(e\\){console.log\\('no svelte.config.js:',e.message\\)}\")"
+    ]
+  }
+}

@@ -1,0 +1,177 @@
+/**
+ * Types for the Stress & Creep Analysis Module
+ *
+ * Converted from VBA macros: CreepModule + BeamModule (PCAST spreadsheet).
+ * The model uses a rate-type creep formulation via Riesz transformation
+ * matrices (B and B⁻¹) applied to a Winkler-foundation beam analysis of a
+ * concrete slab panel with a transverse joint.
+ */
+
+// ---------------------------------------------------------------------------
+// Inputs
+// ---------------------------------------------------------------------------
+
+/** Slab material and geometry properties */
+export interface SlabProperties {
+  /** Slab thickness (in) */
+  thickness: number;
+  /** Poisson's ratio (dimensionless) */
+  poissonRatio: number;
+  /** Coefficient of thermal expansion (1/°F) */
+  cote: number;
+  /** Modulus of subgrade reaction (psi/in) */
+  kValue: number;
+  /** Joint spacing (ft) – converted to inches internally */
+  jointSpacingFt: number;
+  /** Horizontal friction coefficient between slab and base (psi/in) */
+  frictionCoefficient: number;
+}
+
+/**
+ * Joint stiffness properties.
+ * Stiffness values are per unit elastic modulus so the ratio scales with E.
+ * Set to 0 for a fully open (free) joint; large values approach a rigid joint.
+ */
+export interface JointProperties {
+  /** Normal (translational) stiffness / E (dimensionless) */
+  normalStiffnessOverE: number;
+  /** Rotational stiffness / E (dimensionless) */
+  rotationalStiffnessOverE: number;
+  /** ft – dimensionless SIF geometry function for axial (normal) loading (P2 in VBA) */
+  axialSifCoeff: number;
+  /** fb – dimensionless SIF geometry function for bending loading (P1 in VBA) */
+  bendingSifCoeff: number;
+}
+
+/**
+ * Parameters for the placeholder rate-type creep model.
+ * J(t, tʹ) = [1/145 / E_eff(tʹ)] × 10⁶ × [1 + a1·(1 − e^{−(t−tʹ)/a2(tʹ)})] / 1000
+ * where E_eff(tʹ) = −12.135 + 7.9557·ln(tʹ)  (placeholder, GPa-scale)
+ *       a2(tʹ)   = a2Scale · e^{tʹ · a2Rate}
+ */
+export interface CreepModelParams {
+  /** Creep coefficient multiplier (a1 in VBA, default 1) */
+  a1: number;
+  /** Creep time-constant pre-exponential factor (default 15) */
+  a2Scale: number;
+  /** Creep time-constant exponential rate (default 0.0072) */
+  a2Rate: number;
+}
+
+/** Per-hour input data required by the stress model */
+export interface HourlyInput {
+  /** Absolute hour index (e.g. 1–72) */
+  hour: number;
+  /** Elastic modulus at this hour (psi) from the hydration model */
+  elasticModulus: number;
+  /** Uniform temperature change ΔT_c (°F) – average through slab thickness */
+  uniformTempChange: number;
+  /** Temperature gradient ΔT_g (°F) – top minus bottom surface */
+  gradientTempChange: number;
+}
+
+/** Full input bundle for the stress & creep runner */
+export interface StressModelInput {
+  /**
+   * Index of the first hour to analyse (set time, n0 in VBA).
+   * Typically the concrete set time from the hydration model.
+   */
+  startHour: number;
+  /** Last hour to analyse (nf in VBA, default 72) */
+  endHour?: number;
+  slab: SlabProperties;
+  /**
+   * Normalised sawcut depth α = sawcutDepth / slabThickness (dimensionless, 0–1).
+   * When provided the joint stiffness and stress-intensity coefficients are
+   * computed from fracture-mechanics integrals (joint.ts).  Takes precedence
+   * over the manual `joint` override below.
+   */
+  sawcutNormalized?: number;
+  /**
+   * Manual joint property override.
+   * Used only when `sawcutNormalized` is not provided.
+   * Defaults to a free (open) joint when both are omitted.
+   */
+  joint?: Partial<JointProperties>;
+  /** Creep model parameters – defaults applied when omitted */
+  creep?: Partial<CreepModelParams>;
+  /**
+   * Per-hour data array.
+   * Must contain one entry for each hour from startHour to endHour (inclusive).
+   */
+  hourlyInputs: HourlyInput[];
+}
+
+// ---------------------------------------------------------------------------
+// Outputs
+// ---------------------------------------------------------------------------
+
+/** Elastic (time-independent) stress results for one hour */
+export interface HourlyStressResult {
+  hour: number;
+  elasticModulus: number;
+  /** Radius of relative stiffness, ℓ (in) */
+  radiusOfRelativeStiffness: number;
+  /** Thermal normal force per unit width (lb/in) */
+  normalForce: number;
+  /** Thermal bending moment per unit width (lb·in/in) */
+  temperatureMoment: number;
+  /** Joint normal force per unit width (lb/in) */
+  jointNormalForce: number;
+  /** Joint moment divided by slab thickness (lb/in) */
+  jointMomentPerH: number;
+  /** Mode-I stress intensity factor KI (psi·in^0.5) */
+  stressIntensityKI: number;
+  /**
+   * Signed edge bending stress (psi). Positive per the model's sign
+   * convention (tension positive). Previously this was `Math.abs`-wrapped;
+   * the signed value is retained so the creep transform sees a true,
+   * sign-reversing history (see explanation §21.4).
+   */
+  bendingStress: number;
+  /** Normal (axial) stress at slab mid-plane (psi), signed (tension +) */
+  normalStress: number;
+  /** Total stress = normal + signed bending (psi) — equals stressTop */
+  totalStress: number;
+  // --- Signed extreme-fibre stresses (explanation §23.3 / §30.3) ----------
+  /** Top-fibre stress = normalStress + bendingStress (psi, tension +) */
+  stressTop: number;
+  /** Bottom-fibre stress = normalStress − bendingStress (psi, tension +) */
+  stressBottom: number;
+  /** Most tensile of the two faces this hour = max(stressTop, stressBottom) */
+  maxTensileStress: number;
+  // --- Diagnostics (explanation §30.11) -----------------------------------
+  /** Pseudo-uniform temperature DTC* used this hour (°F) — post B⁻¹ */
+  pseudoUniformTemp: number;
+  /** Pseudo-gradient temperature ΔT_g* used this hour (°F) — post B⁻¹ */
+  pseudoGradientTemp: number;
+  /** Raw edge bending factor sfRaw = edgeBendingFactor(spaceND) */
+  edgeBendingFactor: number;
+  /** False if the 2×2 joint compatibility system was singular this hour */
+  solverOk: boolean;
+}
+
+/** Creep-adjusted result for one hour (post B-matrix transformation) */
+export interface CreepStressResult {
+  hour: number;
+  /** Creep-adjusted stress intensity factor (psi·in^0.5) */
+  creepKI: number;
+  /** Creep-adjusted total stress (psi) — B applied to totalStress history */
+  creepTotalStress: number;
+  /** Creep-adjusted top-fibre stress (psi) — B applied to stressTop history */
+  creepStressTop: number;
+  /** Creep-adjusted bottom-fibre stress (psi) — B applied to stressBottom history */
+  creepStressBottom: number;
+  /** Most tensile creep-adjusted face = max(creepStressTop, creepStressBottom) */
+  creepMaxTensile: number;
+}
+
+/** Full output of the stress & creep model */
+export interface StressOutput {
+  /** Elastic results, one entry per hour */
+  hourlyResults: HourlyStressResult[];
+  /** Creep-adjusted results (B-matrix applied to elastic stresses) */
+  creepResults: CreepStressResult[];
+  /** Non-fatal diagnostics raised during the run (singular hours, etc.) */
+  warnings: string[];
+}
