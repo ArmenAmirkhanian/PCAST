@@ -7,7 +7,22 @@
       "Bash(grep -iB0 \"Error:\")",
       "Bash(grep -oiE \"src[\\\\\\\\\\\\\\\\/][^:]+\")",
       "Bash(node -e ' *)",
-      "Bash(node -e \"try{const c=require\\('fs'\\).readFileSync\\('./svelte.config.js','utf8'\\);console.log\\(c\\)}catch\\(e\\){console.log\\('no svelte.config.js:',e.message\\)}\")"
+      "Bash(node -e \"try{const c=require\\('fs'\\).readFileSync\\('./svelte.config.js','utf8'\\);console.log\\(c\\)}catch\\(e\\){console.log\\('no svelte.config.js:',e.message\\)}\")",
+      "Bash(grep -oE \"src[\\\\\\\\/].*\\\\.\\(svelte|ts\\)\")",
+      "Bash(grep -E \"PCAST.\\(src|\\\\\\\\\\\\\\\\src\\)\")",
+      "Bash(grep -oiE \"src[\\\\\\\\\\\\\\\\/][^:]+\\\\.\\(svelte|ts\\)\")",
+      "Bash(sed -r 's/\\\\x1b\\\\[[0-9;]*m//g')",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:5179/ -o /tmp/page.html)",
+      "Bash(grep -oiE \".{25}500.{15}\" /tmp/page.html | head -8; echo \"=== server log errors? ===\"; sed -r 's/\\\\x1b\\\\[[0-9;]*m//g' /tmp/dev.log | grep -iE \"error|500|warn:\" | grep -viE \"baseline|a11y|label must\" | head)",
+      "Bash(curl -s http://localhost:5179/ -o /tmp/page2.html -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\")",
+      "Bash(sed -r 's/\\\\x1b\\\\[[0-9;]*m//g' /tmp/dev.log)",
+      "Bash(curl -s http://localhost:5179/ -o /tmp/page3.html -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\")",
+      "Bash(grep -oc \"alpha_u\\\\\\\\\\\\\\\\cdot\\\\|alpha_u\\\\|t_e\" /tmp/page3.html)",
+      "Bash(pkill -f \"vite dev\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

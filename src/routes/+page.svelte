@@ -19,6 +19,7 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
       climateNormals: string;
     };
     hydrationModelEquations: Record<string, string>;
+    analysisNarratives: Record<string, string>;
   };
 
   let system: 'us'|'metric' = 'us';
@@ -30,8 +31,8 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
     { id: 'hydration',  label: 'Hydration' },
     { id: 'slabs',      label: 'Slab Layout' },
     { id: 'environment', label: 'Environment' },
-    { id: 'analysis',   label: 'Analysis' },
     { id: 'results',    label: 'Results' },
+    { id: 'analysis',   label: 'Analysis' },
     { id: 'report',     label: 'Report PDF' },
     { id: 'about',      label: 'About' }
   ];
@@ -69,14 +70,17 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
         climateNormalsHtml={data.explanations.climateNormals}
       />
     </div>
-    <div class:hidden={active !== 'analysis'}>
-      <StressAnalysisTab />
-    </div>
     <div class:hidden={active !== 'results'}>
       <TemperatureGradientChart />
     </div>
+    <div class:hidden={active !== 'analysis'}>
+      <StressAnalysisTab />
+    </div>
     <div class:hidden={active !== 'report'}>
-      <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
+      <ReportPdfTab
+        hydrationModelEquations={data.hydrationModelEquations}
+        analysisNarratives={data.analysisNarratives}
+      />
     </div>
     <div class:hidden={active !== 'about'}>
       <AboutTab />
