@@ -11,6 +11,7 @@ import ReportPdfTab from '$lib/components/report/ReportPdfTab.svelte';
 import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelte';
 import TemperatureGradientChart from '$lib/components/results/TemperatureGradientChart.svelte';
 import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte';
+import AboutTab from '$lib/components/about/AboutTab.svelte';
 
   export let data: {
     explanations: {
@@ -18,6 +19,7 @@ import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte
       climateNormals: string;
     };
     hydrationModelEquations: Record<string, string>;
+    analysisNarratives: Record<string, string>;
   };
 
   let system: 'us'|'metric' = 'us';
@@ -29,9 +31,10 @@ import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte
     { id: 'hydration',  label: 'Hydration' },
     { id: 'slabs',      label: 'Slab Layout' },
     { id: 'environment', label: 'Environment' },
-    { id: 'analysis',   label: 'Analysis' },
     { id: 'results',    label: 'Results' },
-    { id: 'report',     label: 'Report PDF' }
+    { id: 'analysis',   label: 'Analysis' },
+    { id: 'report',     label: 'Report PDF' },
+    { id: 'about',      label: 'About' }
   ];
 </script>
 
@@ -67,14 +70,20 @@ import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte
         climateNormalsHtml={data.explanations.climateNormals}
       />
     </div>
-    <div class:hidden={active !== 'analysis'}>
-      <StressAnalysisTab />
-    </div>
     <div class:hidden={active !== 'results'}>
       <TemperatureGradientChart />
     </div>
+    <div class:hidden={active !== 'analysis'}>
+      <StressAnalysisTab />
+    </div>
     <div class:hidden={active !== 'report'}>
-      <ReportPdfTab hydrationModelEquations={data.hydrationModelEquations} />
+      <ReportPdfTab
+        hydrationModelEquations={data.hydrationModelEquations}
+        analysisNarratives={data.analysisNarratives}
+      />
+    </div>
+    <div class:hidden={active !== 'about'}>
+      <AboutTab />
     </div>
   </div>
 </Tabs>
