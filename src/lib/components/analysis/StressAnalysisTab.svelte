@@ -15,6 +15,7 @@
   import { unitSystem } from '$lib/stores/units';
   import { runStressModel } from '$lib/models/stress/run';
   import { buildStressInput } from '$lib/models/stress/inputs';
+  import type { CreepModel } from '$lib/models/stress/types';
   import { sawCutModelHour } from '$lib/utils/time';
   import {
     resolveCementSystem,
@@ -84,8 +85,8 @@
   // Re-seed the set-time default from upstream inputs (since all tabs mount at
   // once, the stores are empty at init) until the user edits the field.
   let userTouchedSetHour = false;
-  let setHour = Math.max(5, computeSetHour($materials, $projectInfo));
-  $: smartSetHour = Math.max(5, computeSetHour($materials, $projectInfo));
+  let setHour = Math.max(1, computeSetHour($materials, $projectInfo));
+  $: smartSetHour = Math.max(1, computeSetHour($materials, $projectInfo));
   $: if (!userTouchedSetHour && smartSetHour !== setHour) setHour = smartSetHour;
 
   // ── Plotly ───────────────────────────────────────────────────────────────
@@ -144,7 +145,12 @@
         degreeOfHydration: r.degreeOfHydration
       })),
       thermal: ($thermalGradientResults?.results ?? []).map((r) => ({ temps: r.temps })),
-      creep: { a1: p.creepA1 }
+      creep: {
+        a1: p.creepA1,
+        creepModel: p.creepModel,
+        agingCoefficient: p.agingCoefficient,
+        cebFipS: p.cebFipS
+      }
     };
   }
 
@@ -432,9 +438,9 @@
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <label class="flex flex-col gap-1 text-sm">
         <span class="font-medium">Set time (hr)</span>
-        <input type="number" min="5" max="71" step="1" class="rounded-lg border p-2"
+        <input type="number" min="1" max="71" step="1" class="rounded-lg border p-2"
           bind:value={setHour} on:input={() => (userTouchedSetHour = true)} />
-        <span class="text-xs text-gray-500">Creep loading-age origin (≥ 5 h)</span>
+        <span class="text-xs text-gray-500">Creep loading-age origin (≥ 1 h)</span>
       </label>
       <label class="flex flex-col gap-1 text-sm">
         <span class="font-medium">Mature modulus E (psi)</span>
@@ -482,6 +488,39 @@
           value={$stressParams.creepA1}
           on:change={(e) => updateStressParams({ creepA1: +(e.currentTarget as HTMLInputElement).value })} />
       </label>
+      <label class="flex flex-col gap-1 text-sm">
+        <span class="font-medium">Creep model</span>
+        <select class="rounded-lg border p-2"
+          value={$stressParams.creepModel}
+          on:change={(e) => updateStressParams({ creepModel: (e.currentTarget as HTMLSelectElement).value as CreepModel })}>
+          <option value="hydration">Hydration E(t) — consistent (default)</option>
+          <option value="cebFip">CEB-FIP / EC2 β_cc(t)</option>
+          <option value="aemm">Age-adjusted EMM (χ)</option>
+        </select>
+        <span class="text-xs text-gray-500">How the bounded aging modulus feeds the creep compliance</span>
+      </label>
+      {#if $stressParams.creepModel === 'cebFip'}
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="font-medium">Cement type (s)</span>
+          <select class="rounded-lg border p-2"
+            value={$stressParams.cebFipS}
+            on:change={(e) => updateStressParams({ cebFipS: +(e.currentTarget as HTMLSelectElement).value })}>
+            <option value={0.2}>Rapid-hardening (s = 0.20)</option>
+            <option value={0.25}>Normal (s = 0.25)</option>
+            <option value={0.38}>Slow-hardening (s = 0.38)</option>
+          </select>
+          <span class="text-xs text-gray-500">β<sub>cc</sub>(t) = exp[s·(1 − √(28/t))]</span>
+        </label>
+      {/if}
+      {#if $stressParams.creepModel === 'aemm'}
+        <label class="flex flex-col gap-1 text-sm">
+          <span class="font-medium">Aging coefficient χ</span>
+          <input type="number" min="0.5" max="1" step="0.05" class="rounded-lg border p-2"
+            value={$stressParams.agingCoefficient}
+            on:change={(e) => updateStressParams({ agingCoefficient: +(e.currentTarget as HTMLInputElement).value })} />
+          <span class="text-xs text-gray-500">Trost/Bažant; 0.8 typical (χ = 1 → standard EMM)</span>
+        </label>
+      {/if}
     </div>
     <p class="mt-3 text-xs text-gray-500">
       α<sub>u</sub> = {fmt(alphaUltimate(), 3)}

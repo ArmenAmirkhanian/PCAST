@@ -198,10 +198,23 @@ describe('buildStressInput', () => {
     expect(issues.length).toBeGreaterThan(0);
   });
 
-  it('flags set times below the creep-model validity floor', () => {
-    const { input, issues } = buildStressInput(syntheticArgs({ startHour: 3 }));
+  it('flags set times below the creep-model validity floor (≥ 1 h)', () => {
+    const { input, issues } = buildStressInput(syntheticArgs({ startHour: 0 }));
     expect(input).toBeNull();
     expect(issues.some((i) => /set time/i.test(i))).toBe(true);
+  });
+
+  it('accepts early set times (3–4 h) that the old logarithmic placeholder rejected', () => {
+    // The bounded aging-modulus models stay positive below ~5 h, so set times
+    // that the old E_eff = a + b·ln(t) fit drove non-positive are now valid.
+    const { input, issues } = buildStressInput(syntheticArgs({ startHour: 3 }));
+    expect(issues).toHaveLength(0);
+    expect(input).not.toBeNull();
+    expect(input!.startHour).toBe(3);
+    const out = runStressModel(input!);
+    for (const r of out.creepResults) {
+      expect(Number.isFinite(r.creepTotalStress)).toBe(true);
+    }
   });
 
   it('clamps the analysis window to available thermal data and notes it', () => {

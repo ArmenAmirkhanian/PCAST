@@ -89,8 +89,14 @@ export interface BuildStressInputResult {
 
 const C_TO_F_DELTA = 1.8;
 
-/** Minimum loading age for the placeholder creep model (E_eff > 0 above ~4.6 h). */
-const MIN_CREEP_START_HOUR = 5;
+/**
+ * Minimum loading age (h) for the creep model. The bounded aging-modulus models
+ * (hydration / CEB-FIP / AEMM) stay positive for any tʹ > 0, so this is no
+ * longer the old ~4.6 h negative-modulus limit — it is just a sanity floor that
+ * keeps the loading age clear of tʹ → 0, where every model's stiffness collapses
+ * toward zero and the compliance becomes ill-conditioned.
+ */
+const MIN_CREEP_START_HOUR = 1;
 
 function mean(arr: number[]): number {
   if (!arr.length) return 0;
@@ -122,8 +128,8 @@ export function buildStressInput(args: BuildStressInputArgs): BuildStressInputRe
   }
   if (startHour < MIN_CREEP_START_HOUR) {
     issues.push(
-      `Set time is ${startHour} h; the creep model is only valid for set times ≥ ${MIN_CREEP_START_HOUR} h ` +
-        `(its placeholder effective modulus is non-positive below ~4.6 h).`,
+      `Set time is ${startHour} h; the creep model needs a loading age ≥ ${MIN_CREEP_START_HOUR} h ` +
+        `(the aging modulus collapses toward zero as the loading age → 0).`,
     );
   }
   if (!(slab.thicknessIn > 0)) issues.push('Slab thickness must be set (Slab Layout tab).');
