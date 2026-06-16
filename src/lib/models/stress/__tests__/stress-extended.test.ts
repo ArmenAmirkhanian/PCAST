@@ -238,6 +238,25 @@ describe('buildStressInput', () => {
     expect(input).toBeNull();
     expect(issues.some((i) => /sawcut/i.test(i))).toBe(true);
   });
+
+  it('forwards an in-window sawCutHour and notes the continuous-until-cut regime', () => {
+    const { input, notes } = buildStressInput(syntheticArgs({ sawCutHour: 14 }));
+    expect(input!.sawCutHour).toBe(14);
+    expect(notes.some((n) => /continuous.*until the saw-cut at hour 14/i.test(n))).toBe(true);
+  });
+
+  it('notes when the saw-cut falls at/before the set time (jointed throughout)', () => {
+    // startHour defaults to 8 in syntheticArgs.
+    const { input, notes } = buildStressInput(syntheticArgs({ sawCutHour: 6 }));
+    expect(input!.sawCutHour).toBe(6);
+    expect(notes.some((n) => /at\/before the set time/i.test(n))).toBe(true);
+  });
+
+  it('notes when no saw-cut time is supplied (jointed throughout)', () => {
+    const { input, notes } = buildStressInput(syntheticArgs());
+    expect(input!.sawCutHour).toBeUndefined();
+    expect(notes.some((n) => /No saw-cut time supplied/i.test(n))).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -266,5 +285,86 @@ describe('runStressModel – per-DOF joint compatibility solve', () => {
     // rotational DOF is singular → moment reaction zero, recorded as a warning
     expect(active.every((r) => Math.abs(r.jointMomentPerH) < 1e-9)).toBe(true);
     expect(out.warnings.some((w) => /rotational-DOF/.test(w))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Saw-cut timing: continuous (infinite) slab until the joint is cut
+// ---------------------------------------------------------------------------
+
+describe('runStressModel – saw-cut timing regime', () => {
+  // A sawcut joint with enough modulus everywhere so every hour is "active".
+  const sawcut = (extra: Partial<StressModelInput> = {}): StressModelInput => ({
+    ...BASE_INPUT,
+    hourlyInputs: makeHourlyInputs(10, 20, 3_000_000, -10, -20).map((r) => ({
+      ...r,
+      elasticModulus: 3_000_000, // constant, non-zero so no zero rows mask the regime
+    })),
+    sawcutNormalized: 0.25,
+    ...extra,
+  });
+
+  it('omitting sawCutHour reproduces the legacy jointed-throughout result', () => {
+    const a = runStressModel(sawcut());
+    const b = runStressModel(sawcut({ sawCutHour: undefined }));
+    for (let i = 0; i < a.hourlyResults.length; i++) {
+      expect(a.hourlyResults[i].totalStress).toBeCloseTo(b.hourlyResults[i].totalStress, 10);
+    }
+  });
+
+  it('before the cut: no joint reaction and KI = 0; after the cut: joint engages', () => {
+    const cut = 15;
+    const out = runStressModel(sawcut({ sawCutHour: cut }));
+    const before = out.hourlyResults.filter((r) => r.hour < cut);
+    const after = out.hourlyResults.filter((r) => r.hour >= cut);
+
+    expect(before.length).toBeGreaterThan(0);
+    expect(after.length).toBeGreaterThan(0);
+
+    for (const r of before) {
+      expect(r.stressIntensityKI).toBe(0);
+      expect(r.jointNormalForce).toBe(0);
+      expect(r.jointMomentPerH).toBe(0);
+    }
+    // The sawcut joint produces a non-zero KI on at least one post-cut hour.
+    expect(after.some((r) => Math.abs(r.stressIntensityKI) > 1e-6)).toBe(true);
+  });
+
+  it('pre-cut stresses are the fully-restrained maxima (≥ relieved jointed values)', () => {
+    const cut = 15;
+    const out = runStressModel(sawcut({ sawCutHour: cut }));
+    // Same model with the joint active from the start (no infinite regime).
+    const jointed = runStressModel(sawcut());
+
+    // For an identical hour, the continuous (pre-cut) curling/axial demand must
+    // not be smaller than the relieved jointed demand — the free edge + joint
+    // only relax stress. Compare the extreme-fibre magnitude per hour.
+    for (const r of out.hourlyResults.filter((x) => x.hour < cut)) {
+      const j = jointed.hourlyResults.find((x) => x.hour === r.hour)!;
+      const pre = Math.max(Math.abs(r.stressTop), Math.abs(r.stressBottom));
+      const relieved = Math.max(Math.abs(j.stressTop), Math.abs(j.stressBottom));
+      expect(pre).toBeGreaterThanOrEqual(relieved - 1e-6);
+    }
+  });
+
+  it('moving the saw-cut later changes the stress history (timing matters)', () => {
+    const early = runStressModel(sawcut({ sawCutHour: 12 }));
+    const late = runStressModel(sawcut({ sawCutHour: 18 }));
+    const earlySum = early.hourlyResults.reduce((s, r) => s + r.totalStress, 0);
+    const lateSum = late.hourlyResults.reduce((s, r) => s + r.totalStress, 0);
+    expect(earlySum).not.toBeCloseTo(lateSum, 3);
+  });
+
+  it('a frictionless interface carries zero axial stress in the continuous regime', () => {
+    const out = runStressModel(
+      sawcut({
+        sawCutHour: 18,
+        slab: { ...BASE_INPUT.slab, frictionCoefficient: 0 },
+      }),
+    );
+    // Before the cut, axial (normal) stress must be exactly zero with kh = 0.
+    for (const r of out.hourlyResults.filter((x) => x.hour < 18)) {
+      expect(r.normalStress).toBe(0);
+    }
   });
 });

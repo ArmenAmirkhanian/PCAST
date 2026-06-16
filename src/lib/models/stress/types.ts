@@ -81,6 +81,21 @@ export interface StressModelInput {
   endHour?: number;
   slab: SlabProperties;
   /**
+   * Hour index (same 1-based grid as `hourlyInputs[].hour`, hour 1 = placement)
+   * at which the transverse saw-cut joint is created.
+   *
+   * For hours BEFORE this the panel is continuous — no joint and no free edge —
+   * so it is modelled as an infinite slab: thermal actions are fully restrained
+   * (maximum curling/axial stress) and the Mode-I stress intensity KI = 0. At
+   * and after this hour the joint exists (free edge + sawcut compliance) and the
+   * finite-panel beam-on-foundation analysis applies.
+   *
+   * Omitted ⇒ the joint is treated as present for the whole window (legacy
+   * behaviour; matches a slab that was already jointed before the analysis
+   * begins).
+   */
+  sawCutHour?: number;
+  /**
    * Normalised sawcut depth α = sawcutDepth / slabThickness (dimensionless, 0–1).
    * When provided the joint stiffness and stress-intensity coefficients are
    * computed from fracture-mechanics integrals (joint.ts).  Takes precedence

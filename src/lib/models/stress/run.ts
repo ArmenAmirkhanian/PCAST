@@ -94,6 +94,7 @@ export function runStressModel(input: StressModelInput): StressOutput {
   const k         = slab.kValue;
   const spaceJT   = slab.jointSpacingFt * 12;           // ft → in
   const kh        = slab.frictionCoefficient;
+  const sawCutHour = input.sawCutHour;                  // joint-creation hour (undefined = jointed throughout)
 
   // -------------------------------------------------------------------------
   // Resolve joint geometry-dependent coefficients (constant across hours)
@@ -175,97 +176,131 @@ export function runStressModel(input: StressModelInput): StressOutput {
     const momTemp     = (-E * h * h / (12 * (1 - nu))) * cote * dt2;
     const momTempND   = momTemp / (ell * ell * k);
 
-    // Rotation at joint from temperature gradient (beamEL)
-    const thetaND = computeBeamRotation(spaceND, momTempND);
-    const theta   = (thetaND / ell) * 2;               // both faces of joint
-
-    // Horizontal friction: joint opening and mid-slab stress (horizontal1)
-    const { uc: ucHalf, stressC } = computeHorizontalFriction(kh, El, h, spaceJT, eps0);
-    const uc = ucHalf * 2;                              // both faces of joint
-
-    // Plate effective stiffness matrix (force / displacement).
-    // Guard against 0/0 when thermal loading is zero (e.g. after B⁻¹
-    // transformation reduces a constant temperature history to a single
-    // impulse, leaving subsequent pseudo-temperatures at zero).
-    const plateK00 = Math.abs(uc) > 1e-30 ? normalForce / (uc / h) : 0;
-    const plateK11 = Math.abs(theta) > 1e-30 ? (momTemp / h) / theta : 0;
-    const jointPlate1: number[][] = [
-      [plateK00, 0],
-      [0, plateK11],
-    ];
-
-    // Joint compliance matrix: coefficients / E (E varies each hour).
-    // With sawcutNormalized, coefficients are geometry integrals; otherwise
-    // they are the manually supplied stiffness-over-E values.
-    const jointDataRaw: number[][] = [
-      [jointCoeffNormal / E, 0],
-      [0, jointCoeffRotational / E],
-    ];
-    // Invert to get joint stiffness (handle zero entries)
-    const jointData1 = safeInverse2x2(jointDataRaw);
-
-    // Combined stiffness = plate + joint
-    const jointPlateTot1: number[][] = [
-      [jointPlate1[0][0] + jointData1[0][0], jointPlate1[0][1] + jointData1[0][1]],
-      [jointPlate1[1][0] + jointData1[1][0], jointPlate1[1][1] + jointData1[1][1]],
-    ];
-
-    // Free thermal displacement vector
-    const resp0 = [uc / h, theta];
-
-    // Free thermal force = plate stiffness × free displacement
-    const force1 = matVec2(jointPlate1, resp0);
-
-    // Joint displacement from compatibility, solved per DOF.
-    // jointPlateTot1 is strictly diagonal (off-diagonals are hard-zeroed), so
-    // the two DOFs decouple. Solving each independently means a singular DOF
-    // (e.g. zero plate rotational stiffness when the pseudo-gradient is zero)
-    // yields a zero reaction in THAT DOF only — the correct physical limit —
-    // without discarding the well-posed reaction in the other DOF. A shared 2×2
-    // determinant would zero both when either diagonal vanished (explanation
-    // §19.5, §30.10).
-    const kTot0 = jointPlateTot1[0][0];
-    const kTot1 = jointPlateTot1[1][1];
-    const respJ = [0, 0];
-    let solverOk = true;
-    if (Math.abs(kTot0) > 1e-30) {
-      respJ[0] = force1[0] / kTot0;
-    } else {
-      solverOk = false;
-      warnings.push(
-        `Hour ${row.hour}: normal-DOF plate+joint stiffness is zero; normal joint reaction set to 0.`,
-      );
-    }
-    if (Math.abs(kTot1) > 1e-30) {
-      respJ[1] = force1[1] / kTot1;
-    } else {
-      solverOk = false;
-      warnings.push(
-        `Hour ${row.hour}: rotational-DOF plate+joint stiffness is zero; rotational joint reaction set to 0.`,
-      );
-    }
-
-    // Joint reaction forces
-    const forceJ = matVec2(jointData1, respJ);
-
-    // Stress intensity factor at joint (KI)
-    // VBA: -1/√h · (forceJ(1)·P2 + forceJ(2)·P1) where P1=fb, P2=ft
-    const KI = -(1 / Math.sqrt(h)) *
-               (forceJ[0] * axialSifCoeff + forceJ[1] * bendingSifCoeff);
-
-    // Bending stress at slab edge (signed – preserves linearity through creep transform).
-    // Guard: if momTemp ≈ 0, forceJ[1] is also 0 but the ratio is 0/0 → NaN.
-    const sfRaw = edgeBendingFactor(spaceND);
-    let stressB = 0;
-    if (Math.abs(momTemp) > 1e-30) {
-      const sf1 = (sfRaw - 1) * forceJ[1] * h / momTemp;
-      stressB = (E * cote * dt2 / 2) * (1 + sf1);
-    }
-
-    // Normal (axial) stress
+    // Fully-restrained (infinite-slab) reference stresses, used both as inputs
+    // to the jointed solve and directly in the pre-cut continuous regime:
+    //   • axial:  σ = −E'·ε₀  (complete friction restraint; a frictionless
+    //     interface, kh = 0, carries no axial stress at any length)
+    //   • curling: Bradbury finite-length factor → 1 ⇒ σ = E·α·ΔT_g/2
     const stressC0 = El * (-eps0);
-    const wt       = normalForce !== 0 ? forceJ[0] / normalForce : 0;
-    const stressC1 = (1 - wt) * stressC + wt * stressC0;
+    const sfRaw    = edgeBendingFactor(spaceND);        // edge-bending diagnostic
+
+    // Has the saw-cut joint been created yet? Before the cut the panel is
+    // continuous (no transverse joint, no free edge) and behaves as an infinite
+    // slab — thermal actions are fully restrained and KI is undefined (0). At
+    // and after the cut the free edge + sawcut compliance relieve and
+    // redistribute the stresses through the joint (explanation §stressCreepTheory).
+    // Joint spacing therefore only influences the result once the joint exists.
+    const jointFormed = sawCutHour === undefined || row.hour >= sawCutHour;
+
+    let forceJ: number[];
+    let KI: number;
+    let stressB: number;
+    let stressC1: number;
+    let solverOk = true;
+
+    if (jointFormed) {
+      // ---- Finite panel with transverse joint (free edge + sawcut joint) ----
+
+      // Rotation at joint from temperature gradient (beamEL)
+      const thetaND = computeBeamRotation(spaceND, momTempND);
+      const theta   = (thetaND / ell) * 2;               // both faces of joint
+
+      // Horizontal friction: joint opening and mid-slab stress (horizontal1)
+      const { uc: ucHalf, stressC } = computeHorizontalFriction(kh, El, h, spaceJT, eps0);
+      const uc = ucHalf * 2;                              // both faces of joint
+
+      // Plate effective stiffness matrix (force / displacement).
+      // Guard against 0/0 when thermal loading is zero (e.g. after B⁻¹
+      // transformation reduces a constant temperature history to a single
+      // impulse, leaving subsequent pseudo-temperatures at zero).
+      const plateK00 = Math.abs(uc) > 1e-30 ? normalForce / (uc / h) : 0;
+      const plateK11 = Math.abs(theta) > 1e-30 ? (momTemp / h) / theta : 0;
+      const jointPlate1: number[][] = [
+        [plateK00, 0],
+        [0, plateK11],
+      ];
+
+      // Joint compliance matrix: coefficients / E (E varies each hour).
+      // With sawcutNormalized, coefficients are geometry integrals; otherwise
+      // they are the manually supplied stiffness-over-E values.
+      const jointDataRaw: number[][] = [
+        [jointCoeffNormal / E, 0],
+        [0, jointCoeffRotational / E],
+      ];
+      // Invert to get joint stiffness (handle zero entries)
+      const jointData1 = safeInverse2x2(jointDataRaw);
+
+      // Combined stiffness = plate + joint
+      const jointPlateTot1: number[][] = [
+        [jointPlate1[0][0] + jointData1[0][0], jointPlate1[0][1] + jointData1[0][1]],
+        [jointPlate1[1][0] + jointData1[1][0], jointPlate1[1][1] + jointData1[1][1]],
+      ];
+
+      // Free thermal displacement vector
+      const resp0 = [uc / h, theta];
+
+      // Free thermal force = plate stiffness × free displacement
+      const force1 = matVec2(jointPlate1, resp0);
+
+      // Joint displacement from compatibility, solved per DOF.
+      // jointPlateTot1 is strictly diagonal (off-diagonals are hard-zeroed), so
+      // the two DOFs decouple. Solving each independently means a singular DOF
+      // (e.g. zero plate rotational stiffness when the pseudo-gradient is zero)
+      // yields a zero reaction in THAT DOF only — the correct physical limit —
+      // without discarding the well-posed reaction in the other DOF. A shared 2×2
+      // determinant would zero both when either diagonal vanished (explanation
+      // §19.5, §30.10).
+      const kTot0 = jointPlateTot1[0][0];
+      const kTot1 = jointPlateTot1[1][1];
+      const respJ = [0, 0];
+      if (Math.abs(kTot0) > 1e-30) {
+        respJ[0] = force1[0] / kTot0;
+      } else {
+        solverOk = false;
+        warnings.push(
+          `Hour ${row.hour}: normal-DOF plate+joint stiffness is zero; normal joint reaction set to 0.`,
+        );
+      }
+      if (Math.abs(kTot1) > 1e-30) {
+        respJ[1] = force1[1] / kTot1;
+      } else {
+        solverOk = false;
+        warnings.push(
+          `Hour ${row.hour}: rotational-DOF plate+joint stiffness is zero; rotational joint reaction set to 0.`,
+        );
+      }
+
+      // Joint reaction forces
+      forceJ = matVec2(jointData1, respJ);
+
+      // Stress intensity factor at joint (KI)
+      // VBA: -1/√h · (forceJ(1)·P2 + forceJ(2)·P1) where P1=fb, P2=ft
+      KI = -(1 / Math.sqrt(h)) *
+           (forceJ[0] * axialSifCoeff + forceJ[1] * bendingSifCoeff);
+
+      // Bending stress at slab edge (signed – preserves linearity through creep transform).
+      // Guard: if momTemp ≈ 0, forceJ[1] is also 0 but the ratio is 0/0 → NaN.
+      stressB = 0;
+      if (Math.abs(momTemp) > 1e-30) {
+        const sf1 = (sfRaw - 1) * forceJ[1] * h / momTemp;
+        stressB = (E * cote * dt2 / 2) * (1 + sf1);
+      }
+
+      // Normal (axial) stress
+      const wt = normalForce !== 0 ? forceJ[0] / normalForce : 0;
+      stressC1 = (1 - wt) * stressC + wt * stressC0;
+    } else {
+      // ---- Continuous (infinite) slab: joint not yet cut --------------------
+      // No transverse joint and no free edge → no joint reactions and no crack
+      // tip, so KI = 0. The thermal actions are fully restrained: curling at the
+      // Bradbury C = 1 limit and axial at complete friction restraint (zero on a
+      // frictionless interface). These are the maxima the relieved jointed
+      // analysis later relaxes below.
+      forceJ   = [0, 0];
+      KI       = 0;
+      stressB  = (E * cote * dt2) / 2;
+      stressC1 = kh > 0 ? stressC0 : 0;
+    }
 
     // Signed extreme-fibre stresses (explanation §23.3).
     // The creep transform is applied to each signed face history separately so

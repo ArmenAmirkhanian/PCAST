@@ -15,6 +15,7 @@
   import { unitSystem } from '$lib/stores/units';
   import { runStressModel } from '$lib/models/stress/run';
   import { buildStressInput } from '$lib/models/stress/inputs';
+  import { sawCutModelHour } from '$lib/utils/time';
   import {
     resolveCementSystem,
     getSetTimeHours,
@@ -115,6 +116,11 @@
     return maxAlpha > 0 ? maxAlpha : 0.87;
   }
 
+  // Saw-cut clock time (Slab Layout tab) → stress-model hour index, using the
+  // placement clock from Project Info. Drives the infinite-slab → jointed regime
+  // switch; undefined when either time is unset (joint then active throughout).
+  $: sawCutHourIndex = sawCutModelHour($slabLayout.sawCutHour, $projectInfo.startHour);
+
   function buildArgs() {
     const p = $stressParams;
     return {
@@ -132,6 +138,7 @@
       alphaUltimate: alphaUltimate(),
       sawcutNormalized:
         p.sawcutNormalized === '' ? undefined : (p.sawcutNormalized as number),
+      sawCutHour: sawCutHourIndex,
       maturity: ($maturityResultsStore ?? []).map((r) => ({
         hour: r.hour,
         degreeOfHydration: r.degreeOfHydration
@@ -413,6 +420,14 @@
       Values in US engineering units. Slab thickness ({fmt(($slabLayout.thickness as number) || 0, 2)} in)
       and joint spacing ({fmt(($slabLayout.jointSpacing as number) || 0, 1)} ft) are taken from the
       Slab Layout tab.
+      {#if sawCutHourIndex !== undefined}
+        The slab is modelled as continuous (infinite, fully restrained) until the saw-cut
+        (clock {$slabLayout.sawCutHour}) at <strong>hour {sawCutHourIndex}</strong>, then jointed —
+        joint spacing only affects the result once the joint exists.
+      {:else}
+        Set the placement time (Project Info) and saw-cut time (Slab Layout) to model the
+        continuous-until-cut behaviour; otherwise the joint is treated as active throughout.
+      {/if}
     </p>
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <label class="flex flex-col gap-1 text-sm">
