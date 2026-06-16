@@ -26,7 +26,16 @@ export const materials = writable<MaterialsForm>({
   waterCementRatio: '',
   curing: 'Curing Compound',
   hydrationModel: null,
-  hydrationModelInputs: {}
+  hydrationModelInputs: {},
+  strengthInputMode: 'fc28',
+  fc28Psi: '',
+  strengthCurve: [
+    { ageDays: '', fcPsi: '' },
+    { ageDays: '', fcPsi: '' },
+    { ageDays: '', fcPsi: '' }
+  ],
+  tensilePreset: 'mor',
+  tensileCoeff: 7.5
 });
 
 export function updateMaterials(patch: Partial<MaterialsForm>) {
@@ -67,7 +76,10 @@ export type MaturityPoint = {
   equivalentAge: number;
   degreeOfHydration: number;
   heatOfHydration: number;
+  /** Tensile strength (psi) when compressive input supplied, else KIC strength */
   strength: number;
+  /** Age-appropriate compressive strength (psi); present only with f'c input */
+  compressiveStrength?: number;
 };
 export const maturityResultsStore = writable<MaturityPoint[] | null>(null);
 

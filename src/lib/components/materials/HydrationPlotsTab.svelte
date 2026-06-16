@@ -66,13 +66,32 @@
         { ...baseLayout, yaxis: { title: { text: 'Heat Rate (J/g/hr)' } } } as Partial<Layout>,
         cfg
       );
+      const strengthTraces: object[] = [
+        { x: $maturityResultsStore.map((r) => r.hour),
+          y: $maturityResultsStore.map((r) => r.strength),
+          type: 'scatter', mode: 'lines', name: 'Tensile strength (psi)',
+          line: { color: '#16a34a', width: 2 } }
+      ];
+      if ($maturityResultsStore.some((r) => r.compressiveStrength !== undefined)) {
+        strengthTraces.push({
+          x: $maturityResultsStore.map((r) => r.hour),
+          y: $maturityResultsStore.map((r) => r.compressiveStrength ?? null),
+          type: 'scatter', mode: 'lines', name: 'Compressive strength (psi)',
+          line: { color: '#9ca3af', dash: 'dot', width: 1.5 }, yaxis: 'y2'
+        });
+      }
       await plt.react(
         chartStrength,
-        [{ x: $maturityResultsStore.map((r) => r.hour),
-           y: $maturityResultsStore.map((r) => r.strength),
-           type: 'scatter', mode: 'lines', name: 'Strength (psi)',
-           line: { color: '#16a34a', width: 2 } }] as Plotly.Data[],
-        { ...baseLayout, yaxis: { title: { text: 'Strength (psi)' } } } as Partial<Layout>,
+        strengthTraces as Plotly.Data[],
+        {
+          ...baseLayout,
+          showlegend: true,
+          legend: { orientation: 'h', y: -0.25 },
+          yaxis: { title: { text: 'Tensile strength (psi)' } },
+          ...($maturityResultsStore.some((r) => r.compressiveStrength !== undefined)
+            ? { yaxis2: { title: { text: 'Compressive strength (psi)' }, overlaying: 'y', side: 'right' } }
+            : {})
+        } as Partial<Layout>,
         cfg
       );
     }
@@ -118,7 +137,7 @@
       <div bind:this={chartHeat} class="w-full rounded border border-gray-100"></div>
     </div>
     <div>
-      <p class="text-xs font-medium text-gray-500 mb-1">Concrete Strength (psi) vs Time</p>
+      <p class="text-xs font-medium text-gray-500 mb-1">Tensile Strength (psi) vs Time</p>
       <div bind:this={chartStrength} class="w-full rounded border border-gray-100"></div>
     </div>
   {/if}

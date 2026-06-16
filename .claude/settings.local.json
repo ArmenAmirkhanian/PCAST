@@ -19,7 +19,11 @@
       "Bash(sed -r 's/\\\\x1b\\\\[[0-9;]*m//g' /tmp/dev.log)",
       "Bash(curl -s http://localhost:5179/ -o /tmp/page3.html -w \"HTTP %{http_code}, %{size_download} bytes\\\\n\")",
       "Bash(grep -oc \"alpha_u\\\\\\\\\\\\\\\\cdot\\\\|alpha_u\\\\|t_e\" /tmp/page3.html)",
-      "Bash(pkill -f \"vite dev\")"
+      "Bash(pkill -f \"vite dev\")",
+      "PowerShell(npm run test:run -- concreteMaturity)",
+      "PowerShell(npm run check)",
+      "PowerShell(npm run test:run 2>&1)",
+      "PowerShell(npm run build 2>&1)"
     ],
     "additionalDirectories": [
       "\\tmp"

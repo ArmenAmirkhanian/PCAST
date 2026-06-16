@@ -16,6 +16,9 @@ import {
   heatOfHydration,
   computeKIC,
   kicToStrength,
+  compressiveToTensile,
+  scaledCompressive28,
+  interpolateCompressiveCurve,
   runModel,
   getProjectSetTime,
   type ProjectInputs,
@@ -223,6 +226,171 @@ describe('kicToStrength', () => {
     const s1 = kicToStrength(1.0, 0.1);
     const s2 = kicToStrength(2.0, 0.1);
     expect(s2).toBeCloseTo(s1 * 2, 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compressiveToTensile
+// ---------------------------------------------------------------------------
+describe('compressiveToTensile', () => {
+  it('applies f_t = C·√f\'c (MOR 7.5)', () => {
+    expect(compressiveToTensile(4000, 7.5)).toBeCloseTo(7.5 * Math.sqrt(4000), 4);
+  });
+
+  it('applies splitting-tensile coefficient (6.7)', () => {
+    expect(compressiveToTensile(4000, 6.7)).toBeCloseTo(6.7 * Math.sqrt(4000), 4);
+  });
+
+  it('returns 0 for non-positive f\'c or coefficient', () => {
+    expect(compressiveToTensile(0, 7.5)).toBe(0);
+    expect(compressiveToTensile(-100, 7.5)).toBe(0);
+    expect(compressiveToTensile(4000, 0)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// scaledCompressive28
+// ---------------------------------------------------------------------------
+describe('scaledCompressive28', () => {
+  it('returns f\'c,28 when alphaT equals alpha28', () => {
+    expect(scaledCompressive28(5000, 0.9, 0.3, 0.9)).toBeCloseTo(5000, 6);
+  });
+
+  it('returns 0 at or below the set degree of hydration alpha0', () => {
+    expect(scaledCompressive28(5000, 0.3, 0.3, 0.9)).toBe(0);
+    expect(scaledCompressive28(5000, 0.2, 0.3, 0.9)).toBe(0);
+  });
+
+  it('is half of f\'c,28 at the midpoint between alpha0 and alpha28', () => {
+    expect(scaledCompressive28(5000, 0.6, 0.3, 0.9)).toBeCloseTo(2500, 6);
+  });
+
+  it('increases monotonically with alphaT', () => {
+    const a = scaledCompressive28(5000, 0.4, 0.3, 0.9);
+    const b = scaledCompressive28(5000, 0.6, 0.3, 0.9);
+    const c = scaledCompressive28(5000, 0.8, 0.3, 0.9);
+    expect(b).toBeGreaterThan(a);
+    expect(c).toBeGreaterThan(b);
+  });
+
+  it('returns 0 for a degenerate denominator (alpha28 <= alpha0)', () => {
+    expect(scaledCompressive28(5000, 0.5, 0.6, 0.6)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// interpolateCompressiveCurve
+// ---------------------------------------------------------------------------
+describe('interpolateCompressiveCurve', () => {
+  const pts = [
+    { alpha: 0.4, fcPsi: 2000 },
+    { alpha: 0.6, fcPsi: 4000 },
+    { alpha: 0.8, fcPsi: 5000 },
+  ];
+  const alpha0 = 0.2;
+
+  it('returns 0 at or below alpha0', () => {
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.2)).toBe(0);
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.1)).toBe(0);
+  });
+
+  it('hits the provided data points', () => {
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.4)).toBeCloseTo(2000, 6);
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.6)).toBeCloseTo(4000, 6);
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.8)).toBeCloseTo(5000, 6);
+  });
+
+  it('ramps linearly from the (alpha0, 0) origin to the first point', () => {
+    // midpoint of [0.2, 0]→[0.4, 2000] is 0.3 → 1000
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.3)).toBeCloseTo(1000, 6);
+  });
+
+  it('interpolates linearly between interior points', () => {
+    // midpoint of [0.4, 2000]→[0.6, 4000] is 0.5 → 3000
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.5)).toBeCloseTo(3000, 6);
+  });
+
+  it('holds the last value above the final point', () => {
+    expect(interpolateCompressiveCurve(pts, alpha0, 0.95)).toBeCloseTo(5000, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runModel — compressive → tensile strength
+// ---------------------------------------------------------------------------
+describe('runModel compressive strength', () => {
+  const setHours = getProjectSetTime(DEFAULT_INPUTS); // 6 h for Type I/II @ 25°C
+
+  it('28-day mode: strength equals ACI tensile of the scaled compressive', () => {
+    const inputs: ProjectInputs = {
+      ...DEFAULT_INPUTS,
+      compressive: { mode: 'fc28', fc28Psi: 4000, tensileCoeff: 7.5 },
+    };
+    const results = runModel(inputs, 72);
+    const r = results[72];
+    expect(r.compressiveStrength).toBeGreaterThan(0);
+    expect(r.strength).toBeCloseTo(compressiveToTensile(r.compressiveStrength!, 7.5), 6);
+  });
+
+  it('28-day mode: strength and compressive are 0 before set time', () => {
+    const inputs: ProjectInputs = {
+      ...DEFAULT_INPUTS,
+      compressive: { mode: 'fc28', fc28Psi: 4000, tensileCoeff: 7.5 },
+    };
+    const results = runModel(inputs, 72);
+    for (let h = 1; h < setHours; h++) {
+      expect(results[h].strength).toBe(0);
+      expect(results[h].compressiveStrength).toBe(0);
+    }
+    // grows after set
+    expect(results[72].strength).toBeGreaterThan(0);
+  });
+
+  it('curve mode: produces tensile strength from ≥3 points', () => {
+    const inputs: ProjectInputs = {
+      ...DEFAULT_INPUTS,
+      compressive: {
+        mode: 'curve',
+        curve: [
+          { ageDays: 1, fcPsi: 2500 },
+          { ageDays: 3, fcPsi: 3500 },
+          { ageDays: 28, fcPsi: 5000 },
+        ],
+        tensileCoeff: 7.5,
+      },
+    };
+    const results = runModel(inputs, 72);
+    const r = results[72];
+    expect(r.compressiveStrength).toBeGreaterThan(0);
+    expect(r.strength).toBeCloseTo(compressiveToTensile(r.compressiveStrength!, 7.5), 6);
+  });
+
+  it('falls back to KIC strength when compressive config is invalid', () => {
+    const inputs: ProjectInputs = {
+      ...DEFAULT_INPUTS,
+      sawcutDepth: 0.1,
+      compressive: { mode: 'fc28', tensileCoeff: 7.5 }, // no fc28Psi → unusable
+    };
+    const results = runModel(inputs, 72);
+    expect(results[72].compressiveStrength).toBeUndefined();
+    expect(results[72].strength).toBeGreaterThan(0); // KIC path
+  });
+
+  it('curve mode with <3 valid points falls back to KIC', () => {
+    const inputs: ProjectInputs = {
+      ...DEFAULT_INPUTS,
+      sawcutDepth: 0.1,
+      compressive: {
+        mode: 'curve',
+        curve: [
+          { ageDays: 1, fcPsi: 2500 },
+          { ageDays: 3, fcPsi: 3500 },
+        ],
+        tensileCoeff: 7.5,
+      },
+    };
+    const results = runModel(inputs, 72);
+    expect(results[72].compressiveStrength).toBeUndefined();
   });
 });
 

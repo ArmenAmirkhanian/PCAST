@@ -426,13 +426,13 @@
       next.strength = await capture(offStrength, [{
         x: mat.map((r) => r.hour),
         y: mat.map((r) => toStress(r.strength)),
-        type: 'scatter', mode: 'lines', name: 'Strength',
+        type: 'scatter', mode: 'lines', name: 'Tensile strength',
         line: { color: '#16a34a', width: 2.5 }
       }], {
         ...baseLayout,
         title: { text: 'Tensile Strength vs Time', font: { size: 16 } },
         xaxis: { title: { text: 'Time (hr)' } },
-        yaxis: { title: { text: `Strength (${strengthUnit})` } }
+        yaxis: { title: { text: `Tensile strength (${strengthUnit})` } }
       }, 1000, 360);
     }
 
@@ -1009,7 +1009,7 @@
                 <th class="num">Equiv. Age (hr)</th>
                 <th class="num">Hydration (α)</th>
                 <th class="num">Heat Rate (J/g/hr)</th>
-                <th class="num">Strength ({strengthUnit})</th>
+                <th class="num">Tensile strength ({strengthUnit})</th>
               </tr>
             </thead>
             <tbody>
