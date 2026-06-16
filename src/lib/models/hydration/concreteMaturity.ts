@@ -42,6 +42,23 @@ export interface HydrationCoefficients {
   Ea: { a: number; b: number; c: number };
 }
 
+/**
+ * User-supplied compressive strength, converted to an age-appropriate tensile
+ * strength via the degree of hydration and an ACI compressive→tensile equation
+ * (f_t = tensileCoeff · √f'c, psi). When present and valid, this replaces the
+ * KIC-based strength as the per-hour `strength` returned by `runModel`.
+ */
+export interface CompressiveStrengthConfig {
+  /** 'fc28' = single 28-day strength; 'curve' = ≥3 (age, f'c) data points */
+  mode: 'fc28' | 'curve';
+  /** 28-day compressive strength in psi (mode 'fc28') */
+  fc28Psi?: number;
+  /** Development curve points (mode 'curve'); ages in days, f'c in psi */
+  curve?: { ageDays: number; fcPsi: number }[];
+  /** ACI coefficient C in f_t = C·√f'c (psi). e.g. 7.5 (MOR), 6.7 (splitting) */
+  tensileCoeff: number;
+}
+
 export interface ProjectInputs {
   cementType: CementType;
   scmType: SCMType;
@@ -55,6 +72,8 @@ export interface ProjectInputs {
   Tr?: number;
   /** Custom coefficients – required when scmType is 'Custom' */
   customCoefficients?: HydrationCoefficients;
+  /** Optional user compressive-strength input (drives tensile strength) */
+  compressive?: CompressiveStrengthConfig;
 }
 
 export interface HourlyResult {
@@ -64,8 +83,17 @@ export interface HourlyResult {
   heatOfHydration: number;
   /** Elastic modulus in psi (from lookup, 0 if unavailable) */
   elasticModulus: number;
-  /** Concrete strength in psi (from KIC stress intensity) */
+  /**
+   * Concrete strength in psi. When a compressive-strength config is supplied
+   * this is the ACI tensile strength derived from the age-appropriate
+   * compressive strength; otherwise it is the KIC-based strength.
+   */
   strength: number;
+  /**
+   * Age-appropriate compressive strength in psi (only populated when a
+   * compressive-strength config is supplied; undefined otherwise).
+   */
+  compressiveStrength?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +333,103 @@ export function kicToStrength(kic: number, sawcutDepth: number, ratio = 1 / 3): 
 }
 
 // ---------------------------------------------------------------------------
+// Compressive → age-appropriate tensile strength
+//
+// User supplies compressive strength (a single 28-day value or a development
+// curve). The degree of hydration maps it to an age-appropriate compressive
+// strength, which is then converted to tensile via the ACI relationship
+// f_t = C · √f'c (psi), with C user-selectable (7.5 MOR, 6.7 splitting, …).
+// ---------------------------------------------------------------------------
+
+/** Number of hours in 28 days, used as the reference age for f'c,28. */
+export const HOURS_28_DAY = 28 * 24;
+
+/** ACI compressive→tensile conversion: f_t = coeff · √f'c (psi). */
+export function compressiveToTensile(fcPsi: number, coeff: number): number {
+  if (!(fcPsi > 0) || !(coeff > 0)) return 0;
+  return coeff * Math.sqrt(fcPsi);
+}
+
+/**
+ * Scale a 28-day compressive strength to the strength at degree of hydration
+ * alphaT using the critical (set) degree of hydration alpha0 as the origin:
+ *
+ *   f'c(t) = f'c,28 · (alphaT − alpha0) / (alpha28 − alpha0)
+ *
+ * Returns 0 for alphaT ≤ alpha0 (no strength before set). Guards against a
+ * degenerate (alpha28 ≤ alpha0) denominator.
+ */
+export function scaledCompressive28(
+  fc28: number,
+  alphaT: number,
+  alpha0: number,
+  alpha28: number,
+): number {
+  if (!(fc28 > 0)) return 0;
+  const denom = alpha28 - alpha0;
+  if (!(denom > 0)) return 0;
+  const frac = (alphaT - alpha0) / denom;
+  return frac > 0 ? fc28 * frac : 0;
+}
+
+/**
+ * Interpolate compressive strength from a development curve in degree-of-
+ * hydration space. `pts` are (alpha, fcPsi) pairs sorted by ascending alpha,
+ * each curve age having been mapped to its degree of hydration. A synthetic
+ * (alpha0, 0) origin is prepended so strength ramps from zero at set.
+ *
+ * Clamps: alphaT ≤ alpha0 → 0; alphaT ≥ last alpha → hold the last f'c.
+ */
+export function interpolateCompressiveCurve(
+  pts: { alpha: number; fcPsi: number }[],
+  alpha0: number,
+  alphaT: number,
+): number {
+  if (alphaT <= alpha0) return 0;
+  // (alpha0, 0) origin + provided points with alpha above set, sorted ascending.
+  const anchored = [{ alpha: alpha0, fcPsi: 0 }, ...pts.filter((p) => p.alpha > alpha0)]
+    .sort((a, b) => a.alpha - b.alpha);
+  if (anchored.length === 1) return 0; // no usable data points above set
+  const last = anchored[anchored.length - 1];
+  if (alphaT >= last.alpha) return Math.max(0, last.fcPsi);
+  for (let i = 1; i < anchored.length; i++) {
+    const lo = anchored[i - 1];
+    const hi = anchored[i];
+    if (alphaT <= hi.alpha) {
+      const span = hi.alpha - lo.alpha;
+      if (span <= 0) return Math.max(0, hi.fcPsi);
+      const frac = (alphaT - lo.alpha) / span;
+      return Math.max(0, lo.fcPsi + frac * (hi.fcPsi - lo.fcPsi));
+    }
+  }
+  return Math.max(0, last.fcPsi);
+}
+
+/**
+ * Validate a compressive-strength config and normalise it into the data needed
+ * by `runModel`. Returns null when the config cannot produce a usable strength
+ * (caller should then fall back to the KIC strength).
+ */
+function resolveCompressive(
+  cfg: CompressiveStrengthConfig | undefined,
+): { mode: 'fc28'; fc28: number; coeff: number }
+  | { mode: 'curve'; curve: { ageDays: number; fcPsi: number }[]; coeff: number }
+  | null {
+  if (!cfg) return null;
+  const coeff = cfg.tensileCoeff;
+  if (!(coeff > 0)) return null;
+  if (cfg.mode === 'fc28') {
+    if (!(typeof cfg.fc28Psi === 'number' && cfg.fc28Psi > 0)) return null;
+    return { mode: 'fc28', fc28: cfg.fc28Psi, coeff };
+  }
+  const curve = (cfg.curve ?? []).filter(
+    (p) => typeof p.ageDays === 'number' && p.ageDays > 0 && typeof p.fcPsi === 'number' && p.fcPsi > 0,
+  );
+  if (curve.length < 3) return null;
+  return { mode: 'curve', curve, coeff };
+}
+
+// ---------------------------------------------------------------------------
 // Main runner
 // ---------------------------------------------------------------------------
 
@@ -318,6 +443,30 @@ export function runModel(inputs: ProjectInputs, maxHours = 72): HourlyResult[] {
   const setTimeHours = getProjectSetTime(inputs);
   const results: HourlyResult[] = [];
 
+  // ── Compressive → tensile strength setup (when a valid config is supplied) ──
+  const comp = resolveCompressive(inputs.compressive);
+  // Degree of hydration at set time (critical α₀) and at 28 days (reference).
+  const alpha0 = degreeOfHydration(p.alphaU, p.tau, p.Beta, setTimeHours * teIncrement);
+  const alpha28 = degreeOfHydration(p.alphaU, p.tau, p.Beta, HOURS_28_DAY * teIncrement);
+  // For curve mode, map each (age, f'c) point onto degree-of-hydration space.
+  const curveAlpha =
+    comp?.mode === 'curve'
+      ? comp.curve.map((pt) => ({
+          alpha: degreeOfHydration(p.alphaU, p.tau, p.Beta, pt.ageDays * 24 * teIncrement),
+          fcPsi: pt.fcPsi,
+        }))
+      : [];
+
+  /** Per-hour compressive/tensile from the user config; null if not applicable. */
+  function compressiveAt(alpha: number): { compressive: number; tensile: number } | null {
+    if (!comp) return null;
+    const fc =
+      comp.mode === 'fc28'
+        ? scaledCompressive28(comp.fc28, alpha, alpha0, alpha28)
+        : interpolateCompressiveCurve(curveAlpha, alpha0, alpha);
+    return { compressive: fc, tensile: compressiveToTensile(fc, comp.coeff) };
+  }
+
   // Hour 0
   results.push({
     hour: 0,
@@ -326,6 +475,7 @@ export function runModel(inputs: ProjectInputs, maxHours = 72): HourlyResult[] {
     heatOfHydration: 0,
     elasticModulus: 0,
     strength: 0,
+    ...(comp ? { compressiveStrength: 0 } : {}),
   });
 
   let cumulativeTe = 0;
@@ -337,12 +487,22 @@ export function runModel(inputs: ProjectInputs, maxHours = 72): HourlyResult[] {
     const alpha = degreeOfHydration(p.alphaU, p.tau, p.Beta, cumulativeTe);
     const heat = heatOfHydration(p, cumulativeTe, alpha);
 
-    // KIC → strength; zero until concrete has reached set time
+    // Strength: ACI tensile from user compressive input when supplied,
+    // otherwise KIC-based. Both are zero until the concrete reaches set time.
     let strength = 0;
-    if (h >= setTimeHours && inputs.sawcutDepth > 0) {
-      const kic = computeKIC(inputs.wcm, h);
-      const raw = kicToStrength(kic, inputs.sawcutDepth);
-      strength = raw > 0 ? raw : 0;
+    let compressiveStrength: number | undefined;
+    if (h >= setTimeHours) {
+      if (comp) {
+        const s = compressiveAt(alpha)!;
+        compressiveStrength = s.compressive;
+        strength = s.tensile;
+      } else if (inputs.sawcutDepth > 0) {
+        const kic = computeKIC(inputs.wcm, h);
+        const raw = kicToStrength(kic, inputs.sawcutDepth);
+        strength = raw > 0 ? raw : 0;
+      }
+    } else if (comp) {
+      compressiveStrength = 0;
     }
 
     results.push({
@@ -352,6 +512,7 @@ export function runModel(inputs: ProjectInputs, maxHours = 72): HourlyResult[] {
       heatOfHydration: heat,
       elasticModulus: 0, // requires ModulusEstimate sheet not present
       strength,
+      ...(comp ? { compressiveStrength: compressiveStrength ?? 0 } : {}),
     });
   }
 
