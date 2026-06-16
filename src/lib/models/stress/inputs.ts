@@ -64,6 +64,12 @@ export interface BuildStressInputArgs {
   alphaUltimate: number;
   /** Normalised sawcut depth α = a/h (dimensionless, optional). */
   sawcutNormalized?: number;
+  /**
+   * Hour index (1 = placement) at which the saw-cut joint is created. Before
+   * this hour the slab is modelled as continuous (infinite); at/after it the
+   * transverse joint is active. Omit to model the joint as present throughout.
+   */
+  sawCutHour?: number;
   /** Maturity rows covering hours 0..endHour (degree of hydration per hour). */
   maturity: MaturityRowLike[];
   /** Thermal rows; results[i] is hour i + 1 (temps in °C, index 0 = top). */
@@ -179,6 +185,32 @@ export function buildStressInput(args: BuildStressInputArgs): BuildStressInputRe
     return { input: null, issues, notes };
   }
 
+  // --- Saw-cut timing: when the transverse joint is created ----------------
+  // Before this hour the slab is continuous (infinite) and fully restrained;
+  // at/after it the joint relieves stress. Out-of-window values are kept (the
+  // model handles them) but noted, since they collapse to a single regime.
+  let effectiveSawCutHour: number | undefined;
+  if (args.sawCutHour !== undefined && Number.isFinite(args.sawCutHour) && args.sawCutHour >= 1) {
+    effectiveSawCutHour = Math.round(args.sawCutHour);
+    if (effectiveSawCutHour <= startHour) {
+      notes.push(
+        `Saw-cut (hour ${effectiveSawCutHour}) falls at/before the set time; the joint is modelled as active for the whole analysis window.`,
+      );
+    } else if (effectiveSawCutHour > endHour) {
+      notes.push(
+        `Saw-cut (hour ${effectiveSawCutHour}) falls after the analysis window; the slab is modelled as continuous (infinite) throughout.`,
+      );
+    } else {
+      notes.push(
+        `Slab modelled as continuous (infinite) until the saw-cut at hour ${effectiveSawCutHour}; jointed thereafter.`,
+      );
+    }
+  } else {
+    notes.push(
+      'No saw-cut time supplied; the transverse joint is modelled as present for the whole window.',
+    );
+  }
+
   // --- Reference (set-time, stress-free) temperature state -----------------
   const refRow = args.thermal[startHour - 1];
   if (!refRow || !refRow.temps?.length) {
@@ -245,6 +277,7 @@ export function buildStressInput(args: BuildStressInputArgs): BuildStressInputRe
     },
     hourlyInputs,
     ...(effectiveSawcut !== undefined ? { sawcutNormalized: effectiveSawcut } : {}),
+    ...(effectiveSawCutHour !== undefined ? { sawCutHour: effectiveSawCutHour } : {}),
     ...(args.creep ? { creep: args.creep } : {}),
   };
 
