@@ -24,7 +24,8 @@
       "PowerShell(npm run check)",
       "PowerShell(npm run test:run 2>&1)",
       "PowerShell(npm run build 2>&1)",
-      "PowerShell(cd \"c:\\\\Users\\\\drarm\\\\VSCODE\\\\PCAST\\\\PCAST\"; \\(Get-Content package.json | ConvertFrom-Json\\).scripts | Format-List)"
+      "PowerShell(cd \"c:\\\\Users\\\\drarm\\\\VSCODE\\\\PCAST\\\\PCAST\"; \\(Get-Content package.json | ConvertFrom-Json\\).scripts | Format-List)",
+      "Bash(npx svelte-check *)"
     ],
     "additionalDirectories": [
       "\\tmp"

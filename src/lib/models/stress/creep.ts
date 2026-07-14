@@ -13,68 +13,135 @@
  *   7. Apply B to elastic stresses → creep-adjusted stresses (creepResults)
  */
 
-import type { CreepModelParams } from './types';
+import type { CreepModelParams, CebFipCement } from './types';
 
 // ---------------------------------------------------------------------------
-// Default creep model parameters (placeholder, from VBA)
+// Default creep model parameters
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_CREEP_PARAMS: Required<CreepModelParams> = {
   a1: 1,
   a2Scale: 15,
   a2Rate: 0.0072,
+  creepModel: 'hydration',
+  agingCoefficient: 0.8,   // χ for AEMM (Trost/Bažant); only used when creepModel = 'aemm'
+  cebFipS: 0.25,           // CEB-FIP/EC2 normal-hardening cement
 };
+
+/** CEB-FIP MC90 / Eurocode 2 cement-type coefficient s (β_cc strength gain). */
+export const CEB_FIP_S: Record<CebFipCement, number> = {
+  rapid: 0.20,   // rapid-hardening high-strength (RS): CEM 42.5R, 52.5N/R
+  normal: 0.25,  // normal / rapid-hardening (N, R):     CEM 32.5R, 42.5N
+  slow: 0.38,    // slow-hardening (SL):                 CEM 32.5N
+};
+
+// ---------------------------------------------------------------------------
+// Aging elastic modulus  E(tʹ)
+// ---------------------------------------------------------------------------
+
+/**
+ * CEB-FIP MC90 / Eurocode 2 aging modulus, normalised by E₂₈.
+ *
+ *   β_cc(tʹ) = exp{ s·[1 − √(28/tʹ_days)] },   E(tʹ)/E₂₈ = √β_cc(tʹ)   (MC90)
+ *
+ * Strictly positive for every tʹ > 0 and bounded above by E₂₈ (→ 0 only as
+ * tʹ → 0). E₂₈ is omitted because the compliance transform is invariant to a
+ * global scaling of J (see buildCreepCompliance), so only the relative shape of
+ * E(tʹ) across loading ages affects the result.
+ */
+function cebFipModulusNorm(tHours: number, s: number): number {
+  const tDays = Math.max(tHours, 1e-6) / 24;
+  const betaCc = Math.exp(s * (1 - Math.sqrt(28 / tDays)));
+  return Math.sqrt(betaCc);
+}
+
+/**
+ * Resolve the per-index aging modulus E(tʹ) profile for the chosen creep model.
+ *
+ * The 'hydration' and 'aemm' models reuse the beam analysis' own per-hour
+ * stiffness (so the compliance and the elastic solve share one E(t)); the
+ * 'cebFip' model derives a closed-form profile from loading age alone.
+ *
+ * Non-positive entries (e.g. a pre-set hour with E = 0 in the supplied array)
+ * are floored to a small fraction of the window's peak modulus. This keeps the
+ * compliance finite without materially affecting results: pre-set loading ages
+ * carry no stress, so their column contributes nothing to the transformed
+ * histories.
+ */
+function modulusProfile(
+  startHour: number,
+  nt: number,
+  params: Required<CreepModelParams>,
+  modulusByIndex?: number[],
+): number[] {
+  if (params.creepModel === 'cebFip') {
+    return Array.from({ length: nt }, (_, i) =>
+      cebFipModulusNorm(startHour + i, params.cebFipS),
+    );
+  }
+
+  // 'hydration' or 'aemm': use the model's own E(t) array.
+  if (!modulusByIndex || modulusByIndex.length !== nt) {
+    throw new RangeError(
+      `creepModel '${params.creepModel}' needs a per-hour modulus array of length ${nt}, ` +
+      `got ${modulusByIndex?.length ?? 'none'}`,
+    );
+  }
+  const maxE = modulusByIndex.reduce((m, e) => Math.max(m, e), 0);
+  const floor = maxE > 0 ? maxE * 1e-4 : 1;
+  return modulusByIndex.map((e) => (e > floor ? e : floor));
+}
 
 // ---------------------------------------------------------------------------
 // Creep compliance  J(t, tʹ)
 // ---------------------------------------------------------------------------
 
 /**
- * Placeholder effective modulus used only for the creep compliance matrix.
- * E_eff(tʹ) = −12.135 + 7.9557·ln(tʹ)   (GPa-scale, from VBA)
- * Becomes non-positive for tʹ < ~4.6 h, which is physically invalid.
- */
-function creepEffectiveModulus(tp: number): number {
-  const Ep = -12.135 + 7.9557 * Math.log(tp);
-  if (Ep <= 0) {
-    throw new RangeError(
-      `Creep effective modulus is non-positive (${Ep.toFixed(3)}) at hour ${tp}; ` +
-      `the placeholder model is only valid for loading ages above ~5 h`,
-    );
-  }
-  return Ep;
-}
-
-/**
  * Build the creep compliance matrix J (n × n, lower-triangular filled).
  *
  * J[i][j] = compliance at observation hour t_i due to load applied at tʹ_j,
- *            where t_i = startHour + i, tʹ_j = startHour + j, and i ≥ j.
+ *            where t_i = startHour + i, tʹ_j = startHour + j, and i ≥ j:
  *
- * Units: consistent with the VBA (divided by 1000 at the end).
+ *   J[i][j] = [1 + χ·φ(t_i, tʹ_j)] / E(tʹ_j),
+ *   φ(t, tʹ) = a1·(1 − e^{−(t−tʹ)/a2(tʹ)}),   a2(tʹ) = a2Scale · e^{tʹ · a2Rate}
  *
- * @param startHour  First hour index (n0 in VBA)
- * @param nt         Number of time steps
- * @param params     Creep model parameters
+ * χ = `agingCoefficient` for the 'aemm' model and 1 otherwise. E(tʹ) is the
+ * bounded aging modulus selected by `creepModel` (see modulusProfile).
+ *
+ * Scale invariance: the downstream transformation matrix B is built entirely
+ * from ratios of ΔJ entries, so multiplying every J entry by a constant leaves
+ * B (and therefore the creep-adjusted results) unchanged. Only the *relative*
+ * variation of E(tʹ) across loading ages and the shape of φ matter — which is
+ * why the closed-form 'cebFip' profile can drop E₂₈ and the per-hour 'hydration'
+ * profile can be passed in raw psi.
+ *
+ * @param startHour       First hour index (n0 in VBA)
+ * @param nt              Number of time steps
+ * @param params          Creep model parameters (resolved, with defaults applied)
+ * @param modulusByIndex  Per-index E(tʹ) for the 'hydration'/'aemm' models
+ *                        (modulusByIndex[i] is the stiffness at hour startHour+i)
  */
 export function buildCreepCompliance(
   startHour: number,
   nt: number,
   params: Required<CreepModelParams>,
+  modulusByIndex?: number[],
 ): number[][] {
-  const { a1, a2Scale, a2Rate } = params;
+  const { a1, a2Scale, a2Rate, creepModel, agingCoefficient } = params;
+  const E = modulusProfile(startHour, nt, params, modulusByIndex);
+  const chi = creepModel === 'aemm' ? agingCoefficient : 1;
+
   const J: number[][] = Array.from({ length: nt }, () => new Array<number>(nt).fill(0));
 
   for (let i = 0; i < nt; i++) {
     const tp = startHour + i;                          // loading age (h)
-    const Ep = creepEffectiveModulus(tp);
+    const Ep = E[i];
     const a2 = a2Scale * Math.exp(tp * a2Rate);
 
     for (let j = i; j < nt; j++) {
       const t = startHour + j;                         // observation time (h)
-      const creep =
-        (1 / 145 / Ep) * 1e6 * (1 + a1 * (1 - Math.exp(-(t - tp) / a2)));
-      J[j][i] = creep / 1000;
+      const phi = a1 * (1 - Math.exp(-(t - tp) / a2)); // creep coefficient
+      J[j][i] = (1 + chi * phi) / Ep;
     }
   }
 

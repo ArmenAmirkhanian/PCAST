@@ -44,10 +44,38 @@ export interface JointProperties {
 }
 
 /**
- * Parameters for the placeholder rate-type creep model.
- * J(t, tʹ) = [1/145 / E_eff(tʹ)] × 10⁶ × [1 + a1·(1 − e^{−(t−tʹ)/a2(tʹ)})] / 1000
- * where E_eff(tʹ) = −12.135 + 7.9557·ln(tʹ)  (placeholder, GPa-scale)
- *       a2(tʹ)   = a2Scale · e^{tʹ · a2Rate}
+ * Aging-modulus model that supplies E(tʹ) to the creep compliance kernel.
+ *
+ * All three are bounded and strictly positive for every loading age tʹ > 0
+ * (they decay to zero only as tʹ → 0), so none reproduce the negative-modulus
+ * pathology of the old logarithmic placeholder.
+ *
+ *  • 'hydration' – uses the model's own per-hour stiffness
+ *                  E(tʹ) = E_mature · α(tʹ)/α_u, i.e. the SAME modulus the beam
+ *                  analysis sees. Most internally consistent; needs no extra
+ *                  inputs. Default.
+ *  • 'cebFip'    – CEB-FIP MC90 / Eurocode 2 closed form
+ *                  β_cc(tʹ) = exp{ s·[1 − √(28/tʹ_days)] },  E(tʹ) = √β_cc · E₂₈.
+ *                  Needs only the cement-type coefficient s.
+ *  • 'aemm'      – Age-Adjusted Effective Modulus shortcut (Trost / Bažant):
+ *                  the hydration modulus with the creep coefficient down-weighted
+ *                  by the aging coefficient χ, J = (1 + χ·φ)/E_hydration(tʹ).
+ *                  χ = 1 recovers the standard effective-modulus kernel.
+ */
+export type CreepModel = 'hydration' | 'cebFip' | 'aemm';
+
+/** CEB-FIP / EC2 cement-type strength-gain coefficient s. */
+export type CebFipCement = 'rapid' | 'normal' | 'slow';
+
+/**
+ * Parameters for the rate-type creep model.
+ *
+ * Compliance kernel (lower-triangular, scale-invariant — see creep.ts):
+ *   J(t, tʹ) = [1 + χ·φ(t, tʹ)] / E(tʹ)
+ *   φ(t, tʹ) = a1·(1 − e^{−(t−tʹ)/a2(tʹ)}),   a2(tʹ) = a2Scale · e^{tʹ · a2Rate}
+ * where E(tʹ) is the bounded aging modulus chosen by `creepModel` and χ is the
+ * aging coefficient (1 for the 'hydration'/'cebFip' kernels, `agingCoefficient`
+ * for 'aemm').
  */
 export interface CreepModelParams {
   /** Creep coefficient multiplier (a1 in VBA, default 1) */
@@ -56,6 +84,18 @@ export interface CreepModelParams {
   a2Scale: number;
   /** Creep time-constant exponential rate (default 0.0072) */
   a2Rate: number;
+  /** Which bounded aging-modulus model feeds the compliance (default 'hydration'). */
+  creepModel: CreepModel;
+  /**
+   * Aging coefficient χ for the 'aemm' model (Trost / Bažant, ≈0.6–0.9; 0.8
+   * typical). Ignored by the 'hydration' and 'cebFip' kernels (which use χ = 1).
+   */
+  agingCoefficient: number;
+  /**
+   * CEB-FIP / EC2 cement-type coefficient s for the 'cebFip' model
+   * (rapid-hardening 0.20, normal 0.25, slow 0.38). Ignored by other models.
+   */
+  cebFipS: number;
 }
 
 /** Per-hour input data required by the stress model */

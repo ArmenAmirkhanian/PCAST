@@ -125,7 +125,10 @@ export function runStressModel(input: StressModelInput): StressOutput {
   // Step 1: Build creep compliance and Riesz transformation matrices
   // -------------------------------------------------------------------------
 
-  const J    = buildCreepCompliance(startHour, nt, creepParams);
+  // The 'hydration'/'aemm' creep models reuse the beam analysis' own per-hour
+  // stiffness so the compliance kernel and the elastic solve share one E(t).
+  const modulusByIndex = hourlyInputs.map(h => h.elasticModulus);
+  const J    = buildCreepCompliance(startHour, nt, creepParams, modulusByIndex);
   const dJ   = buildDifferentialCreep(J);
   const B    = buildTransformationMatrix(dJ);
   const Binv = buildInverseTransformation(B);

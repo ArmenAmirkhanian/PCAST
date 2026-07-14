@@ -2,7 +2,7 @@ import { writable } from 'svelte/store';
 import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
 import type { HydrationModel } from '$lib/types';
 import type { ModelOutput } from '$lib/models/illitherm/types';
-import type { StressOutput } from '$lib/models/stress/types';
+import type { StressOutput, CreepModel } from '$lib/models/stress/types';
 
 const todayISO = new Date().toISOString().slice(0, 10);
 
@@ -120,6 +120,12 @@ export type StressParamsForm = {
   sawcutNormalized: number | '';
   /** Creep coefficient multiplier a1 */
   creepA1: number;
+  /** Bounded aging-modulus model that feeds the creep compliance kernel */
+  creepModel: CreepModel;
+  /** Aging coefficient χ for the AEMM model (Trost/Bažant; 0.6–0.9) */
+  agingCoefficient: number;
+  /** CEB-FIP/EC2 cement-type coefficient s (rapid 0.20 / normal 0.25 / slow 0.38) */
+  cebFipS: number;
 };
 
 export const DEFAULT_STRESS_PARAMS: StressParamsForm = {
@@ -130,6 +136,9 @@ export const DEFAULT_STRESS_PARAMS: StressParamsForm = {
   matureModulusPsi:    4_000_000,
   sawcutNormalized:    0.25,
   creepA1:             1,
+  creepModel:          'hydration',
+  agingCoefficient:    0.8,
+  cebFipS:             0.25,
 };
 
 export const stressParams = writable<StressParamsForm>({ ...DEFAULT_STRESS_PARAMS });
