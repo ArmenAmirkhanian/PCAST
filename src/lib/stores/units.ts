@@ -65,3 +65,8 @@ export function fromDisplaySpacing(value: number, sys: UnitSystem) {
 export function spacingUnit(sys: UnitSystem) { return sys === 'us' ? 'ft' : 'm'; }
 export function spacingStep(sys: UnitSystem) { return sys === 'us' ? 0.1 : 0.01; }
 export function spacingPlaceholder(sys: UnitSystem) { return sys === 'us' ? 'e.g., 15' : 'e.g., 4.5'; }
+
+// Cement content: entered in imperial (lb/yd³, "pcy"), consumed by the thermal
+// model in metric (kg/m³). 1 lb/yd³ = 0.5932764 kg/m³.
+export function pcyToKgm3(pcy: number) { return pcy * 0.5932764; }
+export function kgm3ToPcy(kgm3: number) { return kgm3 / 0.5932764; }

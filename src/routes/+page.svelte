@@ -31,7 +31,7 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
     { id: 'hydration',  label: 'Hydration' },
     { id: 'slabs',      label: 'Slab Layout' },
     { id: 'environment', label: 'Environment' },
-    { id: 'results',    label: 'Results' },
+    { id: 'results',    label: 'Temp. Gradient' },
     { id: 'analysis',   label: 'Analysis' },
     { id: 'report',     label: 'Report PDF' },
     { id: 'about',      label: 'About' }

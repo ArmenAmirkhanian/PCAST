@@ -10,14 +10,14 @@
     hydrationModelResults,
     type WeatherHourlyRow
   } from '$lib/stores/form';
-  import { unitSystem, fToC } from '$lib/stores/units';
+  import { unitSystem, fToC, pcyToKgm3 } from '$lib/stores/units';
   import { runModel } from '$lib/models/illitherm/run';
   import type { ModelInput, WeatherRow } from '$lib/models/illitherm/types';
   import type { Layout, PlotData } from 'plotly.js';
 
   // Additional thermal model inputs not sourced from other tabs
   let Hu = 375000; // J/kg — total heat of hydration (default: Type I/II)
-  let cc = 350;    // kg/m³ — cement content
+  let ccPcy = 590; // lb/yd³ — cement content (imperial input; ≈ 350 kg/m³)
 
   // Hours 1–72 available for display
   const ALL_HOURS = Array.from({ length: 72 }, (_, i) => i + 1);
@@ -50,6 +50,13 @@
     return Math.max(0, 600 * sunFraction * cloudFactor);
   }
 
+  // The convection correlation in the illitherm model (physics.ts: h = 0.1·v²)
+  // yields physical surface film coefficients (~10–15 W/m²·K) only when wind is
+  // expressed in mph. Weather data is stored in m/s (windMps), so convert here;
+  // feeding m/s directly makes convective surface cooling ~5× too weak and traps
+  // hydration heat in the slab.
+  const MPS_TO_MPH = 2.23694;
+
   function toWeatherRows(data: WeatherHourlyRow[]): WeatherRow[] {
     return data.slice(0, 72).map((row) => ({
       year:      row.year,
@@ -57,7 +64,7 @@
       day:       row.day,
       hour:      row.hour,
       airTemp:   row.airTempC,
-      windSpeed: row.windMps,
+      windSpeed: row.windMps * MPS_TO_MPH,
       dewPoint:  row.airTempC - 5,
       solarRad:  estimateSolarRad(row.hour, row.cloudPct)
     }));
@@ -88,13 +95,28 @@
     return {
       controls:  { numStepsPerHour: 4, spinUpReps: 2, numPointsTopLayer: 11 },
       surface:   { albedo: 0.5, emissivity: 0.9 },
-      layers: [{
-        thickness:           thicknessM,
-        thermalConductivity: 1.5,
-        heatCapacity:        840,
-        density:             2300,
-        numLayerElements:    10
-      }],
+      // The illitherm model requires the subgrade as the last layer (see
+      // src/lib/models/illitherm/README.md and codex/excel-contract.md): the VBA
+      // input appends a 1 m soil layer beneath the slab. Without it the deep
+      // (adiabatic) boundary sits right at the slab base, so hydration heat cannot
+      // sink into the ground and slab temperatures run far too high. layers[0]
+      // remains the slab, so the depth profile written to the chart is unchanged.
+      layers: [
+        {
+          thickness:           thicknessM,
+          thermalConductivity: 1.5,
+          heatCapacity:        840,
+          density:             2300,
+          numLayerElements:    10
+        },
+        {
+          thickness:           1.0,   // m — subgrade half-space (VBA default)
+          thermalConductivity: 1.2,   // W/(m·K) — typical compacted soil
+          heatCapacity:        900,   // J/(kg·K)
+          density:             1800,  // kg/m³
+          numLayerElements:    10
+        }
+      ],
       weather:   toWeatherRows(weather),
       hydration: {
         alphau,
@@ -102,7 +124,7 @@
         Ea,
         R:         8.3144,
         Hu,
-        cc,
+        cc:        pcyToKgm3(ccPcy), // lb/yd³ → kg/m³ for the model
         beta,
         Tr:        23,
         Tdelivery: deliveryTempC
@@ -261,16 +283,16 @@
       </div>
       <div class="flex flex-col gap-1">
         <label for="input-cc" class="text-sm font-medium">
-          Cement Content, c<sub>c</sub> (kg/m³)
+          Cement Content, c<sub>c</sub> (lb/yd³)
         </label>
         <input
           id="input-cc"
           type="number"
           class="border rounded-lg p-2 text-sm"
-          bind:value={cc}
+          bind:value={ccPcy}
           min="0"
           step="10" />
-        <p class="text-xs text-gray-500">Default: 350 kg/m³</p>
+        <p class="text-xs text-gray-500">Default: 590 lb/yd³ (≈ 350 kg/m³)</p>
       </div>
     </div>
     {#if $hydrationModelResults['schindler-folliard']}
