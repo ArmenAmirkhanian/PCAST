@@ -23,7 +23,7 @@
     type CementType,
     type SCMType
   } from '$lib/models/hydration/concreteMaturity';
-  import type { Layout, Data } from 'plotly.js';
+  import type { Layout, Data, Shape, Annotations } from 'plotly.js';
 
   // ── Display-unit helpers ───────────────────────────────────────────────
   // Module stresses are computed in psi and KI in psi·in^0.5 (US canonical);
@@ -142,7 +142,11 @@
       sawCutHour: sawCutHourIndex,
       maturity: ($maturityResultsStore ?? []).map((r) => ({
         hour: r.hour,
-        degreeOfHydration: r.degreeOfHydration
+        degreeOfHydration: r.degreeOfHydration,
+        // Cracking capacity: lets the model break the slab (natural crack) once
+        // the demand reaches the strength instead of carrying an ever-growing
+        // infinite-slab stress to the saw-cut hour.
+        strength: r.strength
       })),
       thermal: ($thermalGradientResults?.results ?? []).map((r) => ({ temps: r.temps })),
       creep: {
@@ -198,6 +202,39 @@
     return m;
   }
 
+  // Vertical markers for the two events that define the regime switches: the
+  // planned saw-cut and (when it happens first) the natural crack.
+  function eventShapes(): { shapes: Partial<Shape>[]; annotations: Partial<Annotations>[] } {
+    const shapes: Partial<Shape>[] = [];
+    const annotations: Partial<Annotations>[] = [];
+    const cut = $stressResults?.cracking?.sawCutHour;
+    const crack = $stressResults?.cracking?.naturalCrackHour;
+    const mark = (hour: number, color: string, text: string, yAnchor: number) => {
+      shapes.push({
+        type: 'line',
+        x0: hour,
+        x1: hour,
+        yref: 'paper',
+        y0: 0,
+        y1: 1,
+        line: { color, width: 1.5, dash: 'dash' }
+      });
+      annotations.push({
+        x: hour,
+        y: yAnchor,
+        yref: 'paper',
+        text,
+        showarrow: false,
+        font: { size: 10, color },
+        bgcolor: 'rgba(255,255,255,0.75)',
+        xanchor: 'left'
+      });
+    };
+    if (typeof cut === 'number') mark(cut, '#2563eb', `saw-cut (h${cut})`, 1.02);
+    if (typeof crack === 'number') mark(crack, '#b91c1c', `natural crack (h${crack})`, 0.94);
+    return { shapes, annotations };
+  }
+
   async function renderCharts() {
     if (!browser || !Plotly || !$stressResults) return;
     const elastic = $stressResults.hourlyResults;
@@ -240,6 +277,7 @@
           line: { color: '#16a34a', dash: 'dash', width: 2 }
         } as Data);
       }
+      const { shapes, annotations } = eventShapes();
       await Plotly.react(
         chartStress,
         traces,
@@ -247,7 +285,9 @@
           ...baseLayout,
           title: { text: 'Stress Development & Cracking Risk', font: { size: 15 } },
           xaxis: { title: { text: 'Hour after placement' } },
-          yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true }
+          yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
+          shapes,
+          annotations
         } as Partial<Layout>,
         cfg
       );
@@ -277,7 +317,8 @@
           ...baseLayout,
           title: { text: 'Creep-Adjusted Extreme-Fibre Stress', font: { size: 15 } },
           xaxis: { title: { text: 'Hour after placement' } },
-          yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true }
+          yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
+          ...eventShapes()
         } as Partial<Layout>,
         cfg
       );
@@ -354,6 +395,9 @@
         toStress(c.creepStressTop).toFixed(3),
         toStress(c.creepStressBottom).toFixed(3),
         toStress(c.creepMaxTensile).toFixed(3),
+        c.tensileStrength > 0 ? toStress(c.tensileStrength).toFixed(3) : '',
+        c.tensileStrength > 0 ? c.demandCapacityRatio.toFixed(3) : '',
+        r.regime,
         toKI(r.stressIntensityKI).toFixed(4),
         toKI(c.creepKI).toFixed(4)
       ].join(',');
@@ -368,6 +412,9 @@
       `creepTop_${stressUnit}`,
       `creepBottom_${stressUnit}`,
       `creepMaxTensile_${stressUnit}`,
+      `tensileStrength_${stressUnit}`,
+      'demandCapacityRatio',
+      'regime',
       `elasticKI_${kiUnit}`,
       `creepKI_${kiUnit}`
     ].join(',');
@@ -393,6 +440,16 @@
     }
     return Number.isFinite(best) ? { value: best, hour: hr } : null;
   })();
+
+  // ── Saw-cut timing verdict ─────────────────────────────────────────────
+  $: cracking = $stressResults?.cracking ?? null;
+  $: lastHour = $stressResults?.hourlyResults?.at(-1)?.hour ?? null;
+  // Regime label for the hourly table.
+  const regimeLabel: Record<string, string> = {
+    continuous: 'continuous',
+    jointed: 'jointed',
+    cracked: 'CRACKED'
+  };
 </script>
 
 <div class="space-y-4">
@@ -429,7 +486,9 @@
       {#if sawCutHourIndex !== undefined}
         The slab is modelled as continuous (infinite, fully restrained) until the saw-cut
         (clock {$slabLayout.sawCutHour}) at <strong>hour {sawCutHourIndex}</strong>, then jointed —
-        joint spacing only affects the result once the joint exists.
+        joint spacing only affects the result once the joint exists. If the creep-adjusted tensile
+        demand reaches the maturity-based tensile strength first, the slab cracks naturally at that
+        hour and is analysed as a cracked (finite) panel from then on.
       {:else}
         Set the placement time (Project Info) and saw-cut time (Slab Layout) to model the
         continuous-until-cut behaviour; otherwise the joint is treated as active throughout.
@@ -570,6 +629,76 @@
       </div>
     {/if}
 
+    <!-- Saw-cut timing verdict: does the cut happen before the slab breaks? -->
+    {#if cracking}
+      {#if cracking.verdict === 'crackedBeforeSawCut'}
+        <div class="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+          <p class="font-semibold">
+            Saw-cut too late — the slab cracks on its own at hour {cracking.naturalCrackHour}.
+          </p>
+          <p class="mt-1">
+            The creep-adjusted tensile demand reached the concrete's tensile strength
+            ({fmt(toStress(cracking.crackDemand ?? 0), 1)} vs
+            {fmt(toStress(cracking.crackStrength ?? 0), 1)} {stressUnit}) at hour
+            <strong>{cracking.naturalCrackHour}</strong>{#if cracking.sawCutHour !== undefined},
+              <strong
+                >{cracking.sawCutHour - (cracking.naturalCrackHour ?? 0)} h before the planned
+                saw-cut at hour {cracking.sawCutHour}</strong
+              >{/if}. An uncontrolled transverse crack forms there: from that hour the slab is
+            analysed as a cracked, finite panel (axial restraint released, K<sub>ᵢ</sub> = 0), not as
+            a continuous infinite slab. Saw-cut earlier, shorten the joint spacing, or reduce the
+            early-age temperature drop.
+          </p>
+        </div>
+      {:else if cracking.verdict === 'ok'}
+        <div class="rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-900">
+          <p class="font-semibold">
+            Saw-cut timing works — no natural cracking predicted before hour {cracking.sawCutHour}.
+          </p>
+          <p class="mt-1">
+            The slab reaches at most
+            <strong>{fmt((cracking.preCutPeakRatio ?? 0) * 100, 0)}%</strong>
+            of its tensile strength while still continuous (hour
+            {cracking.preCutPeakRatioHour}), so the joint is cut before the concrete breaks on its
+            own.
+            {#if cracking.sawCutHour !== undefined && lastHour !== null && cracking.sawCutHour > lastHour}
+              Note the saw-cut hour falls outside the {lastHour}-hour analysis window — no cracking
+              occurs within the window analysed.
+            {/if}
+          </p>
+        </div>
+      {:else if cracking.verdict === 'noStrengthData'}
+        <div class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          <p class="font-semibold">Cracking check disabled — no tensile-strength history.</p>
+          <p class="mt-1">
+            Without a strength curve the slab is carried as a continuous (infinite) panel until the
+            saw-cut no matter how high the stress climbs, so the saw-cut time cannot be assessed.
+            Enter a compressive strength on the Materials tab (or a saw-cut depth for the K<sub
+              >IC</sub
+            >-based estimate) and re-run the maturity model.
+          </p>
+        </div>
+      {:else}
+        <div class="rounded-lg border border-sky-300 bg-sky-50 p-4 text-sm text-sky-900">
+          <p class="font-semibold">No pre-cut window to assess.</p>
+          <p class="mt-1">
+            The joint is modelled as active for the whole window (no saw-cut time, or it falls at or
+            before the set time), so there is no continuous phase in which the slab could crack
+            naturally. Set the placement time (Project Info) and saw-cut time (Slab Layout) to test
+            the saw-cut timing.
+          </p>
+        </div>
+      {/if}
+      {#if cracking.exceedanceHoursAfterRelief.length}
+        <div class="rounded border border-orange-200 bg-orange-50 p-3 text-xs text-orange-900">
+          Demand still reaches the tensile strength at
+          {cracking.exceedanceHoursAfterRelief.length} hour(s) after the joint/crack relieved the
+          slab (first: hour {cracking.exceedanceHoursAfterRelief[0]}) — expect additional cracking.
+          The model forms one crack and does not subdivide the panel further.
+        </div>
+      {/if}
+    {/if}
+
     <div class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="h-[360px] w-full" bind:this={chartStress}></div>
     </div>
@@ -611,13 +740,21 @@
               <th class="border-b px-3 py-2 text-right font-medium text-gray-600">σ top ({stressUnit})</th>
               <th class="border-b px-3 py-2 text-right font-medium text-gray-600">σ bottom ({stressUnit})</th>
               <th class="border-b px-3 py-2 text-right font-medium text-gray-600">σ max-tens ({stressUnit})</th>
+              <th class="border-b px-3 py-2 text-right font-medium text-gray-600">f<sub>t</sub> ({stressUnit})</th>
+              <th class="border-b px-3 py-2 text-right font-medium text-gray-600">σ/f<sub>t</sub></th>
+              <th class="border-b px-3 py-2 text-left font-medium text-gray-600">Regime</th>
               <th class="border-b px-3 py-2 text-right font-medium text-gray-600">Kᵢ creep ({kiUnit})</th>
             </tr>
           </thead>
           <tbody>
             {#each $stressResults.hourlyResults as r, i (r.hour)}
               {@const c = $stressResults.creepResults[i]}
-              <tr class="border-t border-gray-100 hover:bg-gray-50">
+              <tr
+                class="border-t border-gray-100 hover:bg-gray-50 {r.hour ===
+                cracking?.naturalCrackHour
+                  ? 'bg-red-50'
+                  : ''}"
+              >
                 <td class="px-3 py-1 font-mono">{r.hour}</td>
                 <td class="px-3 py-1 text-right font-mono">{fmt(r.elasticModulus, 0)}</td>
                 <td class="px-3 py-1 text-right font-mono">{fmt(toDeltaT(r.pseudoUniformTemp), 2)}</td>
@@ -627,6 +764,19 @@
                 <td class="px-3 py-1 text-right font-mono">{fmt(toStress(c.creepStressTop), 1)}</td>
                 <td class="px-3 py-1 text-right font-mono">{fmt(toStress(c.creepStressBottom), 1)}</td>
                 <td class="px-3 py-1 text-right font-mono font-semibold">{fmt(toStress(c.creepMaxTensile), 1)}</td>
+                <td class="px-3 py-1 text-right font-mono">
+                  {c.tensileStrength > 0 ? fmt(toStress(c.tensileStrength), 1) : '—'}
+                </td>
+                <td
+                  class="px-3 py-1 text-right font-mono {c.demandCapacityRatio >= 1
+                    ? 'font-semibold text-red-700'
+                    : ''}"
+                >
+                  {c.tensileStrength > 0 ? fmt(c.demandCapacityRatio, 2) : '—'}
+                </td>
+                <td class="px-3 py-1 {r.regime === 'cracked' ? 'font-semibold text-red-700' : 'text-gray-600'}">
+                  {regimeLabel[r.regime]}
+                </td>
                 <td class="px-3 py-1 text-right font-mono">{fmt(toKI(c.creepKI), 3)}</td>
               </tr>
             {/each}
@@ -635,7 +785,11 @@
       </div>
       <p class="mt-2 text-xs text-gray-500">
         ΔT* values are the pseudo-temperatures (post B⁻¹ transformation) actually applied to
-        the elastic analysis, not the raw thermal differences.
+        the elastic analysis, not the raw thermal differences. σ/f<sub>t</sub> is the creep-adjusted
+        demand over the maturity-based tensile strength; the regime column shows whether the slab was
+        continuous (infinite), jointed by the saw-cut, or broken by a natural crack. At the crack
+        hour the tabulated stress is the relieved post-crack value — the demand that broke the slab
+        is quoted in the verdict above.
       </p>
     </div>
   {/if}

@@ -8,6 +8,8 @@ declare module 'plotly.js' {
   export type PlotData = any;
   export type Config = any;
   export type PlotlyHTMLElement = any;
+  export type Shape = any;
+  export type Annotations = any;
 }
 
 declare module 'plotly.js-dist-min' {
@@ -16,6 +18,8 @@ declare module 'plotly.js-dist-min' {
   export type PlotData = any;
   export type Config = any;
   export type PlotlyHTMLElement = any;
+  export type Shape = any;
+  export type Annotations = any;
   export function react(...args: any[]): Promise<any>;
   export function newPlot(...args: any[]): Promise<any>;
   export function purge(...args: any[]): void;
@@ -34,4 +38,6 @@ declare namespace Plotly {
   type PlotData = any;
   type Config = any;
   type PlotlyHTMLElement = any;
+  type Shape = any;
+  type Annotations = any;
 }

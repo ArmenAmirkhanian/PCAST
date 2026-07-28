@@ -11,6 +11,14 @@
  *       - E_mature : user-supplied 28-day / fully-hydrated modulus (psi)
  *     The ratio is clamped to [0, 1] so E never exceeds E_mature.
  *
+ *   • Tensile strength f_t(t):  the maturity model's per-hour `strength` (psi) —
+ *       the ACI value derived from the user's compressive-strength input when
+ *       supplied, otherwise the KIC-based estimate. This is the cracking capacity
+ *       the stress model compares the creep-adjusted demand against, and what
+ *       lets it break the slab (natural crack) instead of carrying an
+ *       ever-growing infinite-slab stress. Omitted/zero hours simply disable the
+ *       check at that hour.
+ *
  *   • Uniform ΔT_c(t) and gradient ΔT_g(t):  from the illitherm thermal model.
  *       Both are measured as the CHANGE from the set-time (stress-free)
  *       temperature state:
@@ -32,6 +40,12 @@ import type {
 export interface MaturityRowLike {
   hour: number;
   degreeOfHydration: number;
+  /**
+   * Tensile strength at this hour (psi). Optional: when absent (or zero for
+   * every hour) the natural-cracking check is disabled and the run is reported
+   * with verdict 'noStrengthData'.
+   */
+  strength?: number;
 }
 
 /** A thermal-profile row — results[i] corresponds to absolute hour i + 1. */
@@ -226,13 +240,21 @@ export function buildStressInput(args: BuildStressInputArgs): BuildStressInputRe
   const refMeanC = mean(refRow.temps);
   const refGradC = topMinusBottom(refRow.temps);
 
-  // --- Degree-of-hydration lookup by absolute hour -------------------------
+  // --- Degree-of-hydration + tensile-strength lookup by absolute hour ------
   const alphaByHour = new Map<number, number>();
-  for (const r of args.maturity) alphaByHour.set(Math.round(r.hour), r.degreeOfHydration);
+  const strengthByHour = new Map<number, number>();
+  for (const r of args.maturity) {
+    const hour = Math.round(r.hour);
+    alphaByHour.set(hour, r.degreeOfHydration);
+    if (typeof r.strength === 'number' && Number.isFinite(r.strength) && r.strength > 0) {
+      strengthByHour.set(hour, r.strength);
+    }
+  }
 
   // --- Assemble hourly inputs ----------------------------------------------
   const hourlyInputs: HourlyInput[] = [];
   let clampedModulusHours = 0;
+  let strengthHours = 0;
 
   for (let hour = startHour; hour <= endHour; hour++) {
     const thermalRow = args.thermal[hour - 1];
@@ -256,17 +278,38 @@ export function buildStressInput(args: BuildStressInputArgs): BuildStressInputRe
     const meanC = mean(thermalRow.temps);
     const gradC = topMinusBottom(thermalRow.temps);
 
+    const tensileStrength = strengthByHour.get(hour) ?? 0;
+    if (tensileStrength > 0) strengthHours++;
+
     hourlyInputs.push({
       hour,
       elasticModulus,
       uniformTempChange:  (meanC - refMeanC) * C_TO_F_DELTA,
       gradientTempChange: (gradC - refGradC) * C_TO_F_DELTA,
+      tensileStrength,
     });
   }
 
   if (clampedModulusHours > 0) {
     notes.push(
       `${clampedModulusHours} hour(s) had α(t) ≥ α_u; modulus clamped to the mature value.`,
+    );
+  }
+
+  // --- Cracking capacity ----------------------------------------------------
+  // Without a strength history the model cannot break the slab, so it would run
+  // the pre-cut window as an infinite slab no matter how high the stress climbs.
+  if (strengthHours === 0) {
+    notes.push(
+      'No tensile-strength data in the analysis window — the natural-cracking check is ' +
+        "disabled and the slab is modelled as continuous until the saw-cut. Enter a compressive " +
+        'strength (Materials tab) or a saw-cut depth so the maturity model produces a strength ' +
+        'history.',
+    );
+  } else if (strengthHours < hourlyInputs.length) {
+    notes.push(
+      `Tensile strength available for ${strengthHours} of ${hourlyInputs.length} hour(s); the ` +
+        'natural-cracking check is skipped on the remaining hours.',
     );
   }
 

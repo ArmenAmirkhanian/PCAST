@@ -108,6 +108,19 @@ export interface HourlyInput {
   uniformTempChange: number;
   /** Temperature gradient ΔT_g (°F) – top minus bottom surface */
   gradientTempChange: number;
+  /**
+   * Concrete tensile strength at this hour (psi) from the maturity model — the
+   * cracking capacity the creep-adjusted tensile demand is checked against.
+   *
+   * When the demand reaches this value while the slab is still continuous (i.e.
+   * before the saw-cut), a natural crack forms: the slab stops being modelled
+   * as an infinite panel and becomes a cracked finite panel from that hour on
+   * (see `SlabRegime` and `CrackingAssessment`).
+   *
+   * Omitted or ≤ 0 ⇒ no capacity known for that hour, so the natural-cracking
+   * check is skipped there.
+   */
+  tensileStrength?: number;
 }
 
 /** Full input bundle for the stress & creep runner */
@@ -129,6 +142,11 @@ export interface StressModelInput {
    * (maximum curling/axial stress) and the Mode-I stress intensity KI = 0. At
    * and after this hour the joint exists (free edge + sawcut compliance) and the
    * finite-panel beam-on-foundation analysis applies.
+   *
+   * The infinite-slab idealisation only holds while the section is intact: if
+   * `hourlyInputs[].tensileStrength` is supplied and the creep-adjusted demand
+   * reaches it first, the slab cracks naturally at that hour and is finite from
+   * then on (`CrackingAssessment.verdict = 'crackedBeforeSawCut'`).
    *
    * Omitted ⇒ the joint is treated as present for the whole window (legacy
    * behaviour; matches a slab that was already jointed before the analysis
@@ -160,6 +178,25 @@ export interface StressModelInput {
 // ---------------------------------------------------------------------------
 // Outputs
 // ---------------------------------------------------------------------------
+
+/**
+ * Restraint regime that produced an hour's result.
+ *
+ *  • 'continuous' – no transverse discontinuity yet (before the saw-cut and
+ *                   before any natural crack). Modelled as an infinite slab:
+ *                   thermal actions at their fully-restrained maxima, KI = 0.
+ *  • 'jointed'    – the saw-cut joint exists: finite panel with a free edge and
+ *                   the sawcut joint's compliance redistributing the actions.
+ *  • 'cracked'    – a natural (uncontrolled) full-depth crack has formed because
+ *                   the tensile demand reached the tensile strength while the
+ *                   slab was still continuous. The crack is a free edge with no
+ *                   ligament left to transfer force, so axial restraint drops to
+ *                   base friction over the panel and KI = 0 (there is no crack
+ *                   tip inside the section any more). Once cracked the slab stays
+ *                   cracked for the rest of the window — a later saw-cut cannot
+ *                   undo it.
+ */
+export type SlabRegime = 'continuous' | 'jointed' | 'cracked';
 
 /** Elastic (time-independent) stress results for one hour */
 export interface HourlyStressResult {
@@ -204,6 +241,8 @@ export interface HourlyStressResult {
   edgeBendingFactor: number;
   /** False if the 2×2 joint compatibility system was singular this hour */
   solverOk: boolean;
+  /** Restraint regime this row was solved in (see `SlabRegime`) */
+  regime: SlabRegime;
 }
 
 /** Creep-adjusted result for one hour (post B-matrix transformation) */
@@ -219,6 +258,61 @@ export interface CreepStressResult {
   creepStressBottom: number;
   /** Most tensile creep-adjusted face = max(creepStressTop, creepStressBottom) */
   creepMaxTensile: number;
+  // --- Cracking check (explanation §stressCreepTheory) ---------------------
+  /** Tensile capacity used at this hour (psi); 0 when no strength was supplied */
+  tensileStrength: number;
+  /**
+   * creepMaxTensile / tensileStrength for this hour (0 when no strength was
+   * supplied). ≥ 1 means the section has reached its capacity. At the hour a
+   * natural crack forms this is the *relieved* (post-crack) ratio — the demand
+   * that triggered the crack is `CrackingAssessment.crackDemand`.
+   */
+  demandCapacityRatio: number;
+  /** True from the natural-crack hour onward (the slab carries a crack) */
+  cracked: boolean;
+}
+
+/** Outcome of the saw-cut timing check. */
+export type SawCutVerdict =
+  /** Saw-cut timing is adequate: no natural crack before the cut. */
+  | 'ok'
+  /** The slab reached its tensile strength and cracked before the saw-cut. */
+  | 'crackedBeforeSawCut'
+  /** No tensile-strength data supplied — the cracking check could not run. */
+  | 'noStrengthData'
+  /** No pre-cut window to assess (no saw-cut hour, or it precedes the set time). */
+  | 'jointedThroughout';
+
+/**
+ * Whether the slab cracks on its own before the proposed saw-cut — the question
+ * the tool exists to answer.
+ *
+ * A natural crack is declared at the first hour where the creep-adjusted tensile
+ * demand (`creepMaxTensile`) reaches the tensile strength while the slab is still
+ * continuous. From that hour the slab is no longer modelled as an infinite panel
+ * (see `SlabRegime` = 'cracked').
+ */
+export interface CrackingAssessment {
+  /** Verdict on the proposed saw-cut time */
+  verdict: SawCutVerdict;
+  /** Saw-cut hour the verdict was formed against (echo of the input) */
+  sawCutHour?: number;
+  /** Hour at which the natural crack forms; undefined = no crack in the window */
+  naturalCrackHour?: number;
+  /** Creep-adjusted tensile demand that triggered the crack (psi) */
+  crackDemand?: number;
+  /** Tensile strength at the crack hour (psi) */
+  crackStrength?: number;
+  /** Peak demand/capacity ratio reached while the slab was continuous (pre-cut) */
+  preCutPeakRatio?: number;
+  /** Hour of `preCutPeakRatio` */
+  preCutPeakRatioHour?: number;
+  /**
+   * Hours where the demand still reaches the strength after a joint or crack has
+   * relieved the slab. These indicate further (secondary) cracking that the
+   * single-crack model does not subdivide the panel for.
+   */
+  exceedanceHoursAfterRelief: number[];
 }
 
 /** Full output of the stress & creep model */
@@ -227,6 +321,8 @@ export interface StressOutput {
   hourlyResults: HourlyStressResult[];
   /** Creep-adjusted results (B-matrix applied to elastic stresses) */
   creepResults: CreepStressResult[];
+  /** Natural-cracking / saw-cut-timing assessment */
+  cracking: CrackingAssessment;
   /** Non-fatal diagnostics raised during the run (singular hours, etc.) */
   warnings: string[];
 }
