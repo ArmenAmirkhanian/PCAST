@@ -17,6 +17,7 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
     explanations: {
       haversineApprox: string;
       climateNormals: string;
+      liveForecast: string;
     };
     hydrationModelEquations: Record<string, string>;
     analysisNarratives: Record<string, string>;
@@ -66,8 +67,10 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
     </div>
     <div class:hidden={active !== 'environment'}>
       <EnvTab
+        active={active === 'environment'}
         stationExplanationHtml={data.explanations.haversineApprox}
         climateNormalsHtml={data.explanations.climateNormals}
+        liveForecastHtml={data.explanations.liveForecast}
       />
     </div>
     <div class:hidden={active !== 'results'}>

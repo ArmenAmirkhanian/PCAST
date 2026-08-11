@@ -5,7 +5,8 @@ export function load() {
   return {
     explanations: {
       haversineApprox: renderMath(EXPLANATIONS.haversineApprox),
-      climateNormals: renderMath(EXPLANATIONS.climateNormalsExplanation)
+      climateNormals: renderMath(EXPLANATIONS.climateNormalsExplanation),
+      liveForecast: renderMath(EXPLANATIONS.liveForecastExplanation)
     },
     hydrationModelEquations: Object.fromEntries(
       Object.entries(HYDRATION_MODEL_EQUATIONS).map(([k, v]) => [k, renderMath(v)])
