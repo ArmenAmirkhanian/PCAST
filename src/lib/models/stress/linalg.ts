@@ -69,3 +69,19 @@ export function lowerTriMatVec(B: number[][], v: number[]): number[] {
   }
   return result;
 }
+
+/**
+ * Single-row form of {@link lowerTriMatVec}:  Σ_{j=0}^{i} B[i][j] · v[j].
+ *
+ * Because B is lower triangular, row i touches only entries v[0..i]. That is
+ * what lets run.ts evaluate the creep-adjusted stress at hour i as soon as the
+ * elastic stress at hour i is known — needed for the natural-cracking check,
+ * which switches the slab regime part-way through the history.
+ */
+export function lowerTriRowDot(B: number[][], v: number[], i: number): number {
+  let sum = 0;
+  for (let j = 0; j <= i; j++) {
+    sum += B[i][j] * v[j];
+  }
+  return sum;
+}

@@ -293,6 +293,8 @@
     }
     return Number.isFinite(best) && cr.length ? { value: best, hour: hr } : null;
   })();
+  // Saw-cut timing / natural-cracking verdict.
+  $: crackCheck = snap.stress?.cracking ?? null;
 
   // ── Section availability + dynamic page numbering ────────────────────────
   $: hasMaturity = (snap.maturity?.length ?? 0) > 0;
@@ -482,12 +484,35 @@
           name: 'Tensile strength (maturity)', mode: 'lines', line: { color: '#16a34a', dash: 'dash', width: 2.5 }
         });
       }
+      // Regime-switch markers: the planned saw-cut and, when the slab breaks
+      // first, the natural crack that ends the continuous (infinite) idealisation.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eventShapes: any[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const eventNotes: any[] = [];
+      const markEvent = (hour: number, color: string, text: string, y: number) => {
+        eventShapes.push({
+          type: 'line', x0: hour, x1: hour, yref: 'paper', y0: 0, y1: 1,
+          line: { color, width: 2, dash: 'dash' }
+        });
+        eventNotes.push({
+          x: hour, y, yref: 'paper', text, showarrow: false,
+          font: { size: 12, color }, bgcolor: 'rgba(255,255,255,0.8)', xanchor: 'left'
+        });
+      };
+      const cutHour = snap.stress.cracking?.sawCutHour;
+      const crackHour = snap.stress.cracking?.naturalCrackHour;
+      if (typeof cutHour === 'number') markEvent(cutHour, '#2563eb', `saw-cut (h${cutHour})`, 1.03);
+      if (typeof crackHour === 'number') markEvent(crackHour, '#b91c1c', `natural crack (h${crackHour})`, 0.93);
+
       next.stressDev = await capture(offStressDev, devTraces, {
         ...baseLayout,
         title: { text: 'Stress Development & Cracking Risk', font: { size: 16 } },
         xaxis: { title: { text: 'Hour after placement' } },
         yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
-        legend: { orientation: 'h', y: -0.2 }
+        legend: { orientation: 'h', y: -0.2 },
+        shapes: eventShapes,
+        annotations: eventNotes
       }, 1000, 400);
 
       next.stressFibre = await capture(offStressFibre, [
@@ -1126,6 +1151,31 @@
             <p class="callout">
               Peak creep-adjusted tensile demand: <strong>{fmtFixed(toStress(peakTensile.value), 1)} {stressUnit}</strong> at hour <strong>{peakTensile.hour}</strong>.
             </p>
+          {/if}
+          {#if crackCheck}
+            {#if crackCheck.verdict === 'crackedBeforeSawCut'}
+              <p class="callout">
+                <strong>Saw-cut timing inadequate.</strong> The creep-adjusted tensile demand reaches the tensile strength
+                ({fmtFixed(toStress(crackCheck.crackDemand ?? 0), 1)} vs {fmtFixed(toStress(crackCheck.crackStrength ?? 0), 1)} {stressUnit})
+                at hour <strong>{crackCheck.naturalCrackHour}</strong>{#if crackCheck.sawCutHour !== undefined}, {crackCheck.sawCutHour - (crackCheck.naturalCrackHour ?? 0)} hour(s) before the planned saw-cut at hour {crackCheck.sawCutHour}{/if}.
+                An uncontrolled transverse crack is predicted at that hour; from there the slab is analysed as a cracked, finite panel rather than a continuous infinite slab.
+              </p>
+            {:else if crackCheck.verdict === 'ok'}
+              <p class="callout">
+                <strong>Saw-cut timing adequate.</strong> No natural cracking is predicted before the saw-cut at hour {crackCheck.sawCutHour}; the slab reaches at most
+                {fmtFixed((crackCheck.preCutPeakRatio ?? 0) * 100, 0)}% of its tensile strength while continuous (hour {crackCheck.preCutPeakRatioHour}).
+              </p>
+            {:else if crackCheck.verdict === 'noStrengthData'}
+              <p class="callout">
+                <strong>Cracking check not performed.</strong> No tensile-strength history was available, so the slab was carried as a continuous
+                (infinite) panel until the saw-cut and the saw-cut timing could not be assessed.
+              </p>
+            {:else}
+              <p class="callout">
+                <strong>Cracking check not applicable.</strong> The transverse joint is modelled as active for the whole window, so there is no
+                continuous phase in which the slab could crack naturally.
+              </p>
+            {/if}
           {/if}
           {#if analysisCharts.stressDev}
             <div class="chart-block">

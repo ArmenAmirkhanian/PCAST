@@ -7,8 +7,17 @@
  * Workflow:
  *   1. Build creep compliance and Riesz transformation matrices (B, B⁻¹)
  *   2. Apply B⁻¹ to temperature load histories → pseudo-temperature histories
- *   3. Run elastic beam-on-foundation analysis per hour using pseudo-temperatures
- *   4. Apply B to elastic stress/KI histories → creep-adjusted results
+ *   3. March hour by hour: elastic beam-on-foundation analysis for the hour's
+ *      restraint regime, then row i of B → the creep-adjusted stress at that
+ *      hour, then the cracking check — which switches the slab from continuous
+ *      (infinite) to cracked (finite) the moment the demand reaches the strength
+ *   4. Assemble the cracking / saw-cut-timing assessment
+ *
+ * Step 3 can be marched hour by hour because B is lower triangular: the
+ * creep-adjusted stress at hour i depends only on elastic stresses at hours
+ * ≤ i. A regime switch triggered at hour i therefore cannot invalidate rows
+ * already emitted, and the whole-history `lowerTriMatVec` of the previous
+ * fixed-regime implementation is reproduced exactly when no crack occurs.
  */
 
 import {
@@ -25,12 +34,15 @@ import {
   edgeBendingFactor,
 } from './beam';
 import { computeJointCoefficients } from './joint';
-import { matVec2, lowerTriMatVec } from './linalg';
+import { matVec2, lowerTriMatVec, lowerTriRowDot } from './linalg';
 import type {
   StressModelInput,
   StressOutput,
   HourlyStressResult,
   CreepStressResult,
+  CrackingAssessment,
+  SawCutVerdict,
+  SlabRegime,
   JointProperties,
 } from './types';
 
@@ -143,28 +155,38 @@ export function runStressModel(input: StressModelInput): StressOutput {
   const pseudoUniform  = lowerTriMatVec(Binv, rawUniform);
   const pseudoGradient = lowerTriMatVec(Binv, rawGradient);
 
+  /**
+   * Tensile capacity at index i (psi), 0 when none was supplied. Non-finite or
+   * negative values are treated as "unknown" so a stray NaN cannot silently
+   * declare a crack at the first hour.
+   */
+  const tensileStrengthAt = (i: number): number => {
+    const s = hourlyInputs[i].tensileStrength;
+    return typeof s === 'number' && Number.isFinite(s) && s > 0 ? s : 0;
+  };
+
   // -------------------------------------------------------------------------
-  // Step 3: Elastic beam analysis with pseudo-temperatures (BeamPrep)
+  // Step 3a: Elastic beam analysis for one hour in a given restraint regime
+  // (BeamPrep). Pure with respect to the march below — it reads only the
+  // resolved slab constants and hour i's loads, so the same hour can be re-solved
+  // in a different regime when the cracking check fires.
   // -------------------------------------------------------------------------
 
-  const hourlyResults: HourlyStressResult[] = [];
-  const kiHistory: number[]     = [];
-  const stressHistory: number[] = [];
-  const topHistory: number[]    = [];
-  const bottomHistory: number[] = [];
-
-  for (let i = 0; i < nt; i++) {
+  /** Solve hour i elastically; returns the row plus any diagnostics it raised. */
+  function solveHour(
+    i: number,
+    regime: SlabRegime,
+  ): { result: HourlyStressResult; hourWarnings: string[] } {
+    const hourWarnings: string[] = [];
     const row = hourlyInputs[i];
     const E   = row.elasticModulus;
 
     if (E <= 0) {
       // Before concrete set – skip (store zeros for creep transform alignment)
-      kiHistory.push(0);
-      stressHistory.push(0);
-      topHistory.push(0);
-      bottomHistory.push(0);
-      hourlyResults.push(zeroResult(row.hour, E, pseudoUniform[i], pseudoGradient[i]));
-      continue;
+      return {
+        result: zeroResult(row.hour, E, regime, pseudoUniform[i], pseudoGradient[i]),
+        hourWarnings,
+      };
     }
 
     const El    = E / (1 - nu * nu);                    // plane-stress modulus
@@ -187,21 +209,13 @@ export function runStressModel(input: StressModelInput): StressOutput {
     const stressC0 = El * (-eps0);
     const sfRaw    = edgeBendingFactor(spaceND);        // edge-bending diagnostic
 
-    // Has the saw-cut joint been created yet? Before the cut the panel is
-    // continuous (no transverse joint, no free edge) and behaves as an infinite
-    // slab — thermal actions are fully restrained and KI is undefined (0). At
-    // and after the cut the free edge + sawcut compliance relieve and
-    // redistribute the stresses through the joint (explanation §stressCreepTheory).
-    // Joint spacing therefore only influences the result once the joint exists.
-    const jointFormed = sawCutHour === undefined || row.hour >= sawCutHour;
-
     let forceJ: number[];
     let KI: number;
     let stressB: number;
     let stressC1: number;
     let solverOk = true;
 
-    if (jointFormed) {
+    if (regime === 'jointed') {
       // ---- Finite panel with transverse joint (free edge + sawcut joint) ----
 
       // Rotation at joint from temperature gradient (beamEL)
@@ -260,7 +274,7 @@ export function runStressModel(input: StressModelInput): StressOutput {
         respJ[0] = force1[0] / kTot0;
       } else {
         solverOk = false;
-        warnings.push(
+        hourWarnings.push(
           `Hour ${row.hour}: normal-DOF plate+joint stiffness is zero; normal joint reaction set to 0.`,
         );
       }
@@ -268,7 +282,7 @@ export function runStressModel(input: StressModelInput): StressOutput {
         respJ[1] = force1[1] / kTot1;
       } else {
         solverOk = false;
-        warnings.push(
+        hourWarnings.push(
           `Hour ${row.hour}: rotational-DOF plate+joint stiffness is zero; rotational joint reaction set to 0.`,
         );
       }
@@ -292,13 +306,35 @@ export function runStressModel(input: StressModelInput): StressOutput {
       // Normal (axial) stress
       const wt = normalForce !== 0 ? forceJ[0] / normalForce : 0;
       stressC1 = (1 - wt) * stressC + wt * stressC0;
+    } else if (regime === 'cracked') {
+      // ---- Finite panel broken by a natural full-depth crack ----------------
+      // The crack has already run through the whole section, so nothing is left
+      // to transfer force across it: it is the zero-stiffness (free-edge) limit
+      // of the jointed solve above, reached here in closed form.
+      //   • axial: with the restraint released at the crack face, the only
+      //     remaining restraint is base friction accumulated over the panel —
+      //     the finite-length σ(x=0) = E'·ε₀·(1/cosh βL − 1), far below the
+      //     fully-restrained −E'·ε₀ of the continuous slab. This is the relief
+      //     that a crack (or a saw-cut) buys.
+      //   • curling: with no joint moment (forceJ[1] = 0) the jointed blend
+      //     above reduces to the same fully-restrained value, so the bending
+      //     term is carried across unrelieved — the conservative choice, and
+      //     exact for the long panels where sfRaw → 1 anyway.
+      //   • KI = 0: there is no ligament left ahead of a crack tip, so the
+      //     sawcut SIF geometry no longer applies.
+      const { stressC } = computeHorizontalFriction(kh, El, h, spaceJT, eps0);
+      forceJ   = [0, 0];
+      KI       = 0;
+      stressB  = (E * cote * dt2) / 2;
+      stressC1 = stressC;
     } else {
-      // ---- Continuous (infinite) slab: joint not yet cut --------------------
+      // ---- Continuous (infinite) slab: joint not yet cut, section intact ----
       // No transverse joint and no free edge → no joint reactions and no crack
       // tip, so KI = 0. The thermal actions are fully restrained: curling at the
       // Bradbury C = 1 limit and axial at complete friction restraint (zero on a
       // frictionless interface). These are the maxima the relieved jointed
-      // analysis later relaxes below.
+      // analysis later relaxes below — and the demand the cracking check tests,
+      // because this idealisation only survives while the section is intact.
       forceJ   = [0, 0];
       KI       = 0;
       stressB  = (E * cote * dt2) / 2;
@@ -313,52 +349,180 @@ export function runStressModel(input: StressModelInput): StressOutput {
     const stressTop    = stressC1 + stressB;
     const stressBottom = stressC1 - stressB;
 
-    kiHistory.push(KI);
-    stressHistory.push(totalStress);
-    topHistory.push(stressTop);
-    bottomHistory.push(stressBottom);
-
-    hourlyResults.push({
-      hour:                      row.hour,
-      elasticModulus:            E,
-      radiusOfRelativeStiffness: ell,
-      normalForce,
-      temperatureMoment:         momTemp,
-      jointNormalForce:          forceJ[0],
-      jointMomentPerH:           forceJ[1],
-      stressIntensityKI:         KI,
-      bendingStress:             stressB,
-      normalStress:              stressC1,
-      totalStress,
-      stressTop,
-      stressBottom,
-      maxTensileStress:          Math.max(stressTop, stressBottom),
-      pseudoUniformTemp:         DTC2,
-      pseudoGradientTemp:        dt2,
-      edgeBendingFactor:         sfRaw,
-      solverOk,
-    });
+    return {
+      result: {
+        hour:                      row.hour,
+        elasticModulus:            E,
+        radiusOfRelativeStiffness: ell,
+        normalForce,
+        temperatureMoment:         momTemp,
+        jointNormalForce:          forceJ[0],
+        jointMomentPerH:           forceJ[1],
+        stressIntensityKI:         KI,
+        bendingStress:             stressB,
+        normalStress:              stressC1,
+        totalStress,
+        stressTop,
+        stressBottom,
+        maxTensileStress:          Math.max(stressTop, stressBottom),
+        pseudoUniformTemp:         DTC2,
+        pseudoGradientTemp:        dt2,
+        edgeBendingFactor:         sfRaw,
+        solverOk,
+        regime,
+      },
+      hourWarnings,
+    };
   }
 
   // -------------------------------------------------------------------------
-  // Step 4: Apply B to elastic histories → creep-adjusted results (creepResults)
+  // Step 3b: March the hours, applying B row by row and checking for cracking
   // -------------------------------------------------------------------------
 
-  const creepKIHistory     = lowerTriMatVec(B, kiHistory);
-  const creepStressHistory = lowerTriMatVec(B, stressHistory);
-  const creepTopHistory    = lowerTriMatVec(B, topHistory);
-  const creepBottomHistory = lowerTriMatVec(B, bottomHistory);
+  const hourlyResults: HourlyStressResult[] = [];
+  const creepResults: CreepStressResult[]   = [];
 
-  const creepResults: CreepStressResult[] = hourlyResults.map((r, i) => ({
-    hour:             r.hour,
-    creepKI:          creepKIHistory[i],
-    creepTotalStress: creepStressHistory[i],
-    creepStressTop:    creepTopHistory[i],
-    creepStressBottom: creepBottomHistory[i],
-    creepMaxTensile:   Math.max(creepTopHistory[i], creepBottomHistory[i]),
-  }));
+  // Elastic histories, filled as the march advances (index i = hour startHour+i).
+  const kiHistory     = new Array<number>(nt).fill(0);
+  const stressHistory = new Array<number>(nt).fill(0);
+  const topHistory    = new Array<number>(nt).fill(0);
+  const bottomHistory = new Array<number>(nt).fill(0);
 
-  return { hourlyResults, creepResults, warnings };
+  /** Store hour i's elastic stresses, then apply row i of B to the history. */
+  function creepRowFor(
+    i: number,
+    r: HourlyStressResult,
+    strength: number,
+    cracked: boolean,
+  ): CreepStressResult {
+    kiHistory[i]     = r.stressIntensityKI;
+    stressHistory[i] = r.totalStress;
+    topHistory[i]    = r.stressTop;
+    bottomHistory[i] = r.stressBottom;
+
+    const top    = lowerTriRowDot(B, topHistory, i);
+    const bottom = lowerTriRowDot(B, bottomHistory, i);
+    const maxTensile = Math.max(top, bottom);
+
+    return {
+      hour:                r.hour,
+      creepKI:             lowerTriRowDot(B, kiHistory, i),
+      creepTotalStress:    lowerTriRowDot(B, stressHistory, i),
+      creepStressTop:      top,
+      creepStressBottom:   bottom,
+      creepMaxTensile:     maxTensile,
+      tensileStrength:     strength,
+      demandCapacityRatio: strength > 0 ? maxTensile / strength : 0,
+      cracked,
+    };
+  }
+
+  let cracked = false;                             // natural crack has formed
+  let naturalCrackHour: number | undefined;
+  let crackDemand: number | undefined;
+  let crackStrength: number | undefined;
+  let preCutPeakRatio: number | undefined;
+  let preCutPeakRatioHour: number | undefined;
+  const exceedanceHoursAfterRelief: number[] = [];
+
+  for (let i = 0; i < nt; i++) {
+    const row = hourlyInputs[i];
+    const strength = tensileStrengthAt(i);
+
+    // Regime for this hour. A natural crack is permanent: it outranks the
+    // saw-cut, because a slab that has already broken cannot be un-broken by
+    // cutting it later, and the through-depth crack is the more compliant of
+    // the two discontinuities.
+    const jointCut = sawCutHour === undefined || row.hour >= sawCutHour;
+    let regime: SlabRegime = cracked ? 'cracked' : jointCut ? 'jointed' : 'continuous';
+
+    let solved   = solveHour(i, regime);
+    let creepRow = creepRowFor(i, solved.result, strength, cracked);
+
+    if (regime === 'continuous' && strength > 0) {
+      const ratio = creepRow.demandCapacityRatio;
+      if (preCutPeakRatio === undefined || ratio > preCutPeakRatio) {
+        preCutPeakRatio     = ratio;
+        preCutPeakRatioHour = row.hour;
+      }
+
+      if (creepRow.creepMaxTensile >= strength) {
+        // The slab breaks here: the continuous (infinite-slab) idealisation has
+        // run out of capacity, so a natural transverse crack forms and the panel
+        // is finite from this hour on. Hour i is re-solved in the cracked regime
+        // — the crack forms during this hour, so its own end-of-hour state is
+        // already relieved. B is lower triangular, so replacing history entry i
+        // only affects this row and later ones, which have not been solved yet.
+        cracked          = true;
+        naturalCrackHour = row.hour;
+        crackDemand      = creepRow.creepMaxTensile;
+        crackStrength    = strength;
+        regime           = 'cracked';
+
+        solved   = solveHour(i, regime);
+        creepRow = creepRowFor(i, solved.result, strength, true);
+
+        warnings.push(
+          `Hour ${row.hour}: creep-adjusted tensile demand (${crackDemand.toFixed(1)} psi) ` +
+          `reached the tensile strength (${strength.toFixed(1)} psi) while the slab was still ` +
+          `continuous — a natural crack forms and the slab is modelled as a cracked (finite) ` +
+          `panel from this hour on.`,
+        );
+        if (sawCutHour !== undefined && row.hour < sawCutHour) {
+          warnings.push(
+            `The natural crack at hour ${row.hour} precedes the saw-cut at hour ${sawCutHour}: ` +
+            `results from hour ${row.hour} onward describe the cracked slab, and Kᵢ is reported ` +
+            `as 0 because the through-depth crack — not the saw-cut ligament — governs.`,
+          );
+        }
+      }
+    }
+
+    if (strength > 0 && regime !== 'continuous' && creepRow.creepMaxTensile >= strength) {
+      exceedanceHoursAfterRelief.push(row.hour);
+    }
+
+    warnings.push(...solved.hourWarnings);
+    hourlyResults.push(solved.result);
+    creepResults.push(creepRow);
+  }
+
+  if (exceedanceHoursAfterRelief.length > 0) {
+    warnings.push(
+      `Tensile demand still reaches the strength at ${exceedanceHoursAfterRelief.length} hour(s) ` +
+      `after the joint/crack relieved the slab (first: hour ${exceedanceHoursAfterRelief[0]}); ` +
+      `expect additional cracking. The model forms one crack and does not subdivide the panel further.`,
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 4: Saw-cut timing verdict
+  // -------------------------------------------------------------------------
+
+  // Was there a pre-cut window to assess at all? Read this from the saw-cut
+  // input, not from the emitted regimes: a crack on the very first hour rewrites
+  // that row to 'cracked', which would otherwise look like "never continuous".
+  const hasPreCutWindow =
+    sawCutHour !== undefined && hourlyInputs.some(r => r.hour < sawCutHour);
+
+  // `preCutPeakRatio` is set exactly when at least one continuous hour had a
+  // capacity to check against, so it doubles as "the check actually ran". A
+  // strength history that only covers post-cut hours cannot clear the saw-cut.
+  let verdict: SawCutVerdict;
+  if (!hasPreCutWindow)                    verdict = 'jointedThroughout';
+  else if (naturalCrackHour !== undefined) verdict = 'crackedBeforeSawCut';
+  else if (preCutPeakRatio === undefined)  verdict = 'noStrengthData';
+  else                                     verdict = 'ok';
+
+  const cracking: CrackingAssessment = {
+    verdict,
+    exceedanceHoursAfterRelief,
+    ...(sawCutHour !== undefined         ? { sawCutHour } : {}),
+    ...(naturalCrackHour !== undefined   ? { naturalCrackHour, crackDemand, crackStrength } : {}),
+    ...(preCutPeakRatio !== undefined    ? { preCutPeakRatio, preCutPeakRatioHour } : {}),
+  };
+
+  return { hourlyResults, creepResults, cracking, warnings };
 }
 
 // ---------------------------------------------------------------------------
@@ -368,6 +532,7 @@ export function runStressModel(input: StressModelInput): StressOutput {
 function zeroResult(
   hour: number,
   E: number,
+  regime: SlabRegime,
   pseudoUniformTemp = 0,
   pseudoGradientTemp = 0,
 ): HourlyStressResult {
@@ -390,6 +555,7 @@ function zeroResult(
     pseudoGradientTemp,
     edgeBendingFactor:         0,
     solverOk:                  true,
+    regime,
   };
 }
 
