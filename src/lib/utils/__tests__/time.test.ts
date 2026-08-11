@@ -1,15 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import {
+  addDaysISO,
   isForecastEligible,
+  isForecastEligibleInZone,
+  isPlausibleForecastDate,
   localTodayISO,
   localTomorrowISO,
   parseClockHour,
   sawCutModelHour,
   utcMsToZonedParts,
+  zonedTodayISO,
   zonedToUtcMs
 } from '../time';
 
 const CHICAGO = 'America/Chicago';
+const HONOLULU = 'Pacific/Honolulu'; // UTC−10, no DST
+const AUCKLAND = 'Pacific/Auckland'; // UTC+12/+13
 
 describe('localTodayISO / localTomorrowISO', () => {
   it('uses the local calendar date, not the UTC one', () => {
@@ -39,6 +45,89 @@ describe('isForecastEligible', () => {
     expect(isForecastEligible('2026-09-01', now)).toBe(false);
     expect(isForecastEligible('2026-08-10', now)).toBe(false);
     expect(isForecastEligible('', now)).toBe(false);
+  });
+});
+
+describe('addDaysISO', () => {
+  it('rolls month, year and leap-day boundaries', () => {
+    expect(addDaysISO('2026-08-11', 1)).toBe('2026-08-12');
+    expect(addDaysISO('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDaysISO('2026-01-01', -1)).toBe('2025-12-31');
+    expect(addDaysISO('2028-02-28', 1)).toBe('2028-02-29');
+  });
+
+  it('is unaffected by DST, unlike adding a fixed 24 hours', () => {
+    // 2026-03-08 is the US spring-forward date; the local day is only 23h long.
+    expect(addDaysISO('2026-03-08', 1)).toBe('2026-03-09');
+    expect(addDaysISO('2026-11-01', 1)).toBe('2026-11-02');
+  });
+
+  it('rejects a malformed date', () => {
+    expect(() => addDaysISO('08/11/2026', 1)).toThrow(/Invalid date/);
+  });
+});
+
+describe('zonedTodayISO', () => {
+  it('reads the calendar date at the site, not at the runner', () => {
+    // 2026-08-12T04:00Z: already the 12th in UTC, still the 11th in the US.
+    const ms = Date.parse('2026-08-12T04:00:00Z');
+    expect(zonedTodayISO('UTC', ms)).toBe('2026-08-12');
+    expect(zonedTodayISO(CHICAGO, ms)).toBe('2026-08-11');
+    expect(zonedTodayISO(HONOLULU, ms)).toBe('2026-08-11');
+    expect(zonedTodayISO(AUCKLAND, ms)).toBe('2026-08-12');
+  });
+});
+
+describe('isForecastEligibleInZone', () => {
+  // The regression this exists for: a UTC server judging a US placement in the
+  // evening. The user's own "today" must stay eligible.
+  const evening = Date.parse('2026-08-12T04:00:00Z'); // 23:00 CDT on the 11th
+
+  it("accepts the site's today and tomorrow", () => {
+    expect(isForecastEligibleInZone('2026-08-11', CHICAGO, evening)).toBe(true);
+    expect(isForecastEligibleInZone('2026-08-12', CHICAGO, evening)).toBe(true);
+  });
+
+  it('rejects dates outside the window at the site', () => {
+    expect(isForecastEligibleInZone('2026-08-13', CHICAGO, evening)).toBe(false);
+    expect(isForecastEligibleInZone('2026-08-10', CHICAGO, evening)).toBe(false);
+    expect(isForecastEligibleInZone('', CHICAGO, evening)).toBe(false);
+  });
+
+  it('disagrees with a UTC reading of the same instant', () => {
+    // Exactly the live-site bug: eligible at the site, ineligible in UTC.
+    expect(isForecastEligibleInZone('2026-08-11', CHICAGO, evening)).toBe(true);
+    expect(isForecastEligibleInZone('2026-08-11', 'UTC', evening)).toBe(false);
+  });
+
+  it('rolls the window across a year boundary at the site', () => {
+    const ms = Date.parse('2027-01-01T04:00:00Z'); // 22:00 CST on 2026-12-31
+    expect(isForecastEligibleInZone('2026-12-31', CHICAGO, ms)).toBe(true);
+    expect(isForecastEligibleInZone('2027-01-01', CHICAGO, ms)).toBe(true);
+    expect(isForecastEligibleInZone('2027-01-02', CHICAGO, ms)).toBe(false);
+  });
+});
+
+describe('isPlausibleForecastDate', () => {
+  const now = new Date(2026, 7, 11, 14, 0);
+
+  it('admits everything the site-timezone check could accept', () => {
+    // Max spread between any two zones is 26h, so the site's today/tomorrow is
+    // always within one day of the server's today. ±2 days covers it with room.
+    for (const d of ['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13']) {
+      expect(isPlausibleForecastDate(d, 2, now)).toBe(true);
+    }
+  });
+
+  it('rejects dates no timezone could bring into the window', () => {
+    expect(isPlausibleForecastDate('2026-08-14', 2, now)).toBe(false);
+    expect(isPlausibleForecastDate('2026-08-08', 2, now)).toBe(false);
+    expect(isPlausibleForecastDate('2027-08-11', 2, now)).toBe(false);
+  });
+
+  it('rejects malformed input', () => {
+    expect(isPlausibleForecastDate('', 2, now)).toBe(false);
+    expect(isPlausibleForecastDate('08/11/2026', 2, now)).toBe(false);
   });
 });
 

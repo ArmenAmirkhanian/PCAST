@@ -41,7 +41,12 @@ export class NwsError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly code: 'out_of_coverage' | 'upstream' | 'incomplete' | 'bad_request'
+    readonly code:
+      | 'out_of_coverage'
+      | 'upstream'
+      | 'incomplete'
+      | 'bad_request'
+      | 'ineligible_date'
   ) {
     super(message);
     this.name = 'NwsError';

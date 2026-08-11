@@ -14,7 +14,7 @@ export function localTodayISO(now: Date = new Date()): string {
 
 /** Tomorrow's date as `yyyy-mm-dd` in the browser's local timezone. */
 export function localTomorrowISO(now: Date = new Date()): string {
-  return toLocalISODate(new Date(now.getTime() + MS_PER_DAY));
+  return addDaysISO(toLocalISODate(now), 1);
 }
 
 function toLocalISODate(d: Date): string {
@@ -23,14 +23,83 @@ function toLocalISODate(d: Date): string {
   ).padStart(2, '0')}`;
 }
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Shift a `yyyy-mm-dd` calendar date by whole days.
+ *
+ * Calendar arithmetic, not `+ 86_400_000` on an instant: adding a fixed day of
+ * milliseconds and re-reading the local date skips or repeats a date when the
+ * shift crosses a DST transition late in the evening.
+ */
+export function addDaysISO(dateISO: string, days: number): string {
+  const m = ISO_DATE_RE.exec(dateISO);
+  if (!m) throw new Error(`Invalid date: ${dateISO}`);
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days));
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
 /**
  * Whether a `yyyy-mm-dd` start date is close enough for the NOAA/NWS hourly
  * forecast to be meaningful. Hour-by-hour skill degrades quickly, so the live
  * forecast source is offered only for a start of today or tomorrow.
+ *
+ * Judged against the **browser's** clock, which makes this right for enabling
+ * the UI and wrong as an authority: the window that actually matters is the one
+ * at the project site. The server decides with `isForecastEligibleInZone`.
  */
 export function isForecastEligible(dateISO: string, now: Date = new Date()): boolean {
   if (!dateISO) return false;
   return dateISO === localTodayISO(now) || dateISO === localTomorrowISO(now);
+}
+
+/** Today's date as `yyyy-mm-dd` as it reads in `timeZone`. */
+export function zonedTodayISO(timeZone: string, nowMs: number = Date.now()): string {
+  const p = utcMsToZonedParts(nowMs, timeZone);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+/**
+ * Forecast eligibility judged at the **project site**, which is the only frame
+ * in which "today or tomorrow" means anything.
+ *
+ * Neither the browser's timezone nor the server's is a usable authority: a
+ * production server normally runs UTC, so from late afternoon onward in the US
+ * its "today" is already the user's "tomorrow" and it rejects the very date the
+ * UI just offered. The site's IANA zone comes back from the NWS `/points`
+ * lookup, so this check runs once that hop has resolved.
+ */
+export function isForecastEligibleInZone(
+  dateISO: string,
+  timeZone: string,
+  nowMs: number = Date.now()
+): boolean {
+  if (!dateISO) return false;
+  const today = zonedTodayISO(timeZone, nowMs);
+  return dateISO === today || dateISO === addDaysISO(today, 1);
+}
+
+/**
+ * Coarse pre-network guard: is `dateISO` within `days` of the server's own
+ * calendar date, in either direction?
+ *
+ * Lets the endpoint reject junk before spending an upstream request, without
+ * re-introducing the timezone disagreement it used to have. No two timezones
+ * are more than 26 hours apart, so at the default ±2 days this can never
+ * reject a date that `isForecastEligibleInZone` would go on to accept.
+ */
+export function isPlausibleForecastDate(
+  dateISO: string,
+  days = 2,
+  now: Date = new Date()
+): boolean {
+  const m = ISO_DATE_RE.exec(dateISO);
+  if (!m) return false;
+  const target = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const here = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.abs(target - here) <= days * MS_PER_DAY;
 }
 
 /** Wall-clock fields of an instant, rendered in an IANA timezone. */

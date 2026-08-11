@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { fetchForecast, FORECAST_HOURS, NwsError } from '$lib/server/nws';
-import { isForecastEligible } from '$lib/utils/time';
+import { isPlausibleForecastDate } from '$lib/utils/time';
 
 const asNumber = (value: string | null) => (value === null ? NaN : Number(value));
 
@@ -35,9 +35,13 @@ export const GET: RequestHandler = async ({ url }) => {
     return json({ error: 'date must be yyyy-mm-dd', code: 'bad_request' }, 400);
   }
 
-  // The UI disables the forecast source outside this window; re-check here so
-  // the endpoint cannot be used to request a horizon the data cannot support.
-  if (!isForecastEligible(date)) {
+  // Coarse bound only. The real today/tomorrow window is enforced inside
+  // `fetchForecast`, against the *site's* timezone — checking it here would mean
+  // checking it against the server's, which for a UTC deployment disagrees with
+  // the browser for most of a US evening and rejects the user's own today.
+  // This ±2-day guard is wide enough that it can never disagree with that check,
+  // and narrow enough that a junk date costs no upstream request.
+  if (!isPlausibleForecastDate(date)) {
     return json(
       {
         error: 'The hourly forecast is only available for a start date of today or tomorrow.',

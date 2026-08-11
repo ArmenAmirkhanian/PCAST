@@ -11,7 +11,7 @@
  */
 
 import { env } from '$env/dynamic/private';
-import { zonedToUtcMs } from '$lib/utils/time';
+import { isForecastEligibleInZone, zonedToUtcMs } from '$lib/utils/time';
 import {
   buildForecastRows,
   FORECAST_HOURS,
@@ -171,6 +171,20 @@ export async function fetchForecast(
   nowMs: number = Date.now()
 ): Promise<ForecastResult> {
   const point = await resolvePoint(lat, lon, nowMs);
+
+  // "Today or tomorrow" is only meaningful at the site, so the window is judged
+  // here rather than in the route handler: the server's own clock is normally
+  // UTC and would reject the user's today for most of a US evening. The /points
+  // hop above is what makes the site's zone known; it is cached for a day, so
+  // this costs nothing on the common path.
+  if (!isForecastEligibleInZone(dateISO, point.timeZone, nowMs)) {
+    throw new NwsError(
+      'The hourly forecast is only available for a start date of today or tomorrow ' +
+        'at the project site.',
+      400,
+      'ineligible_date'
+    );
+  }
 
   // The start instant can only be resolved once the site's timezone is known —
   // the date and hour the user entered are wall-clock at the *site*, not at the
