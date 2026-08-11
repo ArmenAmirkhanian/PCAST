@@ -1,8 +1,6 @@
 import type { RequestHandler } from './$types';
 import { fetchForecast, FORECAST_HOURS, NwsError } from '$lib/server/nws';
-import { isPlausibleForecastDate } from '$lib/utils/time';
-
-const asNumber = (value: string | null) => (value === null ? NaN : Number(value));
+import { parseForecastQuery } from './query';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -15,45 +13,18 @@ const json = (body: unknown, status = 200) =>
  *
  * Server-side rather than a browser fetch because api.weather.gov requires a
  * contact `User-Agent` and does not need to be exposed to CORS.
+ *
+ * No date window is enforced here. A window the issued forecast cannot span is
+ * refused by `buildForecastRows` on the evidence, which is the same check
+ * `/api/forecast/availability` reports non-fatally.
  */
 export const GET: RequestHandler = async ({ url }) => {
-  const lat = asNumber(url.searchParams.get('lat'));
-  const lon = asNumber(url.searchParams.get('lon'));
-  const date = url.searchParams.get('date') ?? '';
-  const startHour = asNumber(url.searchParams.get('startHour') ?? '0');
+  const parsed = parseForecastQuery(url);
+  if ('error' in parsed) return json({ error: parsed.error, code: 'bad_request' }, 400);
 
-  if ([lat, lon, startHour].some((v) => Number.isNaN(v))) {
-    return json({ error: 'bad params', code: 'bad_request' }, 400);
-  }
-  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-    return json({ error: 'coordinates out of range', code: 'bad_request' }, 400);
-  }
-  if (startHour < 0 || startHour > 23) {
-    return json({ error: 'startHour must be 0–23', code: 'bad_request' }, 400);
-  }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return json({ error: 'date must be yyyy-mm-dd', code: 'bad_request' }, 400);
-  }
-
-  // Coarse bound only. The real today/tomorrow window is enforced inside
-  // `fetchForecast`, against the *site's* timezone — checking it here would mean
-  // checking it against the server's, which for a UTC deployment disagrees with
-  // the browser for most of a US evening and rejects the user's own today.
-  // This ±2-day guard is wide enough that it can never disagree with that check,
-  // and narrow enough that a junk date costs no upstream request.
-  if (!isPlausibleForecastDate(date)) {
-    return json(
-      {
-        error: 'The hourly forecast is only available for a start date of today or tomorrow.',
-        code: 'ineligible_date'
-      },
-      400
-    );
-  }
-
+  const { lat, lon, date, startHour } = parsed;
   try {
-    const result = await fetchForecast(lat, lon, date, startHour, FORECAST_HOURS);
-    return json(result);
+    return json(await fetchForecast(lat, lon, date, startHour, FORECAST_HOURS));
   } catch (err) {
     if (err instanceof NwsError) {
       return json({ error: err.message, code: err.code }, err.status);

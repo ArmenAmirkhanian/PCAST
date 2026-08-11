@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  assessCoverage,
   buildForecastRows,
   durationToHours,
   expandSeries,
@@ -199,12 +200,75 @@ describe('buildForecastRows', () => {
   it('refuses a window that runs past the end of the grid', () => {
     const g = grid('2026-08-11T17:00:00Z', 48); // only 48 h available
     expect(() => buildForecastRows(g, start, CHICAGO)).toThrow(NwsError);
-    expect(() => buildForecastRows(g, start, CHICAGO)).toThrow(/covers only through/);
+    expect(() => buildForecastRows(g, start, CHICAGO)).toThrow(/ends 24 hour\(s\) before/);
+  });
+
+  it('refuses a window that ends before the forecast begins', () => {
+    const g = grid('2026-08-11T17:00:00Z');
+    const lastYear = Date.parse('2025-08-11T17:00:00Z');
+    expect(() => buildForecastRows(g, lastYear, CHICAGO)).toThrow(
+      /ends before the current forecast begins/
+    );
   });
 
   it('refuses a payload with no temperature series', () => {
     const g = grid('2026-08-11T17:00:00Z');
     delete g.temperature;
     expect(() => buildForecastRows(g, start, CHICAGO)).toThrow(/no temperature series/);
+  });
+});
+
+describe('assessCoverage', () => {
+  const start = Date.parse('2026-08-11T17:00:00Z');
+
+  // The availability question the Environment tab asks on entry. It is settled
+  // by what NWS issued for this cell, not by how the date reads on a calendar —
+  // so every case here is expressed as a relationship between two spans.
+  it('reports full coverage when the window sits inside the forecast', () => {
+    const c = assessCoverage(grid('2026-08-11T17:00:00Z'), start);
+    expect(c.status).toBe('covered');
+    expect(c.estimatedLeadingHours).toBe(0);
+    expect(c.reason).toBeNull();
+    expect(c.firstAvailableMs).toBe(start);
+    expect(c.requestedEndMs).toBe(start + 71 * HOUR);
+  });
+
+  it('reports partial coverage when the start has already passed', () => {
+    const c = assessCoverage(grid('2026-08-11T20:00:00Z'), start);
+    expect(c.status).toBe('partial');
+    expect(c.estimatedLeadingHours).toBe(3);
+    expect(c.reason).toMatch(/already passed/);
+  });
+
+  it('reports unavailable when the forecast horizon is too short', () => {
+    const c = assessCoverage(grid('2026-08-11T17:00:00Z', 48), start);
+    expect(c.status).toBe('unavailable');
+    expect(c.reason).toMatch(/ends 24 hour\(s\) before/);
+  });
+
+  it('reports unavailable for a placement in the past', () => {
+    const c = assessCoverage(grid('2026-08-11T17:00:00Z'), Date.parse('2020-06-01T12:00:00Z'));
+    expect(c.status).toBe('unavailable');
+    expect(c.reason).toMatch(/before the current forecast begins/);
+  });
+
+  it('reports unavailable rather than throwing on an empty payload', () => {
+    expect(assessCoverage({}, start).status).toBe('unavailable');
+  });
+
+  // A start 100 hours out is fine if the grid reaches that far, and a start
+  // tomorrow is not if it does not — the horizon is the only thing that counts.
+  it('admits a far start the grid reaches, and refuses a near one it does not', () => {
+    const far = start + 100 * HOUR;
+    expect(assessCoverage(grid('2026-08-11T17:00:00Z', 400), far).status).toBe('covered');
+    expect(assessCoverage(grid('2026-08-11T17:00:00Z', 80), far).status).toBe('unavailable');
+  });
+
+  it('agrees with what buildForecastRows does on the same payload', () => {
+    const g = grid('2026-08-11T20:00:00Z');
+    const c = assessCoverage(g, start);
+    const built = buildForecastRows(g, start, CHICAGO);
+    expect(built.estimatedLeadingHours).toBe(c.estimatedLeadingHours);
+    expect(built.firstAvailableMs).toBe(c.firstAvailableMs);
   });
 });

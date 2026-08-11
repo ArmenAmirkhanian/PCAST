@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('$env/dynamic/private', () => ({ env: {} }));
 
-import { fetchForecast, NwsError, __clearForecastCaches } from '../nws';
+import { fetchForecast, probeForecast, NwsError, __clearForecastCaches } from '../nws';
 
 const HOUR = 3_600_000;
 const LAT = 33.2098;
@@ -23,8 +23,13 @@ function series(startISO: string, hours: number, value: number) {
   };
 }
 
-/** Stubs both hops, and records which URLs were actually requested. */
-function stubNws(timeZone = 'America/Chicago') {
+/**
+ * Stubs both hops and records the URLs requested. `gridStart`/`gridHours` set
+ * how far ahead the fake office has issued data — the only thing availability
+ * depends on.
+ */
+function stubNws(opts: { timeZone?: string; gridStart?: string; gridHours?: number } = {}) {
+  const { timeZone = 'America/Chicago', gridStart = '2026-08-12T00:00:00Z', gridHours = 200 } = opts;
   const requested: string[] = [];
   const fetchMock = vi.fn(async (url: string) => {
     requested.push(url);
@@ -41,11 +46,11 @@ function stubNws(timeZone = 'America/Chicago') {
           }
         : {
             properties: {
-              updateTime: '2026-08-11T11:06:39+00:00',
+              updateTime: gridStart,
               elevation: { value: 71.0184 },
-              temperature: series('2026-08-11T00:00:00Z', 200, 28),
-              windSpeed: series('2026-08-11T00:00:00Z', 200, 18),
-              skyCover: series('2026-08-11T00:00:00Z', 200, 40)
+              temperature: series(gridStart, gridHours, 28),
+              windSpeed: series(gridStart, gridHours, 18),
+              skyCover: series(gridStart, gridHours, 40)
             }
           };
     return { ok: true, status: 200, json: async () => body } as unknown as Response;
@@ -59,52 +64,107 @@ beforeEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('fetchForecast eligibility window', () => {
-  // The live-site regression: the server clock is UTC and has already rolled
-  // over to the 12th, but the placement is at a Central-time site where it is
-  // still the 11th. The site's calendar is the one that decides.
-  it("accepts the site's today even when UTC has moved on", async () => {
+describe('probeForecast', () => {
+  it('reports full coverage when the issued grid spans the window', async () => {
     stubNws();
-    const result = await fetchForecast(LAT, LON, '2026-08-11', 9, 72, US_EVENING);
-    expect(result.rows).toHaveLength(72);
-    expect(result.meta.timeZone).toBe('America/Chicago');
-    expect(result.meta.requestedStart).toBe('2026-08-11T14:00:00.000Z');
+    const a = await probeForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING);
+    expect(a.status).toBe('covered');
+    expect(a.estimatedLeadingHours).toBe(0);
+    expect(a.reason).toBeNull();
+    expect(a.timeZone).toBe('America/Chicago');
+    expect(a.coverageStart).toBe('2026-08-12T00:00:00.000Z');
   });
 
-  it("accepts the site's tomorrow", async () => {
+  // The window is judged on data, not on the calendar. The server's clock has
+  // already rolled over to the 12th here; a Central-time placement on the 11th
+  // is still offered, because the grid reaches over it.
+  it("offers a start the server's own date has passed", async () => {
+    stubNws({ gridStart: '2026-08-11T00:00:00Z' });
+    const a = await probeForecast(LAT, LON, '2026-08-11', 9, 72, US_EVENING);
+    expect(a.status).toBe('covered');
+  });
+
+  it('reports partial coverage when the start precedes the issued data', async () => {
+    // Grid begins 2026-08-12T00:00Z; the placement is 09:00 CDT on the 11th.
+    stubNws();
+    const a = await probeForecast(LAT, LON, '2026-08-11', 9, 72, US_EVENING);
+    expect(a.status).toBe('partial');
+    expect(a.estimatedLeadingHours).toBe(10);
+    expect(a.reason).toMatch(/already passed/);
+  });
+
+  // The heart of the change: a start four days out is offered when the office
+  // has published that far, and withheld when it has not. Same date either way.
+  it('follows the horizon rather than a fixed number of days', async () => {
+    stubNws({ gridHours: 400 });
+    expect((await probeForecast(LAT, LON, '2026-08-16', 9, 72, US_EVENING)).status).toBe('covered');
+
+    __clearForecastCaches();
+    stubNws({ gridHours: 72 });
+    const tight = await probeForecast(LAT, LON, '2026-08-16', 9, 72, US_EVENING);
+    expect(tight.status).toBe('unavailable');
+    expect(tight.reason).toMatch(/hour\(s\) before/);
+  });
+
+  it('reports unavailable for a placement in the past', async () => {
+    stubNws();
+    const a = await probeForecast(LAT, LON, '2020-06-01', 9, 72, US_EVENING);
+    expect(a.status).toBe('unavailable');
+    expect(a.reason).toMatch(/before the current forecast begins/);
+  });
+
+  it('answers rather than throwing when the window cannot be served', async () => {
+    stubNws({ gridHours: 24 });
+    await expect(probeForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING)).resolves.toMatchObject({
+      status: 'unavailable'
+    });
+  });
+
+  // Why the tab can afford to probe on entry: the follow-up fetch is free.
+  it('warms the caches so a following fetch issues no further requests', async () => {
+    const requested = stubNws();
+    await probeForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING);
+    expect(requested).toEqual([POINTS_URL, GRID_URL]);
+
+    requested.length = 0;
+    const result = await fetchForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING);
+    expect(result.rows).toHaveLength(72);
+    expect(requested).toEqual([]);
+  });
+
+  it('surfaces an out-of-grid location as an NwsError for the route to translate', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 404, json: async () => ({}) }) as unknown as Response)
+    );
+    await expect(probeForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING)).rejects.toMatchObject({
+      name: 'NwsError',
+      code: 'out_of_coverage'
+    });
+  });
+});
+
+describe('fetchForecast', () => {
+  it('builds the window the probe said was covered', async () => {
     stubNws();
     const result = await fetchForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING);
     expect(result.rows).toHaveLength(72);
+    expect(result.meta.requestedStart).toBe('2026-08-12T14:00:00.000Z');
+    expect(result.meta.estimatedLeadingHours).toBe(0);
   });
 
-  it('rejects a date beyond the window at the site', async () => {
+  it('carries the leading clamp through on a partial window', async () => {
     stubNws();
-    await expect(fetchForecast(LAT, LON, '2026-08-13', 9, 72, US_EVENING)).rejects.toMatchObject({
-      name: 'NwsError',
-      code: 'ineligible_date',
-      status: 400
-    });
+    const result = await fetchForecast(LAT, LON, '2026-08-11', 9, 72, US_EVENING);
+    expect(result.meta.estimatedLeadingHours).toBe(10);
+    expect(result.rows.slice(0, 10).every((r) => r.estimated)).toBe(true);
+    expect(result.rows[10].estimated).toBe(false);
   });
 
-  it('rejects before spending the gridpoint request', async () => {
-    const requested = stubNws();
-    await expect(fetchForecast(LAT, LON, '2026-08-13', 9, 72, US_EVENING)).rejects.toBeInstanceOf(
+  it('refuses a window the issued forecast cannot span', async () => {
+    stubNws({ gridHours: 24 });
+    await expect(fetchForecast(LAT, LON, '2026-08-12', 9, 72, US_EVENING)).rejects.toBeInstanceOf(
       NwsError
     );
-    expect(requested).toEqual([POINTS_URL]);
-  });
-
-  // Same instant, a site on the other side of the dateline: there it really is
-  // the 12th, so the 11th is yesterday and the 13th is tomorrow.
-  it('shifts the window with the site, not with the server', async () => {
-    stubNws('Pacific/Auckland');
-    await expect(fetchForecast(LAT, LON, '2026-08-11', 9, 72, US_EVENING)).rejects.toMatchObject({
-      code: 'ineligible_date'
-    });
-
-    __clearForecastCaches();
-    stubNws('Pacific/Auckland');
-    const result = await fetchForecast(LAT, LON, '2026-08-13', 9, 72, US_EVENING);
-    expect(result.rows).toHaveLength(72);
   });
 });

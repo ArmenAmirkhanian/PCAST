@@ -148,13 +148,121 @@ export type GridpointProps = {
 };
 
 /**
+ * Whether the issued forecast reaches over the requested window.
+ *
+ * `covered`     — every hour comes from the forecast itself.
+ * `partial`     — the start precedes the first issued hour, so `estimatedLeadingHours`
+ *                 rows are held at the earliest issued value. Usable, but the
+ *                 user should be told before choosing it.
+ * `unavailable` — the window ends past the forecast horizon, or ends before the
+ *                 forecast even begins (a past placement).
+ */
+export type CoverageStatus = 'covered' | 'partial' | 'unavailable';
+
+export type ForecastCoverage = {
+  status: CoverageStatus;
+  /** First and last hours the forecast actually carries, epoch ms. */
+  firstAvailableMs: number;
+  lastAvailableMs: number;
+  requestedStartMs: number;
+  requestedEndMs: number;
+  /** Leading rows that would be held at the earliest issued value. */
+  estimatedLeadingHours: number;
+  /** Why the window is not fully covered; null when it is. User-facing. */
+  reason: string | null;
+};
+
+/** Hours in `ms`, rounded up — a partial hour still needs a row. */
+const hoursBetween = (ms: number) => Math.ceil(ms / MS_PER_HOUR);
+
+/**
+ * Compare a requested window against what the issued forecast actually spans.
+ *
+ * Total by construction: this is the availability question the Environment tab
+ * asks before offering the live source, so it answers rather than throws.
+ * `buildForecastRows` is the one that refuses to build on an `unavailable`
+ * verdict.
+ *
+ * There is no calendar rule here on purpose. "Can we model this window?" is a
+ * question about the data NWS actually issued, which runs a few days out and
+ * moves every hour — not about whether the date reads as today or tomorrow.
+ */
+export function assessCoverage(
+  props: GridpointProps,
+  startMs: number,
+  hours: number = FORECAST_HOURS
+): ForecastCoverage {
+  const temp = expandSeries(props.temperature);
+  const requestedEndMs = startMs + (hours - 1) * MS_PER_HOUR;
+
+  if (!temp.size) {
+    return {
+      status: 'unavailable',
+      firstAvailableMs: NaN,
+      lastAvailableMs: NaN,
+      requestedStartMs: startMs,
+      requestedEndMs,
+      estimatedLeadingHours: 0,
+      reason: 'The forecast for this location carries no temperature series.'
+    };
+  }
+
+  const keys = [...temp.keys()].sort((a, b) => a - b);
+  const firstAvailableMs = keys[0];
+  const lastAvailableMs = keys[keys.length - 1];
+  const base = {
+    firstAvailableMs,
+    lastAvailableMs,
+    requestedStartMs: startMs,
+    requestedEndMs
+  };
+
+  if (requestedEndMs > lastAvailableMs) {
+    const short = hoursBetween(requestedEndMs - lastAvailableMs);
+    return {
+      ...base,
+      status: 'unavailable',
+      estimatedLeadingHours: 0,
+      reason:
+        `The issued forecast ends ${short} hour(s) before this ${hours}-hour window does. ` +
+        `NWS publishes only a few days ahead, so a start this far out is not yet forecast.`
+    };
+  }
+
+  if (requestedEndMs < firstAvailableMs) {
+    return {
+      ...base,
+      status: 'unavailable',
+      estimatedLeadingHours: 0,
+      reason:
+        'This window ends before the current forecast begins. Live forecast data ' +
+        'exists only from now forward; use climate normals for a past placement.'
+    };
+  }
+
+  if (startMs < firstAvailableMs) {
+    const estimatedLeadingHours = Math.min(hours, hoursBetween(firstAvailableMs - startMs));
+    return {
+      ...base,
+      status: 'partial',
+      estimatedLeadingHours,
+      reason:
+        `The start time has already passed. The first ${estimatedLeadingHours} hour(s) would ` +
+        `be held at the earliest issued forecast value rather than forecast directly.`
+    };
+  }
+
+  return { ...base, status: 'covered', estimatedLeadingHours: 0, reason: null };
+}
+
+/**
  * Turn a raw gridpoint payload into `hours` consecutive hourly rows starting at
  * `startMs`.
  *
  * Clamp-and-flag: a start earlier than the forecast's first hour is legal —
  * the leading rows hold the earliest forecast value and are marked
- * `estimated`, and `estimatedLeadingHours` reports how many. A start beyond
- * the end of the grid is not recoverable and throws.
+ * `estimated`. A window the forecast cannot span at all throws; `assessCoverage`
+ * is the non-throwing form of the same question.
  */
 export function buildForecastRows(
   props: GridpointProps,
@@ -162,31 +270,20 @@ export function buildForecastRows(
   timeZone: string,
   hours: number = FORECAST_HOURS
 ): { rows: ForecastRow[]; firstAvailableMs: number; estimatedLeadingHours: number } {
+  const coverage = assessCoverage(props, startMs, hours);
+  if (coverage.status === 'unavailable') {
+    throw new NwsError(coverage.reason ?? 'Forecast does not cover this window.', 502, 'incomplete');
+  }
+
   const temp = expandSeries(props.temperature);
   const wind = expandSeries(props.windSpeed, kmhToMps);
   const sky = expandSeries(props.skyCover);
-
-  if (!temp.size) {
-    throw new NwsError('Forecast contained no temperature series.', 502, 'incomplete');
-  }
 
   const tempKeys = [...temp.keys()].sort((a, b) => a - b);
   const windKeys = [...wind.keys()].sort((a, b) => a - b);
   const skyKeys = [...sky.keys()].sort((a, b) => a - b);
 
-  const firstAvailableMs = tempKeys[0];
-  const lastAvailableMs = tempKeys[tempKeys.length - 1];
-  const endMs = startMs + (hours - 1) * MS_PER_HOUR;
-  if (endMs > lastAvailableMs) {
-    throw new NwsError(
-      `Forecast covers only through ${new Date(lastAvailableMs).toISOString()}, ` +
-        `short of the ${hours}-hour window ending ${new Date(endMs).toISOString()}.`,
-      502,
-      'incomplete'
-    );
-  }
-
-  let estimatedLeadingHours = 0;
+  const { firstAvailableMs, estimatedLeadingHours } = coverage;
   const rows: ForecastRow[] = [];
   for (let i = 0; i < hours; i++) {
     const ms = startMs + i * MS_PER_HOUR;
@@ -194,7 +291,6 @@ export function buildForecastRows(
     const w = sampleAt(wind, ms, windKeys);
     const c = sampleAt(sky, ms, skyKeys);
     const estimated = !t.hit || !w.hit;
-    if (estimated && ms < firstAvailableMs) estimatedLeadingHours++;
     const p = utcMsToZonedParts(ms, timeZone);
     rows.push({
       offsetHr: i,

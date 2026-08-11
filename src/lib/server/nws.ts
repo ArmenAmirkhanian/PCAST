@@ -11,17 +11,19 @@
  */
 
 import { env } from '$env/dynamic/private';
-import { isForecastEligibleInZone, zonedToUtcMs } from '$lib/utils/time';
+import { zonedToUtcMs } from '$lib/utils/time';
 import {
+  assessCoverage,
   buildForecastRows,
   FORECAST_HOURS,
   NwsError,
+  type CoverageStatus,
   type ForecastRow,
   type GridpointProps
 } from './nws-parse';
 
 export { FORECAST_HOURS, NwsError };
-export type { ForecastRow };
+export type { ForecastRow, CoverageStatus };
 
 /**
  * Contact string sent to api.weather.gov. NWS asks for a real point of contact
@@ -56,6 +58,26 @@ export type ForecastMeta = {
 };
 
 export type ForecastResult = { meta: ForecastMeta; rows: ForecastRow[] };
+
+/** Answer to "is the live forecast usable for this window?" — see `probeForecast`. */
+export type ForecastAvailability = {
+  status: CoverageStatus;
+  /** Why the window is not fully covered; null when it is. User-facing. */
+  reason: string | null;
+  hours: number;
+  estimatedLeadingHours: number;
+  gridId: string;
+  gridX: number;
+  gridY: number;
+  timeZone: string;
+  updateTime: string | null;
+  elevationM: number | null;
+  requestedStart: string;
+  requestedEnd: string;
+  /** Span the issued forecast actually covers; null if it carries no series. */
+  coverageStart: string | null;
+  coverageEnd: string | null;
+};
 
 // ---------------------------------------------------------------------------
 // Caching
@@ -157,6 +179,69 @@ async function resolvePoint(lat: number, lon: number, nowMs: number): Promise<Po
 }
 
 /**
+ * Both upstream hops plus the start instant, shared by the probe and the full
+ * fetch. Everything here is cache-backed, so a probe immediately followed by a
+ * fetch costs one round of requests, not two.
+ */
+async function loadGrid(lat: number, lon: number, dateISO: string, startHour: number, nowMs: number) {
+  const point = await resolvePoint(lat, lon, nowMs);
+
+  // The start instant can only be resolved once the site's timezone is known —
+  // the date and hour the user entered are wall-clock at the *site*, not at the
+  // browser or the server.
+  const startMs = zonedToUtcMs(dateISO, startHour, point.timeZone);
+
+  let props = cacheGet(gridCache, point.gridpointUrl, nowMs);
+  if (!props) {
+    const json = await getJsonWithRetry(point.gridpointUrl);
+    props = (json.properties ?? {}) as GridpointProps;
+    gridCache.set(point.gridpointUrl, { value: props, expiresAt: nowMs + GRID_TTL_MS });
+  }
+
+  return { point, props, startMs };
+}
+
+/**
+ * Can the live forecast actually span this window?
+ *
+ * The Environment tab asks this once, on entry, so it can offer or withhold the
+ * live source without guessing from the calendar. Warms both caches, so the
+ * `fetchForecast` that may follow issues no further upstream requests.
+ */
+export async function probeForecast(
+  lat: number,
+  lon: number,
+  dateISO: string,
+  startHour: number,
+  hours: number = FORECAST_HOURS,
+  nowMs: number = Date.now()
+): Promise<ForecastAvailability> {
+  const { point, props, startMs } = await loadGrid(lat, lon, dateISO, startHour, nowMs);
+  const coverage = assessCoverage(props, startMs, hours);
+
+  return {
+    status: coverage.status,
+    reason: coverage.reason,
+    hours,
+    estimatedLeadingHours: coverage.estimatedLeadingHours,
+    gridId: point.gridId,
+    gridX: point.gridX,
+    gridY: point.gridY,
+    timeZone: point.timeZone,
+    updateTime: props.updateTime ?? null,
+    elevationM: props.elevation?.value ?? null,
+    requestedStart: new Date(startMs).toISOString(),
+    requestedEnd: new Date(coverage.requestedEndMs).toISOString(),
+    coverageStart: Number.isFinite(coverage.firstAvailableMs)
+      ? new Date(coverage.firstAvailableMs).toISOString()
+      : null,
+    coverageEnd: Number.isFinite(coverage.lastAvailableMs)
+      ? new Date(coverage.lastAvailableMs).toISOString()
+      : null
+  };
+}
+
+/**
  * Fetch and assemble the 72-hour forecast for a site.
  *
  * @param dateISO   `yyyy-mm-dd` construction start date (site-local)
@@ -170,33 +255,7 @@ export async function fetchForecast(
   hours: number = FORECAST_HOURS,
   nowMs: number = Date.now()
 ): Promise<ForecastResult> {
-  const point = await resolvePoint(lat, lon, nowMs);
-
-  // "Today or tomorrow" is only meaningful at the site, so the window is judged
-  // here rather than in the route handler: the server's own clock is normally
-  // UTC and would reject the user's today for most of a US evening. The /points
-  // hop above is what makes the site's zone known; it is cached for a day, so
-  // this costs nothing on the common path.
-  if (!isForecastEligibleInZone(dateISO, point.timeZone, nowMs)) {
-    throw new NwsError(
-      'The hourly forecast is only available for a start date of today or tomorrow ' +
-        'at the project site.',
-      400,
-      'ineligible_date'
-    );
-  }
-
-  // The start instant can only be resolved once the site's timezone is known —
-  // the date and hour the user entered are wall-clock at the *site*, not at the
-  // browser or the server.
-  const startMs = zonedToUtcMs(dateISO, startHour, point.timeZone);
-
-  let props = cacheGet(gridCache, point.gridpointUrl, nowMs);
-  if (!props) {
-    const json = await getJsonWithRetry(point.gridpointUrl);
-    props = (json.properties ?? {}) as GridpointProps;
-    gridCache.set(point.gridpointUrl, { value: props, expiresAt: nowMs + GRID_TTL_MS });
-  }
+  const { point, props, startMs } = await loadGrid(lat, lon, dateISO, startHour, nowMs);
 
   const { rows, firstAvailableMs, estimatedLeadingHours } = buildForecastRows(
     props,

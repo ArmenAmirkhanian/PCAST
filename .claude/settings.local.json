@@ -31,7 +31,16 @@
       "Bash(pkill -f \"vite dev --port 519\")",
       "Bash(sed 's/=.*/=<redacted>/' .env)",
       "Read(//etc/**)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(python3 -)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('rows:', len\\(d.get\\('rows',[]\\)\\), '| start:', d['meta']['requestedStart'], '| est lead:', d['meta']['estimatedLeadingHours'], '| first row:', d['rows'][0]\\)\")",
+      "Bash(curl -s \"http://localhost:5196/api/forecast?lat=33.2098&lon=-87.5692&date=2026-08-18&startHour=9\" --max-time 25)",
+      "Bash(curl -s -o /dev/null -w \"  %{time_total}s\\\\n\" \"http://localhost:5196/api/forecast/availability?lat=42.3601&lon=-71.0589&date=2026-08-13&startHour=9\" --max-time 30)",
+      "Bash(curl -s -o /dev/null -w \"  %{time_total}s\\\\n\" \"http://localhost:5196/api/forecast?lat=42.3601&lon=-71.0589&date=2026-08-13&startHour=9\" --max-time 30)",
+      "Bash(curl -s \"http://localhost:5196/api/forecast/availability?lat=42.3601&lon=-71.0589&date=2026-08-13&startHour=9\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(' ', d['status'], d['gridId'], f\\\\\"{d['gridX']},{d['gridY']}\\\\\", d['timeZone'], '| covers to', d['coverageEnd']\\)\")",
+      "Bash(pkill -f \"vite dev --port 5196\")",
+      "Bash(pkill -9 -f \"vite dev\")"
     ],
     "additionalDirectories": [
       "\\tmp"

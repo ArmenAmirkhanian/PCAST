@@ -63,8 +63,10 @@ export type SlabLayoutForm = {
  * Which environmental dataset drives the 72-hour window.
  *
  * `normals` — NOAA 1991–2020 hourly climate normals, always available.
- * `forecast` — live NWS gridded forecast; only offered for a construction
- * start of today or tomorrow (see `isForecastEligible`).
+ * `forecast` — live NWS gridded forecast, offered only when NWS has actually
+ * issued data spanning the window (see `assessCoverage` in
+ * `$lib/server/nws-parse`). The Environment tab measures this on entry rather
+ * than inferring it from the calendar.
  */
 export type WeatherSource = 'normals' | 'forecast';
 
