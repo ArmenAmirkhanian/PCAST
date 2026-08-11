@@ -1,10 +1,19 @@
 import { writable } from 'svelte/store';
-import type { ProjectInfoForm, MaterialsForm, SlabLayoutForm, WeatherStation } from '$lib/types';
+import type {
+  ProjectInfoForm,
+  MaterialsForm,
+  SlabLayoutForm,
+  WeatherStation,
+  WeatherSource
+} from '$lib/types';
 import type { HydrationModel } from '$lib/types';
 import type { ModelOutput } from '$lib/models/illitherm/types';
 import type { StressOutput, CreepModel } from '$lib/models/stress/types';
+import { localTodayISO } from '$lib/utils/time';
 
-const todayISO = new Date().toISOString().slice(0, 10);
+// Local, not UTC — `toISOString()` would already read as tomorrow for a US
+// user in the evening, which breaks the today/tomorrow forecast gate.
+const todayISO = localTodayISO();
 
 export const projectInfo = writable<ProjectInfoForm>({
   state: '',
@@ -56,6 +65,28 @@ export function updateSlabLayout(patch: Partial<SlabLayoutForm>) {
 
 export const weatherStations = writable<WeatherStation[]>([]);
 
+/**
+ * Which environmental dataset the Environment tab last populated. Read by the
+ * report so a PDF can never be misread as normals-based when it is not.
+ */
+export const weatherSource = writable<WeatherSource>('normals');
+
+/** Provenance for the live-forecast path; null whenever normals are in use. */
+export type ForecastMetaSnapshot = {
+  gridId: string;
+  gridX: number;
+  gridY: number;
+  timeZone: string;
+  updateTime: string | null;
+  elevationM: number | null;
+  requestedStart: string;
+  forecastStart: string;
+  estimatedLeadingHours: number;
+  sourceUrls: { points: string; gridpoint: string };
+};
+
+export const forecastMeta = writable<ForecastMetaSnapshot | null>(null);
+
 export const chartImages = writable<{
   temp: string;
   wind: string;
@@ -92,6 +123,11 @@ export type WeatherHourlyRow = {
   airTempC: number;
   windMps: number;
   cloudPct: number | null;
+  /**
+   * Forecast rows only: the value was held over rather than read directly —
+   * either the start precedes the first forecast hour or the series had a gap.
+   */
+  estimated?: boolean;
 };
 
 export const weatherHourlyData = writable<WeatherHourlyRow[]>([]);

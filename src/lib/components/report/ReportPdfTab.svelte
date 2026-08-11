@@ -13,7 +13,9 @@
     bentzSeries,
     thermalGradientResults,
     stressResults,
-    stressParams
+    stressParams,
+    weatherSource,
+    forecastMeta
   } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
   import { HYDRATION_MODEL_NAMES, MODEL_VARIABLES, WC_NOTE_MODELS, MODEL_RESULT_LABELS } from '$lib/hydration-models';
@@ -132,6 +134,8 @@
       materials: { ...get(materials) },
       slabLayout: { ...get(slabLayout) },
       weatherStations: [...get(weatherStations)],
+      weatherSource: get(weatherSource),
+      forecastMeta: get(forecastMeta),
       chartImages: { ...get(chartImages) },
       hydrationModelResults: { ...get(hydrationModelResults) },
       maturity: get(maturityResultsStore),
@@ -177,7 +181,8 @@
   // Mark the button dirty whenever any input store changes after mount.
   onMount(() => {
     const stores = [
-      projectInfo, materials, slabLayout, weatherStations, chartImages,
+      projectInfo, materials, slabLayout, weatherStations, weatherSource,
+      forecastMeta, chartImages,
       hydrationModelResults, maturityResultsStore, bentzSeries,
       thermalGradientResults, stressResults, stressParams,
       unitSystem, site, allPoints
@@ -301,6 +306,21 @@
   $: hasThermal = (snap.thermal?.results?.length ?? 0) > 0;
   $: hasStress = (snap.stress?.hourlyResults?.length ?? 0) > 0;
   $: hasWindCloud = !!(snap.chartImages.wind || snap.chartImages.cloud);
+  $: isForecastReport = snap.weatherSource === 'forecast';
+
+  /** Forecast issuance rendered in the project site's timezone. */
+  const formatIssuance = (meta: { updateTime: string | null; timeZone: string }) => {
+    if (!meta.updateTime) return 'unknown';
+    try {
+      return new Date(meta.updateTime).toLocaleString([], {
+        timeZone: meta.timeZone,
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+    } catch {
+      return meta.updateTime;
+    }
+  };
 
   // Physical page order (one entry = one printed page). Drives both the
   // running page numbers and the table of contents.
@@ -896,7 +916,9 @@
         <h2 class="page-title">Environment</h2>
         <div class="title-rule"></div>
 
-        <h3 class="section-subheading">Nearest Weather Stations</h3>
+        <h3 class="section-subheading">
+          {isForecastReport ? 'Live NOAA/NWS Forecast' : 'Nearest Weather Stations'}
+        </h3>
 
         {#if snap.selectedLocation}
           <div class="env-info">
@@ -911,6 +933,32 @@
               <span class="env-label">at hour</span>
               <span class="env-value">{formatHour(snap.projectInfo.startHour)}</span>
             </p>
+            <p>
+              <span class="env-label">Weather data source:</span>
+              <span class="env-value">
+                {isForecastReport
+                  ? 'NOAA/NWS gridded 72-hour forecast'
+                  : 'NOAA hourly climate normals (1991–2020)'}
+              </span>
+            </p>
+            {#if isForecastReport && snap.forecastMeta}
+              <p>
+                <span class="env-label">Forecast grid:</span>
+                <span class="env-value"
+                  >{snap.forecastMeta.gridId}
+                  {snap.forecastMeta.gridX},{snap.forecastMeta.gridY}</span>
+                <span class="env-label">issued</span>
+                <span class="env-value">{formatIssuance(snap.forecastMeta)}</span>
+              </p>
+              <p class="env-caveat">
+                Forecast-driven results reflect a single predicted realisation and are valid only
+                for the issuance time shown above; NOAA reissues these grids roughly hourly.
+                {#if snap.forecastMeta.estimatedLeadingHours > 0}
+                  The first {snap.forecastMeta.estimatedLeadingHours} hour(s) preceded the issued
+                  forecast and were held at the earliest available value.
+                {/if}
+              </p>
+            {/if}
           </div>
         {/if}
 
@@ -919,7 +967,7 @@
             <table class="weather-table">
               <thead>
                 <tr>
-                  <th>Station</th>
+                  <th>{isForecastReport ? 'Forecast grid point' : 'Station'}</th>
                   <th>Latitude</th>
                   <th>Longitude</th>
                   <th>Elevation</th>
@@ -931,7 +979,10 @@
                   <tr>
                     <td>
                       <div class="station-name">{station.name ?? 'Station'}</div>
-                      <div class="station-id">{station.ghcnId ?? 'N/A'}</div>
+                      <div class="station-id">
+                        {station.ghcnId ??
+                          (isForecastReport ? 'NWS gridded forecast at project coordinates' : 'N/A')}
+                      </div>
                     </td>
                     <td>{formatCoord(station.latitude)}</td>
                     <td>{formatCoord(station.longitude)}</td>
@@ -943,7 +994,7 @@
             </table>
           </div>
         {:else}
-          <p class="no-data-message">No weather station data available. Run the SQL lookup in the Environment tab to populate this section.</p>
+          <p class="no-data-message">No weather data available. Run the lookup on the Environment tab to populate this section.</p>
         {/if}
 
         {#if snap.chartImages.temp}
@@ -1653,6 +1704,12 @@
   .env-coords {
     font-weight: normal;
     color: #666;
+  }
+
+  .env-caveat {
+    font-style: italic;
+    color: #666;
+    font-size: 9pt;
   }
 
   .weather-table-wrapper {

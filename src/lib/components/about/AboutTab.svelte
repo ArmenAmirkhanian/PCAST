@@ -20,6 +20,13 @@
     <p>
       The source code used to perform the climate normal transformation can be found here: <a href="https://github.com/ArmenAmirkhanian/ClimateNormalsIngestor" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">GitHub Repository</a>
     </p>
+
+    <p>
+      For a construction start date of today or tomorrow, the Environment tab can instead draw a
+      live 72-hour hourly forecast from the NOAA National Weather Service gridded forecast API: <a href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">api.weather.gov</a>.
+      Unlike the climate normals, a forecast is a single predicted realisation for a specific day
+      and is only valid for the issuance time recorded with the analysis.
+    </p>
   </section>
 
   <section>

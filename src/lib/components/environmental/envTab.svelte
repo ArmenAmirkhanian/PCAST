@@ -1,11 +1,21 @@
 <script lang="ts">
   export let stationExplanationHtml: string;
   export let climateNormalsHtml: string;
+  export let liveForecastHtml: string = '';
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { projectInfo, weatherStations, chartImages, weatherHourlyData } from '$lib/stores/form';
+  import {
+    projectInfo,
+    weatherStations,
+    chartImages,
+    weatherHourlyData,
+    weatherSource,
+    forecastMeta,
+    type ForecastMetaSnapshot
+  } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
   import placesIndex from '$lib/data/places-index.json';
+  import { isForecastEligible } from '$lib/utils/time';
   import type { Config, Layout, PlotData } from 'plotly.js';
 
   const index = placesIndex as PlacesIndex;
@@ -48,10 +58,29 @@
     temp: number | null;
     cloud: number | null;
     wind: number | null;
+    /** Forecast rows carry a real year; normals rows infer one from the form. */
+    year?: number;
+    /** Forecast rows only: value held over rather than read directly. */
+    estimated?: boolean;
   };
 
   type StationDisplay = StationGroup & { hourly: HourlyRow[] };
   type MetricKey = 'temp' | 'wind' | 'cloud';
+
+  /** Row shape returned by `/api/forecast`. */
+  type ForecastApiRow = {
+    offsetHr: number;
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    airTempC: number | null;
+    windMps: number | null;
+    cloudPct: number | null;
+    estimated: boolean;
+  };
+
+  type ForecastApiResponse = { meta: ForecastMetaSnapshot; rows: ForecastApiRow[] };
 
   const TARGET_CODES = {
     temp: 'HLY-TEMP-NORMAL',
@@ -76,9 +105,27 @@
   let sqlPreviewOpen = false;
   let haverExplaOpen = false;
   let normalExplaOpen = false;
+  let forecastExplaOpen = false;
   let isLoading = false;
   let errorMessage = '';
   let rows: StationRow[] = [];
+  /** Single pseudo-station holding the NWS grid-point series, when in use. */
+  let forecastDisplay: StationDisplay | null = null;
+  /** Non-fatal advisory about the forecast result (e.g. clamped hours). */
+  let forecastNotice = '';
+
+  $: forecastEligible = isForecastEligible($projectInfo.date);
+
+  // If the date moves out of the today/tomorrow window while the forecast is
+  // selected, fall back to normals rather than leaving an unusable selection.
+  // Kept out of `errorMessage` so the reset that follows the source change
+  // does not immediately wipe it.
+  let sourceNotice = '';
+  $: if (!forecastEligible && $weatherSource === 'forecast') {
+    weatherSource.set('normals');
+    sourceNotice =
+      'Switched back to climate normals — the live forecast needs a start date of today or tomorrow.';
+  }
 
   // Track previous projectInfo to detect changes and reset state
   let prevProjectInfoJson = '';
@@ -91,11 +138,17 @@
     haverExplaOpen = false;
     errorMessage = '';
     rows = [];
+    forecastDisplay = null;
+    forecastNotice = '';
+    forecastMeta.set(null);
     clearCharts();
     weatherHourlyData.set([]);
   }
 
-  // Reset environment data when projectInfo changes
+  // Reset environment data when projectInfo changes. Deliberately does not
+  // touch $weatherSource — the user's choice of dataset survives edits to the
+  // project inputs (the eligibility guard above handles the one case where it
+  // cannot).
   $: {
     const currentJson = JSON.stringify($projectInfo);
     if (prevProjectInfoJson && prevProjectInfoJson !== currentJson) {
@@ -103,6 +156,14 @@
     }
     prevProjectInfoJson = currentJson;
   }
+
+  // Switching dataset invalidates any results already on screen.
+  let prevWeatherSource = $weatherSource;
+  $: if ($weatherSource !== prevWeatherSource) {
+    prevWeatherSource = $weatherSource;
+    resetEnvState();
+  }
+
   let groupedStations: StationGroup[] = [];
   let stationDisplays: StationDisplay[] = [];
   let Plotly: typeof import('plotly.js-dist-min') | null = null;
@@ -124,6 +185,15 @@
   const formatNumber = (value: number | null, digits = 1) =>
     value === null ? '—' : value.toFixed(digits);
   const formatElevation = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} m`);
+  /** Render an ISO instant as wall-clock time at the project site. */
+  const formatIsoLocal = (iso: string | null, timeZone: string) => {
+    if (!iso) return '—';
+    try {
+      return new Date(iso).toLocaleString([], { timeZone, timeStyle: 'short', dateStyle: 'medium' });
+    } catch {
+      return iso;
+    }
+  };
   const getMetricValue = (reading: HourlyRow, metric: MetricKey) =>
     reading[metric] as number | null;
 
@@ -212,13 +282,27 @@
     return Array.from(map.values()).sort((a, b) => a.distanceKm - b.distanceKm);
   })();
 
-  $: stationDisplays = groupedStations.map((station) => ({
-    ...station,
-    hourly: toHourlyRows(station.readings)
-  }));
+  // The forecast path yields a single grid point rather than three stations,
+  // but wears the same shape so the charts, tables and downstream stores below
+  // need no knowledge of which source is active.
+  $: stationDisplays =
+    $weatherSource === 'forecast'
+      ? forecastDisplay
+        ? [forecastDisplay]
+        : []
+      : groupedStations.map((station) => ({
+          ...station,
+          hourly: toHourlyRows(station.readings)
+        }));
+
+  /** Hours rendered in the result table, across all series. */
+  $: resultRowCount =
+    $weatherSource === 'forecast'
+      ? (forecastDisplay?.hourly.length ?? 0)
+      : rows.length;
 
   // Update weatherStations store when station data changes
-  $: weatherStations.set(groupedStations.map((station) => ({
+  $: weatherStations.set(stationDisplays.map((station) => ({
     stationId: station.stationId,
     ghcnId: station.ghcnId,
     name: station.name,
@@ -228,21 +312,27 @@
     distanceKm: station.distanceKm
   })));
 
-  // Populate weatherHourlyData from the nearest station for use in thermal model
+  // Populate weatherHourlyData from the nearest station (normals) or the grid
+  // point (forecast) for use in the thermal model.
   $: {
     const nearest = stationDisplays[0];
     if (nearest) {
-      const year = $projectInfo.date ? parseInt($projectInfo.date.split('-')[0], 10) : new Date().getFullYear();
+      const fallbackYear = $projectInfo.date
+        ? parseInt($projectInfo.date.split('-')[0], 10)
+        : new Date().getFullYear();
       weatherHourlyData.set(
         nearest.hourly.map((row) => ({
           offsetHr: row.offsetHr,
-          year,
+          // Forecast rows carry the true year, including a rollover across
+          // 31 December that the form date alone would not give.
+          year:     row.year ?? fallbackYear,
           month:    row.month,
           day:      row.day,
           hour:     row.hour,
           airTempC: row.temp  ?? 20,
           windMps:  row.wind  ?? 3,
-          cloudPct: row.cloud
+          cloudPct: row.cloud,
+          estimated: row.estimated
         }))
       );
     }
@@ -584,9 +674,40 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
     return sql;
   }
 
-  async function runSqlLookup() {
+  /**
+   * Human-readable preview of the two NWS requests, standing in for the SQL
+   * preview when the live forecast is the active source.
+   */
+  function buildForecastPreview(lat: number, lon: number, date: string, hour: number) {
+    const key = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+    return `# Step 1 — resolve the NWS forecast grid cell and site timezone
+GET https://api.weather.gov/points/${key}
+    -> properties.forecastGridData, properties.timeZone
+
+# Step 2 — read the raw gridded forecast for that cell
+GET {properties.forecastGridData}
+    -> properties.temperature   (degC)
+    -> properties.windSpeed     (km/h -> m/s)
+    -> properties.skyCover      (percent)
+
+# Window
+start   = ${date} ${String(hour).padStart(2, '0')}:00 site-local
+hours   = 72 (offset 0-71)
+
+# Notes
+ISO-8601 intervals (PT1H / PT3H / PT6H) are expanded to whole hours.
+Hours preceding the first issued forecast hour are held at the earliest
+issued value and flagged as estimated.`;
+  }
+
+  /** Shared preamble; returns the validated inputs or null after reporting. */
+  function validateSelection() {
     errorMessage = '';
+    sourceNotice = '';
     rows = [];
+    forecastDisplay = null;
+    forecastNotice = '';
+    forecastMeta.set(null);
     sqlProgress = [];
     pushStatus('Validating selection…');
 
@@ -594,37 +715,127 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
       lastLookupMessage = 'Select a city and state in Project Info to enable the lookup.';
       pushStatus('No location selected — stopping.');
       lastLookupTime = '';
-      return;
+      return null;
     }
     if (!startMonth || !startDay) {
       lastLookupMessage = 'Choose a start date in Project Info to build the query.';
       pushStatus('No start date provided — stopping.');
       lastLookupTime = '';
-      return;
+      return null;
     }
+    return {
+      lat: selectedLocation.latitude ?? 0,
+      lon: selectedLocation.longitude ?? 0,
+      month: startMonth,
+      day: startDay,
+      hour: startHour ?? 0
+    };
+  }
 
-    pushStatus('Building SQL preview…');
-    lastLookupMessage = buildSql(
-      selectedLocation.latitude ?? 0,
-      selectedLocation.longitude ?? 0,
-      startMonth,
-      startDay,
-      startHour ?? 0
+  /** Dispatch to whichever dataset the user selected. */
+  async function runLookup() {
+    if ($weatherSource === 'forecast') await runForecastLookup();
+    else await runNormalsLookup();
+  }
+
+  async function runForecastLookup() {
+    const input = validateSelection();
+    if (!input) return;
+
+    pushStatus('Building NWS request preview…');
+    lastLookupMessage = buildForecastPreview(
+      input.lat,
+      input.lon,
+      $projectInfo.date,
+      input.hour
     );
     lastLookupTime = new Date().toLocaleString();
     sqlPreviewOpen = false;
     haverExplaOpen = false;
     normalExplaOpen = false;
+    forecastExplaOpen = false;
+
+    isLoading = true;
+    try {
+      pushStatus('Requesting 72-hour NOAA forecast from server…');
+      const params = new URLSearchParams({
+        lat: String(input.lat),
+        lon: String(input.lon),
+        date: $projectInfo.date,
+        startHour: String(input.hour)
+      });
+      const res = await fetch(`/api/forecast?${params.toString()}`);
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body?.error ?? `Forecast lookup failed (${res.status})`);
+      }
+
+      const { meta, rows: apiRows } = body as ForecastApiResponse;
+      forecastMeta.set(meta);
+      pushStatus(`Grid cell ${meta.gridId} ${meta.gridX},${meta.gridY} (${meta.timeZone}).`);
+
+      forecastDisplay = {
+        stationId: -1,
+        ghcnId: null,
+        name: `NWS Forecast Grid ${meta.gridId} ${meta.gridX},${meta.gridY}`,
+        latitude: input.lat,
+        longitude: input.lon,
+        elevation: meta.elevationM,
+        distanceKm: 0,
+        readings: [],
+        hourly: apiRows.map((row) => ({
+          offsetHr: row.offsetHr,
+          year: row.year,
+          month: row.month,
+          day: row.day,
+          hour: row.hour,
+          temp: row.airTempC,
+          wind: row.windMps,
+          cloud: row.cloudPct,
+          estimated: row.estimated
+        }))
+      };
+
+      if (meta.estimatedLeadingHours > 0) {
+        forecastNotice =
+          `The construction start time has already passed. The first ` +
+          `${meta.estimatedLeadingHours} hour(s) are held at the earliest issued ` +
+          `forecast value (forecast begins ${formatIsoLocal(meta.forecastStart, meta.timeZone)}) ` +
+          `and are flagged in the table below.`;
+        pushStatus(`Clamped ${meta.estimatedLeadingHours} leading hour(s).`);
+      }
+
+      pushStatus(`Received ${apiRows.length} forecast hours.`);
+    } catch (err) {
+      errorMessage = err instanceof Error ? err.message : 'Forecast lookup failed.';
+      pushStatus('Lookup failed.');
+    } finally {
+      pushStatus('Done.');
+      isLoading = false;
+    }
+  }
+
+  async function runNormalsLookup() {
+    const input = validateSelection();
+    if (!input) return;
+
+    pushStatus('Building SQL preview…');
+    lastLookupMessage = buildSql(input.lat, input.lon, input.month, input.day, input.hour);
+    lastLookupTime = new Date().toLocaleString();
+    sqlPreviewOpen = false;
+    haverExplaOpen = false;
+    normalExplaOpen = false;
+    forecastExplaOpen = false;
 
     isLoading = true;
     try {
       pushStatus('Requesting nearest normals from server…');
       const params = new URLSearchParams({
-        lat: String(selectedLocation.latitude ?? 0),
-        lon: String(selectedLocation.longitude ?? 0),
-        month: String(startMonth),
-        day: String(startDay),
-        startHour: String(startHour ?? 0)
+        lat: String(input.lat),
+        lon: String(input.lon),
+        month: String(input.month),
+        day: String(input.day),
+        startHour: String(input.hour)
       });
       const res = await fetch(`/api/nearest-normals?${params.toString()}`);
       if (!res.ok) {
@@ -651,20 +862,66 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
   <div class="rounded-lg border bg-white p-4 shadow-sm">
     <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <div>
-        <h3 class="text-lg font-semibold">Nearest Weather Stations</h3>
+        <h3 class="text-lg font-semibold">
+          {$weatherSource === 'forecast' ? 'Live NOAA Forecast' : 'Nearest Weather Stations'}
+        </h3>
         <p class="text-sm text-gray-600">Lookup runs only when you click the button.</p>
       </div>
       <button
         class="w-full md:w-auto rounded-lg bg-blue-600 px-4 py-2 text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-        on:click={runSqlLookup}
+        on:click={runLookup}
         disabled={!selectedLocation || isLoading}>
         {#if isLoading}
           Running…
+        {:else if $weatherSource === 'forecast'}
+          Fetch 72-hour Forecast
         {:else}
           Run SQL Lookup
         {/if}
       </button>
     </div>
+
+    <fieldset class="mt-4 rounded border bg-gray-50 p-3">
+      <legend class="px-1 text-sm font-medium text-gray-700">Weather data source</legend>
+      <div class="flex flex-col gap-2">
+        <label class="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            class="mt-1"
+            value="normals"
+            checked={$weatherSource === 'normals'}
+            on:change={() => weatherSource.set('normals')} />
+          <span>
+            <span class="font-medium">Climate Normals (NOAA, 1991–2020)</span>
+            <span class="block text-xs text-gray-600">
+              30-year hourly expectation for this location and calendar date. Available for any
+              start date.
+            </span>
+          </span>
+        </label>
+        <label class="flex items-start gap-2 text-sm {forecastEligible ? '' : 'opacity-60'}">
+          <input
+            type="radio"
+            class="mt-1"
+            value="forecast"
+            disabled={!forecastEligible}
+            checked={$weatherSource === 'forecast'}
+            on:change={() => weatherSource.set('forecast')} />
+          <span>
+            <span class="font-medium">Live 72-hour Forecast (NOAA/NWS)</span>
+            <span class="block text-xs text-gray-600">
+              {#if forecastEligible}
+                Predicted hourly conditions at the project coordinates for the next 72 hours.
+              {:else}
+                Unavailable for this start date. Hour-by-hour forecast skill decays quickly, so
+                this source requires a construction start of <span class="font-medium">today or
+                tomorrow</span>. Change the date on the Project Info tab to enable it.
+              {/if}
+            </span>
+          </span>
+        </label>
+      </div>
+    </fieldset>
 
     <div class="mt-3 text-sm text-gray-700">
       {#if selectedLocation}
@@ -676,7 +933,12 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
           </p>
           {#if selectedDate}
             <p>
-              Start date for lookup (month-day only): <span class="font-medium">{formatDate(selectedDate)}</span>
+              {#if $weatherSource === 'forecast'}
+                Start for forecast: <span class="font-medium">{$projectInfo.date}</span>
+              {:else}
+                Start date for lookup (month-day only):
+                <span class="font-medium">{formatDate(selectedDate)}</span>
+              {/if}
               at hour <span class="font-medium">{String(startHour ?? 0).padStart(2, '0')}:00</span>
             </p>
           {/if}
@@ -687,9 +949,21 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
     </div>
 
     <div class="mt-4 space-y-3">
+      {#if sourceNotice}
+        <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {sourceNotice}
+        </div>
+      {/if}
+
       {#if errorMessage}
         <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
           {errorMessage}
+        </div>
+      {/if}
+
+      {#if forecastNotice}
+        <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {forecastNotice}
         </div>
       {/if}
 
@@ -715,7 +989,9 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
       {#if lastLookupMessage}
         <div class="space-y-2 rounded border bg-gray-50 p-3 text-sm text-gray-800">
           <div class="flex items-center justify-between">
-            <p class="font-medium">SQL preview</p>
+            <p class="font-medium">
+              {$weatherSource === 'forecast' ? 'NWS request preview' : 'SQL preview'}
+            </p>
             <button
               class="text-xs text-blue-600 hover:underline"
               type="button"
@@ -730,54 +1006,101 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
             <p class="text-gray-500">Last run: {lastLookupTime}</p>
           {/if}
         </div>
-        <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
-          <div class="flex items-center justify-between">
-            <p class="font-medium">Explanation of Station Selection</p>
-            <button
-              class="text-xs text-blue-600 hover:underline"
-              type="button"
-              on:click={() => (haverExplaOpen = !haverExplaOpen)}>
-              {haverExplaOpen ? 'Hide' : 'Show'}
-            </button>
-          </div>
-
-          {#if haverExplaOpen}
-            <div class="prose prose-sm max-w-none">
-              {@html stationExplanationHtml}
+        {#if $weatherSource === 'forecast'}
+          {#if $forecastMeta}
+            <div class="space-y-1 rounded border bg-gray-50 p-3 text-sm text-gray-800">
+              <p class="font-medium">Forecast provenance</p>
+              <p>
+                Grid cell <span class="font-medium">{$forecastMeta.gridId}
+                  {$forecastMeta.gridX},{$forecastMeta.gridY}</span>
+                · timezone {$forecastMeta.timeZone}
+              </p>
+              <p>
+                Issued <span class="font-medium"
+                  >{formatIsoLocal($forecastMeta.updateTime, $forecastMeta.timeZone)}</span>
+                · window begins {formatIsoLocal($forecastMeta.forecastStart, $forecastMeta.timeZone)}
+              </p>
+              <p class="text-xs text-gray-500">
+                NOAA reissues these grids roughly hourly. Re-run the lookup before relying on the
+                result if significant time has passed.
+              </p>
             </div>
           {/if}
-        </div>
 
-        <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
-          <div class="flex items-center justify-between">
-            <p class="font-medium">Explanation of Climate Normals</p>
-            <button
-              class="text-xs text-blue-600 hover:underline"
-              type="button"
-              on:click={() => (normalExplaOpen = !normalExplaOpen)}>
-              {normalExplaOpen ? 'Hide' : 'Show'}
-            </button>
+          <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
+            <div class="flex items-center justify-between">
+              <p class="font-medium">Explanation of the Live Forecast</p>
+              <button
+                class="text-xs text-blue-600 hover:underline"
+                type="button"
+                on:click={() => (forecastExplaOpen = !forecastExplaOpen)}>
+                {forecastExplaOpen ? 'Hide' : 'Show'}
+              </button>
+            </div>
+
+            {#if forecastExplaOpen}
+              <div class="prose prose-sm max-w-none">
+                {@html liveForecastHtml}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
+            <div class="flex items-center justify-between">
+              <p class="font-medium">Explanation of Station Selection</p>
+              <button
+                class="text-xs text-blue-600 hover:underline"
+                type="button"
+                on:click={() => (haverExplaOpen = !haverExplaOpen)}>
+                {haverExplaOpen ? 'Hide' : 'Show'}
+              </button>
+            </div>
+
+            {#if haverExplaOpen}
+              <div class="prose prose-sm max-w-none">
+                {@html stationExplanationHtml}
+              </div>
+            {/if}
           </div>
 
-          {#if normalExplaOpen}
-            <div class="prose prose-sm max-w-none">
-              {@html climateNormalsHtml}
+          <div class="space-y-2 rounded border bg-gray-50 p-3 text-gray-800">
+            <div class="flex items-center justify-between">
+              <p class="font-medium">Explanation of Climate Normals</p>
+              <button
+                class="text-xs text-blue-600 hover:underline"
+                type="button"
+                on:click={() => (normalExplaOpen = !normalExplaOpen)}>
+                {normalExplaOpen ? 'Hide' : 'Show'}
+              </button>
             </div>
-          {/if}
-        </div>
+
+            {#if normalExplaOpen}
+              <div class="prose prose-sm max-w-none">
+                {@html climateNormalsHtml}
+              </div>
+            {/if}
+          </div>
+        {/if}
       {/if}
 
       {#if stationDisplays.length}
         <div class="space-y-4">
           <div class="space-y-2">
             <p class="text-sm text-gray-600">
-              Returned {rows.length} rows across {stationDisplays.length} station(s) for the next 72 hours.
+              {#if $weatherSource === 'forecast'}
+                Returned {resultRowCount} forecast hours for one grid point covering the next 72
+                hours.
+              {:else}
+                Returned {resultRowCount} rows across {stationDisplays.length} station(s) for the next
+                72 hours.
+              {/if}
             </p>
             <div class="overflow-x-auto rounded border bg-white shadow-sm">
               <table class="min-w-full text-left text-sm">
                 <thead class="bg-gray-50 text-gray-600">
                   <tr>
-                    <th class="px-3 py-2">Station</th>
+                    <th class="px-3 py-2"
+                      >{$weatherSource === 'forecast' ? 'Forecast grid point' : 'Station'}</th>
                     <th class="px-3 py-2">Latitude</th>
                     <th class="px-3 py-2">Longitude</th>
                     <th class="px-3 py-2">Elevation</th>
@@ -789,7 +1112,12 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
                     <tr>
                       <td class="px-3 py-2">
                         <div class="font-semibold">{station.name ?? 'Station'}</div>
-                        <div class="text-xs text-gray-600">{station.ghcnId ?? 'N/A'}</div>
+                        <div class="text-xs text-gray-600">
+                          {station.ghcnId ??
+                            ($weatherSource === 'forecast'
+                              ? 'NWS gridded forecast at the project coordinates'
+                              : 'N/A')}
+                        </div>
                       </td>
                       <td class="px-3 py-2">{formatCoord(station.latitude)}</td>
                       <td class="px-3 py-2">{formatCoord(station.longitude)}</td>
@@ -830,15 +1158,23 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
 
           <div class="space-y-3">
             <p class="text-sm font-semibold text-gray-700">
-              72-hour normals (HLY-TEMP-NORMAL, HLY-CLDH-NORMAL, HLY-WIND-AVGSPD)
+              {#if $weatherSource === 'forecast'}
+                72-hour NWS forecast (temperature, sky cover, wind speed)
+              {:else}
+                72-hour normals (HLY-TEMP-NORMAL, HLY-CLDH-NORMAL, HLY-WIND-AVGSPD)
+              {/if}
             </p>
             {#each stationDisplays as station}
               <div class="rounded border bg-white p-3 shadow-sm">
                 <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                   <div>
-                    <p class="font-semibold">{station.name ?? 'Station'} ({station.ghcnId ?? 'N/A'})</p>
+                    <p class="font-semibold">
+                      {station.name ?? 'Station'}{station.ghcnId ? ` (${station.ghcnId})` : ''}
+                    </p>
                     <p class="text-sm text-gray-600">
-                      Offset span: 0–71 hrs · Distance {station.distanceKm.toFixed(1)} km
+                      Offset span: 0–71 hrs{$weatherSource === 'forecast'
+                        ? ''
+                        : ` · Distance ${station.distanceKm.toFixed(1)} km`}
                     </p>
                   </div>
                   <p class="text-xs text-gray-500">
@@ -851,19 +1187,33 @@ ORDER BY n.distance_km ASC, tw.offset_hr ASC, v.code ASC;
                       <tr>
                         <th class="px-2 py-1">Offset hr</th>
                         <th class="px-2 py-1">Month-Day Hr</th>
-                        <th class="px-2 py-1">HLY Temp</th>
-                        <th class="px-2 py-1">HLY Cloud</th>
-                        <th class="px-2 py-1">HLY Wind</th>
+                        <th class="px-2 py-1">
+                          {$weatherSource === 'forecast' ? 'Temp (°C)' : 'HLY Temp'}
+                        </th>
+                        <th class="px-2 py-1">
+                          {$weatherSource === 'forecast' ? 'Sky cover (%)' : 'HLY Cloud'}
+                        </th>
+                        <th class="px-2 py-1">
+                          {$weatherSource === 'forecast' ? 'Wind (m/s)' : 'HLY Wind'}
+                        </th>
+                        {#if $weatherSource === 'forecast'}
+                          <th class="px-2 py-1">Source</th>
+                        {/if}
                       </tr>
                     </thead>
                     <tbody>
                       {#each station.hourly as reading}
-                        <tr class="border-t">
+                        <tr class="border-t {reading.estimated ? 'bg-amber-50' : ''}">
                           <td class="px-2 py-1">{reading.offsetHr}</td>
                           <td class="px-2 py-1">{formatTs(reading)}</td>
                           <td class="px-2 py-1">{formatNumber(reading.temp)}</td>
                           <td class="px-2 py-1">{formatNumber(reading.cloud)}</td>
                           <td class="px-2 py-1">{formatNumber(reading.wind)}</td>
+                          {#if $weatherSource === 'forecast'}
+                            <td class="px-2 py-1 {reading.estimated ? 'text-amber-800' : 'text-gray-500'}">
+                              {reading.estimated ? 'estimated' : 'forecast'}
+                            </td>
+                          {/if}
                         </tr>
                       {/each}
                     </tbody>

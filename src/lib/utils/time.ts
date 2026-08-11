@@ -1,3 +1,113 @@
+const MS_PER_HOUR = 3_600_000;
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * Today's date as `yyyy-mm-dd` in the **browser's local** timezone.
+ *
+ * `new Date().toISOString().slice(0,10)` returns the *UTC* date, which for a
+ * US user in the evening is already tomorrow. Anything that compares against
+ * what the user thinks "today" means must use this instead.
+ */
+export function localTodayISO(now: Date = new Date()): string {
+  return toLocalISODate(now);
+}
+
+/** Tomorrow's date as `yyyy-mm-dd` in the browser's local timezone. */
+export function localTomorrowISO(now: Date = new Date()): string {
+  return toLocalISODate(new Date(now.getTime() + MS_PER_DAY));
+}
+
+function toLocalISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`;
+}
+
+/**
+ * Whether a `yyyy-mm-dd` start date is close enough for the NOAA/NWS hourly
+ * forecast to be meaningful. Hour-by-hour skill degrades quickly, so the live
+ * forecast source is offered only for a start of today or tomorrow.
+ */
+export function isForecastEligible(dateISO: string, now: Date = new Date()): boolean {
+  if (!dateISO) return false;
+  return dateISO === localTodayISO(now) || dateISO === localTomorrowISO(now);
+}
+
+/** Wall-clock fields of an instant, rendered in an IANA timezone. */
+export type ZonedParts = {
+  year: number;
+  month: number; // 1–12
+  day: number;
+  hour: number; // 0–23
+  minute: number;
+  second: number;
+};
+
+const zonedFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function zonedFormatter(timeZone: string): Intl.DateTimeFormat {
+  let fmt = zonedFormatters.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hourCycle: 'h23', // not hour12:false — that yields "24" for midnight
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    zonedFormatters.set(timeZone, fmt);
+  }
+  return fmt;
+}
+
+/** Break an epoch-millisecond instant into wall-clock fields in `timeZone`. */
+export function utcMsToZonedParts(ms: number, timeZone: string): ZonedParts {
+  const parts = zonedFormatter(timeZone).formatToParts(new Date(ms));
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0');
+  return {
+    year: get('year'),
+    month: get('month'),
+    day: get('day'),
+    hour: get('hour'),
+    minute: get('minute'),
+    second: get('second')
+  };
+}
+
+/** Offset of `timeZone` from UTC at instant `ms`, in milliseconds (east positive). */
+function zoneOffsetMs(ms: number, timeZone: string): number {
+  const p = utcMsToZonedParts(ms, timeZone);
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - ms;
+}
+
+/**
+ * Resolve a wall-clock date/hour in an IANA timezone to an epoch-millisecond
+ * instant.
+ *
+ * Two passes: the first offset guess is taken at the naive UTC instant, the
+ * second re-reads the offset at the corrected instant so DST transitions land
+ * on the right side. Times that do not exist (the spring-forward gap) resolve
+ * to the instant one hour before the jump; ambiguous times (the fall-back
+ * repeat) resolve to the first occurrence. Both are deterministic, which is
+ * what matters here — a placement scheduled inside a DST gap is pathological
+ * either way.
+ *
+ * @param dateISO `yyyy-mm-dd`
+ * @param hour    0–23 local wall-clock hour
+ */
+export function zonedToUtcMs(dateISO: string, hour: number, timeZone: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateISO);
+  if (!m) throw new Error(`Invalid date: ${dateISO}`);
+  const naive = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), hour);
+  const firstPass = naive - zoneOffsetMs(naive, timeZone);
+  return naive - zoneOffsetMs(firstPass, timeZone);
+}
+
+export { MS_PER_HOUR, MS_PER_DAY };
+
 export function buildWholeHours(): {label: string; value: string}[] {
   return Array.from({ length: 24 }, (_, h) => {
     const label = new Date(0, 0, 0, h).toLocaleTimeString([], { hour: 'numeric' });

@@ -59,6 +59,15 @@ export type SlabLayoutForm = {
   baseType: string;
 };
 
+/**
+ * Which environmental dataset drives the 72-hour window.
+ *
+ * `normals` — NOAA 1991–2020 hourly climate normals, always available.
+ * `forecast` — live NWS gridded forecast; only offered for a construction
+ * start of today or tomorrow (see `isForecastEligible`).
+ */
+export type WeatherSource = 'normals' | 'forecast';
+
 export type WeatherStation = {
   stationId: number;
   ghcnId: string | null;
