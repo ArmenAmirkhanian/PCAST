@@ -20,6 +20,7 @@
     type ForecastMetaSnapshot
   } from '$lib/stores/form';
   import type { CityLocation, PlacesIndex } from '$lib/types';
+  import { isRainHour, rainPeriods, rainHourCount } from '$lib/utils/precip';
   import placesIndex from '$lib/data/places-index.json';
   import type { Config, Layout, PlotData } from 'plotly.js';
 
@@ -65,6 +66,10 @@
     wind: number | null;
     /** Forecast rows carry a real year; normals rows infer one from the form. */
     year?: number;
+    /** Forecast rows only: probability of precipitation (%). */
+    precipProbPct?: number | null;
+    /** Forecast rows only: quantitative precipitation (mm), a block total. */
+    precipAmountMm?: number | null;
     /** Forecast rows only: value held over rather than read directly. */
     estimated?: boolean;
   };
@@ -82,6 +87,8 @@
     airTempC: number | null;
     windMps: number | null;
     cloudPct: number | null;
+    precipProbPct: number | null;
+    precipAmountMm: number | null;
     estimated: boolean;
   };
 
@@ -291,8 +298,8 @@
       : '';
   const formatTs = (row: { month: number; day: number; hour: number }) =>
     `${String(row.month).padStart(2, '0')}-${String(row.day).padStart(2, '0')} ${String(row.hour).padStart(2, '0')}:00`;
-  const formatNumber = (value: number | null, digits = 1) =>
-    value === null ? '—' : value.toFixed(digits);
+  const formatNumber = (value: number | null | undefined, digits = 1) =>
+    value === null || value === undefined ? '—' : value.toFixed(digits);
   const formatElevation = (value: number | null) => (value === null ? '—' : `${value.toFixed(1)} m`);
   /** Render an ISO instant as wall-clock time at the project site. */
   const formatIsoLocal = (iso: string | null, timeZone: string) => {
@@ -404,6 +411,13 @@
           hourly: toHourlyRows(station.readings)
         }));
 
+  /**
+   * Wet spans in the loaded forecast, on the analysis charts' hour axis. Empty
+   * on the normals path — `forecastDisplay` is only ever populated by the
+   * forecast lookup, and climate normals carry no precipitation series at all.
+   */
+  $: forecastRain = rainPeriods(forecastDisplay?.hourly ?? []);
+
   /** Hours rendered in the result table, across all series. */
   $: resultRowCount =
     $weatherSource === 'forecast'
@@ -441,6 +455,10 @@
           airTempC: row.temp  ?? 20,
           windMps:  row.wind  ?? 3,
           cloudPct: row.cloud,
+          // Carried, not consumed: the thermal model has no rainfall term, so
+          // these only feed the wet-hour warning on the analysis output.
+          precipProbPct:  row.precipProbPct,
+          precipAmountMm: row.precipAmountMm,
           estimated: row.estimated
         }))
       );
@@ -901,6 +919,8 @@ issued value and flagged as estimated.`;
           temp: row.airTempC,
           wind: row.windMps,
           cloud: row.cloudPct,
+          precipProbPct: row.precipProbPct,
+          precipAmountMm: row.precipAmountMm,
           estimated: row.estimated
         }))
       };
@@ -1147,6 +1167,20 @@ issued value and flagged as estimated.`;
         </div>
       {/if}
 
+      {#if forecastRain.length}
+        <div class="rounded border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+          <p class="font-semibold">
+            Rain forecast in {rainHourCount(forecastRain)} of the 72 hours — from hour
+            {forecastRain[0].startHour} after placement.
+          </p>
+          <p class="mt-1 text-xs">
+            The thermal model has no rainfall term, so it cannot reproduce the surface cooling a
+            wetted slab undergoes. Temperature, stress and cracking results are not reliable from
+            the first wet hour onward; the affected hours are shaded on the analysis charts.
+          </p>
+        </div>
+      {/if}
+
       {#if sqlProgress.length}
         <div class="rounded border bg-gray-50 p-3 text-sm text-gray-800">
           <div class="flex items-center justify-between">
@@ -1339,7 +1373,7 @@ issued value and flagged as estimated.`;
           <div class="space-y-3">
             <p class="text-sm font-semibold text-gray-700">
               {#if $weatherSource === 'forecast'}
-                72-hour NWS forecast (temperature, sky cover, wind speed)
+                72-hour NWS forecast (temperature, sky cover, wind speed, precipitation)
               {:else}
                 72-hour normals (HLY-TEMP-NORMAL, HLY-CLDH-NORMAL, HLY-WIND-AVGSPD)
               {/if}
@@ -1377,6 +1411,8 @@ issued value and flagged as estimated.`;
                           {$weatherSource === 'forecast' ? 'Wind (m/s)' : 'HLY Wind'}
                         </th>
                         {#if $weatherSource === 'forecast'}
+                          <th class="px-2 py-1">Precip (%)</th>
+                          <th class="px-2 py-1">QPF (mm)</th>
                           <th class="px-2 py-1">Source</th>
                         {/if}
                       </tr>
@@ -1390,6 +1426,13 @@ issued value and flagged as estimated.`;
                           <td class="px-2 py-1">{formatNumber(reading.cloud)}</td>
                           <td class="px-2 py-1">{formatNumber(reading.wind)}</td>
                           {#if $weatherSource === 'forecast'}
+                            {@const wet = isRainHour(reading)}
+                            <td class="px-2 py-1 {wet ? 'font-semibold text-sky-800' : ''}">
+                              {formatNumber(reading.precipProbPct)}
+                            </td>
+                            <td class="px-2 py-1 {wet ? 'font-semibold text-sky-800' : ''}">
+                              {formatNumber(reading.precipAmountMm)}
+                            </td>
                             <td class="px-2 py-1 {reading.estimated ? 'text-amber-800' : 'text-gray-500'}">
                               {reading.estimated ? 'estimated' : 'forecast'}
                             </td>

@@ -10,6 +10,10 @@
  * cloud fraction. The raw product carries temperature, wind speed and sky
  * cover together, at the cost of having to expand ISO-8601 interval notation
  * into whole hours.
+ *
+ * Precipitation is carried alongside but is *not* a model input — the thermal
+ * model has no rainfall term. It is read so the analysis can tell the user
+ * which hours its results stop being trustworthy in; see `$lib/utils/precip`.
  */
 
 import { MS_PER_HOUR, utcMsToZonedParts } from '$lib/utils/time';
@@ -28,6 +32,14 @@ export type ForecastRow = {
   airTempC: number | null;
   windMps: number | null;
   cloudPct: number | null;
+  /** Probability of precipitation (%), null when the grid carries no series. */
+  precipProbPct: number | null;
+  /**
+   * Quantitative precipitation (mm). NWS issues this as a multi-hour block
+   * total, so every hour of a block reports that block's total — it is a
+   * "precipitation is expected in this hour" signal, not an hourly rate.
+   */
+  precipAmountMm: number | null;
   /**
    * True when the value was held over rather than read directly from the
    * forecast — either the requested start precedes the first forecast hour
@@ -145,6 +157,8 @@ export type GridpointProps = {
   temperature?: NwsSeries;
   windSpeed?: NwsSeries;
   skyCover?: NwsSeries;
+  probabilityOfPrecipitation?: NwsSeries;
+  quantitativePrecipitation?: NwsSeries;
 };
 
 /**
@@ -278,10 +292,14 @@ export function buildForecastRows(
   const temp = expandSeries(props.temperature);
   const wind = expandSeries(props.windSpeed, kmhToMps);
   const sky = expandSeries(props.skyCover);
+  const pop = expandSeries(props.probabilityOfPrecipitation);
+  const qpf = expandSeries(props.quantitativePrecipitation);
 
   const tempKeys = [...temp.keys()].sort((a, b) => a - b);
   const windKeys = [...wind.keys()].sort((a, b) => a - b);
   const skyKeys = [...sky.keys()].sort((a, b) => a - b);
+  const popKeys = [...pop.keys()].sort((a, b) => a - b);
+  const qpfKeys = [...qpf.keys()].sort((a, b) => a - b);
 
   const { firstAvailableMs, estimatedLeadingHours } = coverage;
   const rows: ForecastRow[] = [];
@@ -290,6 +308,10 @@ export function buildForecastRows(
     const t = sampleAt(temp, ms, tempKeys);
     const w = sampleAt(wind, ms, windKeys);
     const c = sampleAt(sky, ms, skyKeys);
+    // Precipitation never drives `estimated` — that flag is about the inputs the
+    // thermal model actually consumes (temperature and wind).
+    const pp = sampleAt(pop, ms, popKeys);
+    const qp = sampleAt(qpf, ms, qpfKeys);
     const estimated = !t.hit || !w.hit;
     const p = utcMsToZonedParts(ms, timeZone);
     rows.push({
@@ -301,6 +323,8 @@ export function buildForecastRows(
       airTempC: t.value,
       windMps: w.value,
       cloudPct: c.value,
+      precipProbPct: pp.value,
+      precipAmountMm: qp.value,
       estimated
     });
   }

@@ -43,7 +43,10 @@ function grid(startISO: string, hours = 200): GridpointProps {
     elevation: { value: 152.4 },
     temperature: series(startISO, hours, 1, (i) => 20 + (i % 24) * 0.5),
     windSpeed: series(startISO, hours, 1, () => 18), // km/h → 5 m/s
-    skyCover: series(startISO, hours, 1, (i) => (i % 10) * 10)
+    skyCover: series(startISO, hours, 1, (i) => (i % 10) * 10),
+    // NWS issues precipitation in multi-hour blocks, not hourly like the rest.
+    probabilityOfPrecipitation: series(startISO, Math.ceil(hours / 6), 6, () => 10),
+    quantitativePrecipitation: series(startISO, Math.ceil(hours / 6), 6, () => 0)
   };
 }
 
@@ -215,6 +218,46 @@ describe('buildForecastRows', () => {
     const g = grid('2026-08-11T17:00:00Z');
     delete g.temperature;
     expect(() => buildForecastRows(g, start, CHICAGO)).toThrow(/no temperature series/);
+  });
+
+  describe('precipitation', () => {
+    it('spreads a multi-hour precipitation block across each of its hours', () => {
+      const g = grid('2026-08-11T17:00:00Z');
+      // One wet 6-hour block starting at offset 12; dry either side.
+      g.probabilityOfPrecipitation = series('2026-08-11T17:00:00Z', 34, 6, (i) =>
+        i === 2 ? 80 : 5
+      );
+      g.quantitativePrecipitation = series('2026-08-11T17:00:00Z', 34, 6, (i) =>
+        i === 2 ? 4.5 : 0
+      );
+      const { rows } = buildForecastRows(g, start, CHICAGO);
+
+      expect(rows[11].precipProbPct).toBe(5);
+      // Every hour of the block reports the block's values, not a share of them.
+      for (let i = 12; i < 18; i++) {
+        expect(rows[i].precipProbPct).toBe(80);
+        expect(rows[i].precipAmountMm).toBe(4.5);
+      }
+      expect(rows[18].precipProbPct).toBe(5);
+    });
+
+    it('reports nulls when the grid carries no precipitation series', () => {
+      const g = grid('2026-08-11T17:00:00Z');
+      delete g.probabilityOfPrecipitation;
+      delete g.quantitativePrecipitation;
+      const { rows } = buildForecastRows(g, start, CHICAGO);
+      expect(rows.every((r) => r.precipProbPct === null)).toBe(true);
+      expect(rows.every((r) => r.precipAmountMm === null)).toBe(true);
+      // Missing precipitation is not a thermal-model gap — the rows are intact.
+      expect(rows.every((r) => r.estimated === false)).toBe(true);
+    });
+
+    it('does not let a precipitation gap flag a row as estimated', () => {
+      const g = grid('2026-08-11T17:00:00Z');
+      g.quantitativePrecipitation = { values: [] };
+      const { rows } = buildForecastRows(g, start, CHICAGO);
+      expect(rows.every((r) => r.estimated === false)).toBe(true);
+    });
   });
 });
 
