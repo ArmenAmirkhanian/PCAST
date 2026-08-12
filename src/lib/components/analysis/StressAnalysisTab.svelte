@@ -10,9 +10,11 @@
     hydrationModelResults,
     stressParams,
     updateStressParams,
-    stressResults
+    stressResults,
+    weatherHourlyData
   } from '$lib/stores/form';
   import { unitSystem } from '$lib/stores/units';
+  import { rainPeriods, rainHourCount } from '$lib/utils/precip';
   import { runStressModel } from '$lib/models/stress/run';
   import { buildStressInput } from '$lib/models/stress/inputs';
   import type { CreepModel } from '$lib/models/stress/types';
@@ -196,6 +198,44 @@
   };
   const cfg = { responsive: true, displaylogo: false };
 
+  // ── Axis scaling: keeping the elastic reference off the y-axis ───────────
+  //
+  // The elastic traces carry no creep relaxation, so a restrained slab piles up
+  // stress with nothing to shed it into — they routinely run one to two orders
+  // of magnitude above the creep-adjusted results plotted beside them. Letting
+  // Plotly autoscale across both flattens the curves the chart is actually
+  // about. Past `ELASTIC_SWAMP_FACTOR` the reference trace therefore starts as
+  // `legendonly`: still listed, one click away, and Plotly re-autoscales to fit
+  // it when the user asks for it.
+  const ELASTIC_SWAMP_FACTOR = 3;
+
+  /** Peak-to-trough spread of a series, ignoring gaps. 0 if nothing is finite. */
+  function span(values: (number | null | undefined)[]): number {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const v of values) {
+      if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    return max >= min ? max - min : 0;
+  }
+
+  /**
+   * Would plotting `reference` alongside `primary` stretch the y-axis well past
+   * what the primary curves need? Measured on the combined spread rather than
+   * the reference's own, so a curve that merely sits far off-centre counts too.
+   */
+  function swampsAxis(reference: number[], primary: (number | null | undefined)[]): boolean {
+    const primarySpan = span(primary);
+    if (primarySpan <= 0) return false; // nothing worth protecting
+    return span([...primary, ...reference]) > ELASTIC_SWAMP_FACTOR * primarySpan;
+  }
+
+  /** Set by `renderCharts` — drives the "why is it missing?" captions below. */
+  let elasticStressHidden = false;
+  let elasticKIHidden = false;
+
   function strengthByHour(): Map<number, number> {
     const m = new Map<number, number>();
     for (const r of $maturityResultsStore ?? []) m.set(r.hour, r.strength);
@@ -235,8 +275,84 @@
     return { shapes, annotations };
   }
 
+  // ── Rainfall caveat ──────────────────────────────────────────────────────
+  //
+  // The illitherm thermal model has no rainfall term: no evaporative cooling
+  // from a wetted surface, no latent-heat sink from standing water, no loss of
+  // incoming radiation under a rain shaft. Every result on this tab descends
+  // from its slab temperatures, so once precipitation starts they stop tracking
+  // reality — and because the model integrates forward, the error persists
+  // through every later hour, not just the wet ones.
+  //
+  // The tool cannot model that, so it marks it: hatched bands over the wet
+  // hours and a warning above the charts.
+  //
+  // The rows are read directly rather than gated on `$weatherSource`, because
+  // they already answer the question: only the live-forecast path ever carries
+  // precipitation fields, so climate-normals rows are dry by construction and
+  // there is no way for a source flag and its data to disagree here.
+
+  // Plotly derives the pattern's background from `fillcolor`, so a band reads as
+  // a light tint carrying crisp diagonals — legible as a flagged region without
+  // hiding the curves that cross it.
+  const RAIN_FILL = 'rgba(2,132,199,0.07)';
+  const RAIN_HATCH = 'rgba(2,132,199,0.5)';
+
+  $: rainSpans = rainPeriods($weatherHourlyData);
+  $: rainStartHour = rainSpans.length ? rainSpans[0].startHour : null;
+  /** Identity of the current bands, so a re-lookup upstream re-renders the charts. */
+  $: rainKey = rainSpans.map((p) => `${p.startHour}-${p.endHour}`).join(',');
+
+  /**
+   * Hatched full-height bands over the wet hours.
+   *
+   * Traces rather than layout shapes because Plotly's layout shapes carry no
+   * `fillpattern` — only traces can be hatched. Each band is therefore a closed
+   * polygon pinned to `rainAxis`, a hidden 0–1 overlay axis, which keeps it
+   * spanning the full plot height however the stress axis scales or the user
+   * zooms. Emitted first in the trace list so they sit behind the data.
+   */
+  function rainTraces(): Data[] {
+    return rainSpans.map((p, i) => {
+      // A weather row at hour h describes the hour centred on that mark, so the
+      // band reaches half an hour either side of the wet run.
+      const x0 = p.startHour - 0.5;
+      const x1 = p.endHour + 0.5;
+      return {
+        x: [x0, x0, x1, x1, x0],
+        y: [0, 1, 1, 0, 0],
+        yaxis: 'y2',
+        mode: 'none',
+        fill: 'toself',
+        fillcolor: RAIN_FILL,
+        fillpattern: { shape: '/', size: 9, solidity: 0.22, fgcolor: RAIN_HATCH },
+        hoverinfo: 'skip',
+        name: 'Rain forecast — results unreliable',
+        legendgroup: 'rain',
+        showlegend: i === 0
+      } as Data;
+    });
+  }
+
+  /** The hidden overlay axis the rain bands are drawn against. */
+  const rainAxis = {
+    overlaying: 'y',
+    range: [0, 1],
+    fixedrange: true,
+    visible: false,
+    showgrid: false,
+    zeroline: false
+  };
+
+  /** Layout fragment adding that axis, only when there are bands to hold. */
+  $: rainLayout = rainSpans.length ? { yaxis2: rainAxis } : {};
+
   async function renderCharts() {
     if (!browser || !Plotly || !$stressResults) return;
+    // Claim the render up front: the awaits below would otherwise let the
+    // reactive guard fire again on the same stale trackers.
+    lastRenderedSys = sys;
+    lastRenderedRain = rainKey;
     const elastic = $stressResults.hourlyResults;
     const creep = $stressResults.creepResults;
     const hours = elastic.map((r) => r.hour);
@@ -244,34 +360,50 @@
 
     // ── Chart 1: stress development & cracking risk ──────────────────────
     if (chartStress) {
+      const elasticTotals = elastic.map((r) => toStress(r.totalStress));
+      const creepTotals = creep.map((r) => toStress(r.creepTotalStress));
+      const creepPeaks = creep.map((r) => toStress(r.creepMaxTensile));
+      const strengthVals = hours.map((h) => sMap.get(h));
+      const hasStrength = strengthVals.some((v) => typeof v === 'number' && v > 0);
+      const strengthDisplay = strengthVals.map((v) => (typeof v === 'number' ? toStress(v) : null));
+
+      // The creep curves and the strength they are judged against are what this
+      // chart exists to compare; the elastic total defers to them.
+      elasticStressHidden = swampsAxis(elasticTotals, [
+        ...creepTotals,
+        ...creepPeaks,
+        ...(hasStrength ? strengthDisplay : [])
+      ]);
+
       const traces: Data[] = [
+        ...rainTraces(),
         {
           x: hours,
-          y: elastic.map((r) => toStress(r.totalStress)),
+          y: elasticTotals,
           name: 'Elastic total',
           mode: 'lines',
+          visible: elasticStressHidden ? 'legendonly' : true,
           line: { color: '#9ca3af', dash: 'dot', width: 1.5 }
         } as Data,
         {
           x: hours,
-          y: creep.map((r) => toStress(r.creepTotalStress)),
+          y: creepTotals,
           name: 'Creep total',
           mode: 'lines',
           line: { color: '#2563eb', width: 2 }
         } as Data,
         {
           x: hours,
-          y: creep.map((r) => toStress(r.creepMaxTensile)),
+          y: creepPeaks,
           name: 'Creep max-tensile face',
           mode: 'lines',
           line: { color: '#dc2626', width: 2 }
         } as Data
       ];
-      const strengthVals = hours.map((h) => sMap.get(h));
-      if (strengthVals.some((v) => typeof v === 'number' && v > 0)) {
+      if (hasStrength) {
         traces.push({
           x: hours,
-          y: strengthVals.map((v) => (typeof v === 'number' ? toStress(v) : null)),
+          y: strengthDisplay,
           name: 'Tensile strength (maturity)',
           mode: 'lines',
           line: { color: '#16a34a', dash: 'dash', width: 2 }
@@ -286,6 +418,7 @@
           title: { text: 'Stress Development & Cracking Risk', font: { size: 15 } },
           xaxis: { title: { text: 'Hour after placement' } },
           yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
+          ...rainLayout,
           shapes,
           annotations
         } as Partial<Layout>,
@@ -298,6 +431,7 @@
       await Plotly.react(
         chartFibre,
         [
+          ...rainTraces(),
           {
             x: hours,
             y: creep.map((r) => toStress(r.creepStressTop)),
@@ -318,6 +452,7 @@
           title: { text: 'Creep-Adjusted Extreme-Fibre Stress', font: { size: 15 } },
           xaxis: { title: { text: 'Hour after placement' } },
           yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
+          ...rainLayout,
           ...eventShapes()
         } as Partial<Layout>,
         cfg
@@ -326,19 +461,25 @@
 
     // ── Chart 3: stress intensity factor ─────────────────────────────────
     if (chartKI) {
+      const elasticKI = elastic.map((r) => toKI(r.stressIntensityKI));
+      const creepKI = creep.map((r) => toKI(r.creepKI));
+      elasticKIHidden = swampsAxis(elasticKI, creepKI);
+
       await Plotly.react(
         chartKI,
         [
+          ...rainTraces(),
           {
             x: hours,
-            y: elastic.map((r) => toKI(r.stressIntensityKI)),
+            y: elasticKI,
             name: 'Elastic Kᵢ',
             mode: 'lines',
+            visible: elasticKIHidden ? 'legendonly' : true,
             line: { color: '#9ca3af', dash: 'dot', width: 1.5 }
           } as Data,
           {
             x: hours,
-            y: creep.map((r) => toKI(r.creepKI)),
+            y: creepKI,
             name: 'Creep Kᵢ',
             mode: 'lines',
             line: { color: '#7c3aed', width: 2 }
@@ -348,19 +489,23 @@
           ...baseLayout,
           title: { text: 'Mode-I Stress Intensity Factor', font: { size: 15 } },
           xaxis: { title: { text: 'Hour after placement' } },
-          yaxis: { title: { text: `Kᵢ (${kiUnit})` }, zeroline: true }
+          yaxis: { title: { text: `Kᵢ (${kiUnit})` }, zeroline: true },
+          ...rainLayout
         } as Partial<Layout>,
         cfg
       );
     }
   }
 
-  // Re-render only on unit toggle; runAnalysis() owns the post-run render (it
-  // awaits tick() so the chart divs are bound first). Keying on a sys change
-  // avoids a redundant second Plotly.react pass on every run.
+  // Re-render only when something the charts depend on actually changes;
+  // runAnalysis() owns the post-run render (it awaits tick() so the chart divs
+  // are bound first). Keying on the values avoids a redundant second
+  // Plotly.react pass on every run. The rain key is in here because the user can
+  // re-run the Environment lookup — switching to or from the live forecast —
+  // after the analysis, which changes the bands without changing the results.
   let lastRenderedSys = sys;
-  $: if (plotlyReady && hasRun && sys !== lastRenderedSys) {
-    lastRenderedSys = sys;
+  let lastRenderedRain = '';
+  $: if (plotlyReady && hasRun && (sys !== lastRenderedSys || rainKey !== lastRenderedRain)) {
     renderCharts();
   }
 
@@ -619,6 +764,35 @@
       </div>
     {/if}
 
+    <!-- Rainfall caveat: the thermal model this analysis rests on has no
+         rainfall term, so results are not trustworthy once precipitation
+         begins. Stated before the numbers, not after them. -->
+    {#if rainSpans.length}
+      <div class="rounded-lg border-2 border-sky-400 bg-sky-50 p-4 text-sm text-sky-900">
+        <p class="font-semibold">
+          Rain is forecast from hour {rainStartHour} — results are not reliable from that hour
+          onward.
+        </p>
+        <p class="mt-1">
+          The thermal model has no rainfall term: it cannot reproduce evaporative cooling from a
+          wetted surface, the latent-heat sink of standing water, or the loss of incoming solar
+          radiation under a rain shaft. The slab temperatures every stress, creep and cracking
+          result below is derived from will therefore diverge from the real slab once rain starts,
+          and because the model integrates forward that error persists through the remaining hours —
+          not only the wet ones.
+        </p>
+        <p class="mt-1">
+          {rainHourCount(rainSpans)} forecast hour{rainHourCount(rainSpans) === 1 ? '' : 's'}
+          {rainHourCount(rainSpans) === 1 ? 'is' : 'are'} wet, in
+          {rainSpans.length} period{rainSpans.length === 1 ? '' : 's'}:
+          {#each rainSpans as p, i}{i > 0 ? ', ' : ''}h{p.startHour}{p.endHour !== p.startHour
+              ? `–${p.endHour}`
+              : ''}{/each}. These are hatched on the charts below. Treat the saw-cut verdict as
+          indicative only, and re-run once the forecast is dry or the weather has passed.
+        </p>
+      </div>
+    {/if}
+
     {#if peak}
       <div class="rounded-lg border bg-white p-4 shadow-sm">
         <p class="text-sm">
@@ -701,6 +875,14 @@
 
     <div class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="h-[360px] w-full" bind:this={chartStress}></div>
+      {#if elasticStressHidden}
+        <p class="mt-2 text-xs text-gray-500">
+          The elastic total starts hidden on this chart. Without creep relaxation the restrained
+          slab accumulates stress far beyond the creep-adjusted range, so plotting it flattens the
+          curves the cracking check actually turns on. Click <strong>Elastic total</strong> in the
+          legend to bring it back and rescale.
+        </p>
+      {/if}
     </div>
     <div class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="h-[360px] w-full" bind:this={chartFibre}></div>
@@ -711,6 +893,12 @@
     </div>
     <div class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="h-[360px] w-full" bind:this={chartKI}></div>
+      {#if elasticKIHidden}
+        <p class="mt-2 text-xs text-gray-500">
+          The elastic Kᵢ starts hidden for the same reason as the elastic total above — it is an
+          unrelaxed reference that would otherwise set the axis. Click it in the legend to show it.
+        </p>
+      {/if}
       {#if !$stressParams.sawcutNormalized}
         <p class="mt-2 text-xs text-gray-500">
           Kᵢ is zero without a sawcut. Set a sawcut depth above to engage the joint

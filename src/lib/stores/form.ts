@@ -124,6 +124,17 @@ export type WeatherHourlyRow = {
   windMps: number;
   cloudPct: number | null;
   /**
+   * Forecast rows only: probability of precipitation (%). Not a thermal-model
+   * input — the model has no rainfall term — but it is what flags the hours
+   * whose results the user must not trust. See `$lib/utils/precip`.
+   */
+  precipProbPct?: number | null;
+  /**
+   * Forecast rows only: quantitative precipitation (mm), issued by NWS as a
+   * multi-hour block total repeated across each hour of the block.
+   */
+  precipAmountMm?: number | null;
+  /**
    * Forecast rows only: the value was held over rather than read directly —
    * either the start precedes the first forecast hour or the series had a gap.
    */
