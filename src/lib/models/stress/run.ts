@@ -1,16 +1,18 @@
 /**
  * Main runner for the stress & creep analysis.
  *
- * Converted from VBA Sub main() → createCreep → creepTransform → transformTemp
- * → BeamPrep → creepResults in CreepModule + BeamModule.
+ * Loosely converted from VBA Sub main() → createCreep → creepTransform →
+ * transformTemp → BeamPrep → creepResults in CreepModule + BeamModule; see
+ * creep.ts for the corrected derivation of the pseudo-load transform.
  *
  * Workflow:
- *   1. Build creep compliance and Riesz transformation matrices (B, B⁻¹)
+ *   1. Build the creep compliance matrix J and the pseudo-load operator B⁻¹
  *   2. Apply B⁻¹ to temperature load histories → pseudo-temperature histories
  *   3. March hour by hour: elastic beam-on-foundation analysis for the hour's
- *      restraint regime, then row i of B → the creep-adjusted stress at that
- *      hour, then the cracking check — which switches the slab from continuous
- *      (infinite) to cracked (finite) the moment the demand reaches the strength
+ *      restraint regime, then row i of B (a running sum) → the creep-adjusted
+ *      stress at that hour, then the cracking check — which switches the slab
+ *      from continuous (infinite) to cracked (finite) the moment the demand
+ *      reaches the strength
  *   4. Assemble the cracking / saw-cut-timing assessment
  *
  * Step 3 can be marched hour by hour because B is lower triangular: the
@@ -22,9 +24,8 @@
 
 import {
   buildCreepCompliance,
-  buildDifferentialCreep,
-  buildTransformationMatrix,
-  buildInverseTransformation,
+  buildPseudoLoadOperator,
+  buildCumulativeSumOperator,
   DEFAULT_CREEP_PARAMS,
 } from './creep';
 import {
@@ -141,9 +142,8 @@ export function runStressModel(input: StressModelInput): StressOutput {
   // stiffness so the compliance kernel and the elastic solve share one E(t).
   const modulusByIndex = hourlyInputs.map(h => h.elasticModulus);
   const J    = buildCreepCompliance(startHour, nt, creepParams, modulusByIndex);
-  const dJ   = buildDifferentialCreep(J);
-  const B    = buildTransformationMatrix(dJ);
-  const Binv = buildInverseTransformation(B);
+  const Binv = buildPseudoLoadOperator(J, startHour, nt, creepParams, modulusByIndex);
+  const B    = buildCumulativeSumOperator(nt);
 
   // -------------------------------------------------------------------------
   // Step 2: Extract raw temperature histories and apply B⁻¹ (transformTemp)

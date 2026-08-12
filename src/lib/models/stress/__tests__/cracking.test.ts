@@ -48,11 +48,11 @@ function model(strength: number | undefined, extra: Partial<StressModelInput> = 
   };
 }
 
-// Demands for this fixture run ~300 psi at hour 10 up to ~460 psi at hour 17
-// (continuous regime), so 200 psi cracks immediately, 400 psi cracks mid-window
-// and 5000 psi never cracks.
+// Demands for this fixture run ~303 psi at hour 10 up to ~350 psi at hour 17
+// (continuous regime), so 200 psi cracks immediately, 330 psi cracks mid-window
+// (around hour 15) and 5000 psi never cracks.
 const CRACKS_EARLY = 200;
-const CRACKS_MIDWAY = 400;
+const CRACKS_MIDWAY = 330;
 const NEVER_CRACKS = 5000;
 
 // ---------------------------------------------------------------------------
