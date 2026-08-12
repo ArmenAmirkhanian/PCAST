@@ -8,6 +8,7 @@
     weatherHourlyData,
     thermalGradientResults,
     hydrationModelResults,
+    thermalDisplayHours,
     type WeatherHourlyRow
   } from '$lib/stores/form';
   import { unitSystem, fToC } from '$lib/stores/units';
@@ -19,9 +20,12 @@
   let Hu = 375000; // J/kg — total heat of hydration (default: Type I/II)
   let cc = 350;    // kg/m³ — cement content
 
-  // Hours 1–72 available for display
+  // Hours 1–72 available for display. The selection lives in a store so the PDF
+  // report plots the same curves shown here.
   const ALL_HOURS = Array.from({ length: 72 }, (_, i) => i + 1);
-  let selectedHours = new Set<number>([1, 6, 12, 24, 48, 72]);
+  $: selectedHours = new Set<number>($thermalDisplayHours);
+  const setSelectedHours = (next: Set<number>) =>
+    thermalDisplayHours.set([...next].sort((a, b) => a - b));
 
   // Run state
   let isRunning = false;
@@ -219,12 +223,12 @@
   function toggleHour(h: number) {
     const next = new Set(selectedHours);
     if (next.has(h)) next.delete(h); else next.add(h);
-    selectedHours = next;
+    setSelectedHours(next);
   }
-  function selectAll()         { selectedHours = new Set(ALL_HOURS); }
-  function clearAll()          { selectedHours = new Set(); }
+  function selectAll()         { setSelectedHours(new Set(ALL_HOURS)); }
+  function clearAll()          { setSelectedHours(new Set()); }
   function selectEvery(n: number) {
-    selectedHours = new Set(ALL_HOURS.filter((h) => h % n === 0));
+    setSelectedHours(new Set(ALL_HOURS.filter((h) => h % n === 0)));
   }
 </script>
 

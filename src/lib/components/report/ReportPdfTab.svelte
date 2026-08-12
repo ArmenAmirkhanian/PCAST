@@ -15,7 +15,9 @@
     stressResults,
     stressParams,
     weatherSource,
-    forecastMeta
+    forecastMeta,
+    weatherHourlyData,
+    thermalDisplayHours
   } from '$lib/stores/form';
   import { site, allPoints } from '$lib/stores/stations';
   import { HYDRATION_MODEL_NAMES, MODEL_VARIABLES, WC_NOTE_MODELS, MODEL_RESULT_LABELS } from '$lib/hydration-models';
@@ -24,6 +26,15 @@
   import StaticMapView from '$lib/components/report/StaticMapView.svelte';
   import placesIndex from '$lib/data/places-index.json';
   import type { PlacesIndex } from '$lib/types';
+  import { isRainHour, rainPeriods, rainHourCount, type RainPeriod } from '$lib/utils/precip';
+  import {
+    DISCLAIMER_PARAGRAPHS,
+    ORIGINAL_WORK,
+    ORIGINAL_CONTRIBUTORS,
+    WEBAPP_DEVELOPMENT,
+    FUNDING_ACKNOWLEDGMENT,
+    DATA_SOURCES
+  } from '$lib/content/legal';
 
   export let hydrationModelEquations: Record<string, string>;
   export let analysisNarratives: Record<string, string>;
@@ -136,6 +147,8 @@
       weatherStations: [...get(weatherStations)],
       weatherSource: get(weatherSource),
       forecastMeta: get(forecastMeta),
+      weatherHourly: [...get(weatherHourlyData)],
+      thermalHours: [...get(thermalDisplayHours)],
       chartImages: { ...get(chartImages) },
       hydrationModelResults: { ...get(hydrationModelResults) },
       maturity: get(maturityResultsStore),
@@ -182,7 +195,7 @@
   onMount(() => {
     const stores = [
       projectInfo, materials, slabLayout, weatherStations, weatherSource,
-      forecastMeta, chartImages,
+      forecastMeta, weatherHourlyData, thermalDisplayHours, chartImages,
       hydrationModelResults, maturityResultsStore, bentzSeries,
       thermalGradientResults, stressResults, stressParams,
       unitSystem, site, allPoints
@@ -259,12 +272,35 @@
   }
 
   // ── Thermal-gradient profile summary (surface / mid / bottom + gradient) ──
+  /**
+   * The hours the Results-tab chart is showing, clamped to what was actually
+   * computed. Read from the snapshot so the plotted profiles match the screen
+   * rather than a fixed set the user may have changed away from.
+   */
+  function thermalHours(): number[] {
+    const res = snap.thermal?.results ?? [];
+    return [...(snap.thermalHours ?? [])]
+      .filter((h) => h >= 1 && h <= res.length)
+      .sort((a, b) => a - b);
+  }
+
+  /**
+   * Same hours, thinned so the printed table stays on one page. "Every hour"
+   * is a reasonable thing to plot and an unreasonable thing to tabulate.
+   */
+  const TABLE_HOUR_LIMIT = 12;
+  function thermalTableHours(): number[] {
+    const hours = thermalHours();
+    if (hours.length <= TABLE_HOUR_LIMIT) return hours;
+    const step = Math.ceil(hours.length / TABLE_HOUR_LIMIT);
+    return hours.filter((_, i) => i % step === 0);
+  }
+
   type GradientRow = { hour: number; surface: number; mid: number; bottom: number; gradient: number };
   function thermalSummaryRows(): GradientRow[] {
     const res = snap.thermal?.results ?? [];
     if (!res.length) return [];
-    const hours = [1, 6, 12, 24, 48, 72].filter((h) => h <= res.length);
-    return hours.map((h) => {
+    return thermalTableHours().map((h) => {
       const temps = res[h - 1].temps; // results[0] → hour 1
       const n = temps.length;
       const surfaceC = temps[0];
@@ -308,6 +344,46 @@
   $: hasWindCloud = !!(snap.chartImages.wind || snap.chartImages.cloud);
   $: isForecastReport = snap.weatherSource === 'forecast';
 
+  // ── Hourly weather appendix ──────────────────────────────────────────────
+  // The full driving series, printed at the back so the analysis pages stay
+  // readable. Chunked because 72 rows do not fit on a letter page.
+  const WEATHER_ROWS_PER_PAGE = 26;
+  $: weatherPages = (() => {
+    const rows = snap.weatherHourly ?? [];
+    if (!rows.length) return [[]];
+    const out: (typeof rows)[] = [];
+    for (let i = 0; i < rows.length; i += WEATHER_ROWS_PER_PAGE) {
+      out.push(rows.slice(i, i + WEATHER_ROWS_PER_PAGE));
+    }
+    return out;
+  })();
+  /** Wet spans in the printed series; empty on the normals path by construction. */
+  $: reportRain = rainPeriods(snap.weatherHourly ?? []);
+
+  // Unit-aware conversions for the raw weather series (stored SI).
+  const windDisplay = (mps: number) => (us ? mps * 2.23694 : mps);
+  const precipDisplay = (mm: number) => (us ? mm * 0.0393701 : mm);
+  $: windUnit = us ? 'mph' : 'm/s';
+  $: precipUnit = us ? 'in' : 'mm';
+
+  /** `MM-DD HH:00` for a weather row, from the calendar fields it carries. */
+  function weatherStamp(row: { month: number; day: number; hour: number }): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(row.month)}-${pad(row.day)} ${pad(row.hour)}:00`;
+  }
+
+  function fmtOrDash(value: number | null | undefined, dp = 1): string {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+    return value.toFixed(dp);
+  }
+
+  /** "h4–9, h20" — the wet spans, as the warnings quote them. */
+  function rainSpanLabel(spans: RainPeriod[]): string {
+    return spans
+      .map((p) => (p.endHour === p.startHour ? `h${p.startHour}` : `h${p.startHour}–${p.endHour}`))
+      .join(', ');
+  }
+
   /** Forecast issuance rendered in the project site's timezone. */
   const formatIssuance = (meta: { updateTime: string | null; timeZone: string }) => {
     if (!meta.updateTime) return 'unknown';
@@ -326,20 +402,25 @@
   // running page numbers and the table of contents.
   $: pageOrder = (() => {
     const o: string[] = [
-      'cover', 'disclaimer', 'toc', 'projectInfo', 'materials',
+      'cover', 'disclaimer', 'acknowledgements', 'toc', 'projectInfo', 'materials',
       'materialsCont', 'slabLayout', 'environment'
     ];
     if (hasWindCloud) o.push('environmentCharts');
     if (hasMaturity) o.push('maturityTheory', 'maturityCharts', 'maturityTable');
     if (hasThermal) o.push('thermalTheory', 'thermalResults');
     if (hasStress) o.push('stressTheory', 'stressParams', 'stressCharts', 'stressTable');
-    o.push('appendicesDivider', 'appendixA');
+    o.push('appendicesDivider');
+    // One key per printed appendix-A page so the running numbers stay right
+    // however many hours the weather series holds.
+    weatherPages.forEach((_, i) => o.push(`appendixA${i}`));
     return o;
   })();
   $: pageNum = Object.fromEntries(pageOrder.map((k, i) => [k, i + 1])) as Record<string, number>;
 
   $: tocSections = (() => {
     const s: { title: string; page: number; indent: boolean }[] = [
+      { title: 'Disclaimer and Limitation of Liability', page: pageNum.disclaimer, indent: false },
+      { title: 'Acknowledgements', page: pageNum.acknowledgements, indent: false },
       { title: 'Project Information', page: pageNum.projectInfo, indent: false },
       { title: 'Materials', page: pageNum.materials, indent: false },
       { title: 'Slab Layout', page: pageNum.slabLayout, indent: false },
@@ -349,7 +430,11 @@
     if (hasThermal) s.push({ title: 'Thermal Gradient', page: pageNum.thermalTheory, indent: false });
     if (hasStress) s.push({ title: 'Stress & Creep Analysis', page: pageNum.stressTheory, indent: false });
     s.push({ title: 'Appendices', page: pageNum.appendicesDivider, indent: false });
-    s.push({ title: 'Appendix A', page: pageNum.appendixA, indent: true });
+    s.push({
+      title: `Appendix A — Hourly ${isForecastReport ? 'Forecast' : 'Weather'} Data`,
+      page: pageNum.appendixA0,
+      indent: true
+    });
     return s;
   })();
 
@@ -389,6 +474,117 @@
     font: chartFont,
     margin: { t: 50, r: 24, b: 56, l: 78 }
   };
+
+  // ── Chart-parity helpers ─────────────────────────────────────────────────
+  // These mirror the on-screen charts in StressAnalysisTab. The printed figure
+  // has to be the same figure: same hidden reference traces, same rain bands,
+  // same event markers. Anything less makes the report disagree with the screen
+  // it was generated from.
+
+  /** Peak-to-trough spread of a series, ignoring gaps. 0 if nothing is finite. */
+  function span(values: (number | null | undefined)[]): number {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const v of values) {
+      if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    return max >= min ? max - min : 0;
+  }
+
+  /**
+   * Same threshold the Stress tab uses: past this the unrelaxed elastic
+   * reference sets the y-axis and flattens the curves the chart is about, so it
+   * is dropped from the printed figure instead.
+   */
+  const ELASTIC_SWAMP_FACTOR = 3;
+  function swampsAxis(reference: number[], primary: (number | null | undefined)[]): boolean {
+    const primarySpan = span(primary);
+    if (primarySpan <= 0) return false;
+    return span([...primary, ...reference]) > ELASTIC_SWAMP_FACTOR * primarySpan;
+  }
+
+  // Whether each elastic reference was dropped — drives the captions that
+  // explain its absence, exactly as on the Stress tab.
+  let elasticStressHidden = false;
+  let elasticKIHidden = false;
+
+  /**
+   * First crack anywhere in the window: the natural crack when the slab breaks
+   * while continuous, otherwise the first hour the relieved slab still reaches
+   * its strength. Matches `firstCrackHour` on the Stress tab.
+   */
+  $: firstCrackHour = (() => {
+    const c = snap.stress?.cracking;
+    if (!c) return undefined;
+    return c.naturalCrackHour ?? c.exceedanceHoursAfterRelief?.[0];
+  })();
+  $: firstCrackAfterRelief =
+    firstCrackHour !== undefined && snap.stress?.cracking?.naturalCrackHour === undefined;
+
+  const RAIN_FILL = 'rgba(2,132,199,0.07)';
+  const RAIN_HATCH = 'rgba(2,132,199,0.5)';
+
+  /**
+   * Hatched wet-hour bands, pinned to a hidden 0–1 overlay axis so they span the
+   * full plot height however the stress axis scales. Traces rather than layout
+   * shapes because only traces carry `fillpattern`.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function rainTraces(spans: RainPeriod[]): any[] {
+    return spans.map((p, i) => ({
+      x: [p.startHour - 0.5, p.startHour - 0.5, p.endHour + 0.5, p.endHour + 0.5, p.startHour - 0.5],
+      y: [0, 1, 1, 0, 0],
+      yaxis: 'y2',
+      mode: 'none',
+      fill: 'toself',
+      fillcolor: RAIN_FILL,
+      fillpattern: { shape: '/', size: 9, solidity: 0.22, fgcolor: RAIN_HATCH },
+      hoverinfo: 'skip',
+      name: 'Rain forecast — results unreliable',
+      legendgroup: 'rain',
+      showlegend: i === 0
+    }));
+  }
+
+  /** The hidden overlay axis those bands are drawn against. */
+  const rainAxis = {
+    overlaying: 'y',
+    range: [0, 1],
+    fixedrange: true,
+    visible: false,
+    showgrid: false,
+    zeroline: false
+  };
+
+  /** Saw-cut and first-crack markers, as the Stress tab draws them. */
+  function eventShapes(cutHour: number | undefined, crackHour: number | undefined, afterRelief: boolean) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shapes: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const annotations: any[] = [];
+    const mark = (hour: number, color: string, text: string, y: number) => {
+      shapes.push({
+        type: 'line', x0: hour, x1: hour, yref: 'paper', y0: 0, y1: 1,
+        line: { color, width: 2, dash: 'dash' }
+      });
+      annotations.push({
+        x: hour, y, yref: 'paper', text, showarrow: false,
+        font: { size: 12, color }, bgcolor: 'rgba(255,255,255,0.8)', xanchor: 'left'
+      });
+    };
+    if (typeof cutHour === 'number') mark(cutHour, '#2563eb', `saw-cut (h${cutHour})`, 1.03);
+    if (typeof crackHour === 'number') {
+      mark(
+        crackHour,
+        '#b91c1c',
+        afterRelief ? `first crack (h${crackHour}, after joint)` : `first crack (h${crackHour})`,
+        0.93
+      );
+    }
+    return { shapes, annotations };
+  }
 
   async function generateCharts() {
     if (!browser) return;
@@ -445,16 +641,41 @@
         yaxis: { title: { text: 'Heat Rate (J/g/hr)' } }
       }, 1000, 360);
 
-      next.strength = await capture(offStrength, [{
+      // Mirrors the Materials-tab plot: the compressive series appears on a
+      // secondary axis whenever an f'c input produced one.
+      const hasCompressive = mat.some((r) => r.compressiveStrength !== undefined);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const strengthTraces: any[] = [{
         x: mat.map((r) => r.hour),
         y: mat.map((r) => toStress(r.strength)),
-        type: 'scatter', mode: 'lines', name: 'Tensile strength',
+        type: 'scatter', mode: 'lines', name: `Tensile strength (${strengthUnit})`,
         line: { color: '#16a34a', width: 2.5 }
-      }], {
+      }];
+      if (hasCompressive) {
+        strengthTraces.push({
+          x: mat.map((r) => r.hour),
+          y: mat.map((r) => (r.compressiveStrength === undefined ? null : toStress(r.compressiveStrength))),
+          type: 'scatter', mode: 'lines', name: `Compressive strength (${strengthUnit})`,
+          line: { color: '#9ca3af', dash: 'dot', width: 1.5 }, yaxis: 'y2'
+        });
+      }
+      next.strength = await capture(offStrength, strengthTraces, {
         ...baseLayout,
         title: { text: 'Tensile Strength vs Time', font: { size: 16 } },
         xaxis: { title: { text: 'Time (hr)' } },
-        yaxis: { title: { text: `Tensile strength (${strengthUnit})` } }
+        yaxis: { title: { text: `Tensile strength (${strengthUnit})` } },
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.2 },
+        ...(hasCompressive
+          ? {
+              margin: { t: 50, r: 78, b: 56, l: 78 },
+              yaxis2: {
+                title: { text: `Compressive strength (${strengthUnit})` },
+                overlaying: 'y',
+                side: 'right'
+              }
+            }
+          : {})
       }, 1000, 360);
     }
 
@@ -465,7 +686,11 @@
       const numPoints = res[0]?.temps.length ?? 11;
       const depthsM = Array.from({ length: numPoints }, (_, i) => (thicknessM / (numPoints - 1)) * i);
       const depthsDisplay = us ? depthsM.map((d) => d * 39.3701) : depthsM.map((d) => d * 1000);
-      const hours = [1, 6, 12, 24, 48, 72].filter((h) => h <= res.length);
+      // The hours the Results tab is plotting, not a fixed set — read off the
+      // snapshot so the printed figure matches the screen it came from.
+      const hours = [...(snap.thermalHours ?? [])]
+        .filter((h) => h >= 1 && h <= res.length)
+        .sort((a, b) => a - b);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const traces: any[] = hours.map((h) => ({
         x: res[h - 1].temps.map((t) => tempDisplay(t)),
@@ -490,40 +715,53 @@
       const sMap = new Map<number, number>();
       for (const r of snap.maturity ?? []) sMap.set(r.hour, r.strength);
 
+      // Wet-hour bands and the overlay axis that holds them. Read off the
+      // snapshot rather than the reactive `reportRain`, which Svelte's scheduler
+      // has not yet updated when this runs.
+      const spans = rainPeriods(snap.weatherHourly ?? []);
+      const bands = rainTraces(spans);
+      const rainLayout = spans.length ? { yaxis2: rainAxis } : {};
+
+      // Regime-switch markers: the planned saw-cut and the first crack —
+      // natural where the slab broke while continuous, otherwise the first hour
+      // the relieved slab still reached its strength.
+      const cutHour = snap.stress.cracking?.sawCutHour;
+      const crackHour =
+        snap.stress.cracking?.naturalCrackHour ??
+        snap.stress.cracking?.exceedanceHoursAfterRelief?.[0];
+      const afterRelief = snap.stress.cracking?.naturalCrackHour === undefined;
+      const events = eventShapes(cutHour, crackHour, afterRelief);
+
+      const elasticTotals = elastic.map((r) => toStress(r.totalStress));
+      const creepTotals = creep.map((r) => toStress(r.creepTotalStress));
+      const creepPeaks = creep.map((r) => toStress(r.creepMaxTensile));
+      const strengthVals = hours.map((h) => sMap.get(h));
+      const hasStrength = strengthVals.some((v) => typeof v === 'number' && v > 0);
+      const strengthDisplay = strengthVals.map((v) => (typeof v === 'number' ? toStress(v) : null));
+
+      // The unrelaxed elastic total is dropped, not merely de-emphasised: a
+      // static image has no legend to click, so leaving it in would flatten the
+      // creep curves the cracking check turns on with no way to recover them.
+      elasticStressHidden = swampsAxis(elasticTotals, [
+        ...creepTotals,
+        ...creepPeaks,
+        ...(hasStrength ? strengthDisplay : [])
+      ]);
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const devTraces: any[] = [
-        { x: hours, y: elastic.map((r) => toStress(r.totalStress)), name: 'Elastic total', mode: 'lines', line: { color: '#9ca3af', dash: 'dot', width: 1.5 } },
-        { x: hours, y: creep.map((r) => toStress(r.creepTotalStress)), name: 'Creep total', mode: 'lines', line: { color: '#2563eb', width: 2.5 } },
-        { x: hours, y: creep.map((r) => toStress(r.creepMaxTensile)), name: 'Creep max-tensile face', mode: 'lines', line: { color: '#dc2626', width: 2.5 } }
+        ...bands,
+        { x: hours, y: elasticTotals, name: 'Elastic total', mode: 'lines', visible: elasticStressHidden ? 'legendonly' : true, line: { color: '#9ca3af', dash: 'dot', width: 1.5 } },
+        { x: hours, y: creepTotals, name: 'Creep total', mode: 'lines', line: { color: '#2563eb', width: 2.5 } },
+        { x: hours, y: creepPeaks, name: 'Creep max-tensile face', mode: 'lines', line: { color: '#dc2626', width: 2.5 } }
       ];
-      const strengthVals = hours.map((h) => sMap.get(h));
-      if (strengthVals.some((v) => typeof v === 'number' && v > 0)) {
+      if (hasStrength) {
         devTraces.push({
           x: hours,
-          y: strengthVals.map((v) => (typeof v === 'number' ? toStress(v) : null)),
+          y: strengthDisplay,
           name: 'Tensile strength (maturity)', mode: 'lines', line: { color: '#16a34a', dash: 'dash', width: 2.5 }
         });
       }
-      // Regime-switch markers: the planned saw-cut and, when the slab breaks
-      // first, the natural crack that ends the continuous (infinite) idealisation.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eventShapes: any[] = [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const eventNotes: any[] = [];
-      const markEvent = (hour: number, color: string, text: string, y: number) => {
-        eventShapes.push({
-          type: 'line', x0: hour, x1: hour, yref: 'paper', y0: 0, y1: 1,
-          line: { color, width: 2, dash: 'dash' }
-        });
-        eventNotes.push({
-          x: hour, y, yref: 'paper', text, showarrow: false,
-          font: { size: 12, color }, bgcolor: 'rgba(255,255,255,0.8)', xanchor: 'left'
-        });
-      };
-      const cutHour = snap.stress.cracking?.sawCutHour;
-      const crackHour = snap.stress.cracking?.naturalCrackHour;
-      if (typeof cutHour === 'number') markEvent(cutHour, '#2563eb', `saw-cut (h${cutHour})`, 1.03);
-      if (typeof crackHour === 'number') markEvent(crackHour, '#b91c1c', `natural crack (h${crackHour})`, 0.93);
 
       next.stressDev = await capture(offStressDev, devTraces, {
         ...baseLayout,
@@ -531,11 +769,13 @@
         xaxis: { title: { text: 'Hour after placement' } },
         yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
         legend: { orientation: 'h', y: -0.2 },
-        shapes: eventShapes,
-        annotations: eventNotes
+        ...rainLayout,
+        shapes: events.shapes,
+        annotations: events.annotations
       }, 1000, 400);
 
       next.stressFibre = await capture(offStressFibre, [
+        ...bands,
         { x: hours, y: creep.map((r) => toStress(r.creepStressTop)), name: 'Top fibre', mode: 'lines', line: { color: '#ea580c', width: 2.5 } },
         { x: hours, y: creep.map((r) => toStress(r.creepStressBottom)), name: 'Bottom fibre', mode: 'lines', line: { color: '#0891b2', width: 2.5 } }
       ], {
@@ -543,19 +783,33 @@
         title: { text: 'Creep-Adjusted Extreme-Fibre Stress', font: { size: 16 } },
         xaxis: { title: { text: 'Hour after placement' } },
         yaxis: { title: { text: `Stress (${stressUnit}, tension +)` }, zeroline: true },
-        legend: { orientation: 'h', y: -0.2 }
+        legend: { orientation: 'h', y: -0.2 },
+        ...rainLayout,
+        shapes: events.shapes,
+        annotations: events.annotations
       }, 1000, 360);
 
+      const elasticKI = elastic.map((r) => toKI(r.stressIntensityKI));
+      const creepKI = creep.map((r) => toKI(r.creepKI));
+      elasticKIHidden = swampsAxis(elasticKI, creepKI);
+
       next.stressKI = await capture(offStressKI, [
-        { x: hours, y: elastic.map((r) => toKI(r.stressIntensityKI)), name: 'Elastic Kᵢ', mode: 'lines', line: { color: '#9ca3af', dash: 'dot', width: 1.5 } },
-        { x: hours, y: creep.map((r) => toKI(r.creepKI)), name: 'Creep Kᵢ', mode: 'lines', line: { color: '#7c3aed', width: 2.5 } }
+        ...bands,
+        { x: hours, y: elasticKI, name: 'Elastic Kᵢ', mode: 'lines', visible: elasticKIHidden ? 'legendonly' : true, line: { color: '#9ca3af', dash: 'dot', width: 1.5 } },
+        { x: hours, y: creepKI, name: 'Creep Kᵢ', mode: 'lines', line: { color: '#7c3aed', width: 2.5 } }
       ], {
         ...baseLayout,
         title: { text: 'Mode-I Stress Intensity Factor', font: { size: 16 } },
         xaxis: { title: { text: 'Hour after placement' } },
         yaxis: { title: { text: `Kᵢ (${kiUnit})` }, zeroline: true },
-        legend: { orientation: 'h', y: -0.2 }
+        legend: { orientation: 'h', y: -0.2 },
+        ...rainLayout,
+        shapes: events.shapes,
+        annotations: events.annotations
       }, 1000, 360);
+    } else {
+      elasticStressHidden = false;
+      elasticKIHidden = false;
     }
 
     analysisCharts = next;
@@ -674,14 +928,54 @@
       </div>
     </div>
 
-    <!-- Disclaimer -->
+    <!-- Disclaimer & acknowledgements. Text is shared with the About tab
+         (see $lib/content/legal.ts) so the two can never drift apart. -->
     <div class="page">
       <div class="page-content">
-        <h2 class="page-title">Disclaimer</h2>
+        <h2 class="page-title">Disclaimer and Limitation of Liability</h2>
         <div class="title-rule"></div>
-        <p>Armen, you gotta say something official here so they know that if something goes wrong it's not our fault.</p>
+
+        {#each DISCLAIMER_PARAGRAPHS as para}
+          <p class="legal-para">{para}</p>
+        {/each}
+
+        <p class="legal-para">
+          This report was generated from the inputs recorded in the preceding sections. Its
+          conclusions are conditional on those inputs and on the environmental data identified with
+          them; changing either changes the result. Nothing in this report constitutes a
+          construction specification, an acceptance criterion, or a substitute for the judgement of
+          a licensed engineer of record.
+        </p>
       </div>
       <div class="page-number"><p>{pageNum.disclaimer}</p></div>
+    </div>
+
+    <!-- Acknowledgements -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Acknowledgements</h2>
+        <div class="title-rule"></div>
+
+        <h3 class="section-subheading first-subheading">Original Work</h3>
+        <p class="legal-para">
+          {ORIGINAL_WORK.before}<em>{ORIGINAL_WORK.emphasis}</em>{ORIGINAL_WORK.after}
+        </p>
+        <p class="legal-para">
+          Original contributors: {ORIGINAL_CONTRIBUTORS.join(', ')}.
+        </p>
+
+        <h3 class="section-subheading">Web Application Development</h3>
+        <p class="legal-para">{WEBAPP_DEVELOPMENT}</p>
+
+        <h3 class="section-subheading">Funding Acknowledgement</h3>
+        <p class="legal-para">{FUNDING_ACKNOWLEDGMENT}</p>
+
+        <h3 class="section-subheading">Data Sources</h3>
+        {#each DATA_SOURCES as src}
+          <p class="legal-para"><strong>{src.label}:</strong> {src.value}</p>
+        {/each}
+      </div>
+      <div class="page-number"><p>{pageNum.acknowledgements}</p></div>
     </div>
 
     <!-- Table of Contents -->
@@ -1077,7 +1371,7 @@
         <div class="page-content">
           <h2 class="page-title">Concrete Maturity — Hourly Results</h2>
           <div class="title-rule"></div>
-          <p class="table-caption">Values sampled at 6-hour intervals over the 72-hour analysis. Equivalent age is the Arrhenius-adjusted maturity at the reference temperature.</p>
+          <p class="tbl-note">Values sampled at 6-hour intervals over the 72-hour analysis. Equivalent age is the Arrhenius-adjusted maturity at the reference temperature.</p>
           <table class="data-table">
             <thead>
               <tr>
@@ -1128,10 +1422,21 @@
           {#if analysisCharts.thermal}
             <div class="chart-block">
               <img src={analysisCharts.thermal} alt="Slab Temperature Gradient Over Time" class="chart-image" />
+              <p class="chart-caption">
+                Depth profiles at the {thermalHours().length} hour(s) selected on the Results tab.
+                The y-axis runs from slab surface (top) to slab bottom.
+              </p>
             </div>
           {/if}
           <h3 class="section-subheading">Profile Summary</h3>
-          <p class="table-caption">Temperature at the slab surface, mid-depth, and bottom for representative hours, with the top-minus-bottom gradient that loads the stress analysis.</p>
+          <p class="tbl-note">
+            Temperature at the slab surface, mid-depth, and bottom, with the top-minus-bottom
+            gradient that loads the stress analysis.
+            {#if thermalTableHours().length < thermalHours().length}
+              Thinned to {thermalTableHours().length} of the {thermalHours().length} plotted hours
+              so the table fits one page.
+            {/if}
+          </p>
           <table class="data-table">
             <thead>
               <tr>
@@ -1179,7 +1484,7 @@
         <div class="page-content">
           <h2 class="page-title">Stress Analysis — Parameters</h2>
           <div class="title-rule"></div>
-          <p class="table-caption">Analysis inputs in US engineering units. Slab geometry is taken from the Slab Layout tab; modulus develops from the maturity result toward the mature value below.</p>
+          <p class="tbl-note">Analysis inputs in US engineering units. Slab geometry is taken from the Slab Layout tab; modulus develops from the maturity result toward the mature value below.</p>
           <table class="data-table">
             <thead>
               <tr><th>Parameter</th><th>Symbol</th><th class="num">Value</th></tr>
@@ -1198,6 +1503,21 @@
               <tr><td>Creep coefficient</td><td class="mono">a₁</td><td class="mono num">{fmt(snap.stressParams.creepA1)}</td></tr>
             </tbody>
           </table>
+          <!-- Stated before the numbers, as on the Stress tab: the thermal model
+               has no rainfall term, so nothing below it survives a wet slab. -->
+          {#if reportRain.length}
+            <p class="callout callout-warn">
+              <strong>Rain is forecast from hour {reportRain[0].startHour} — results are not
+              reliable from that hour onward.</strong>
+              The thermal model has no rainfall term: it cannot reproduce evaporative cooling from a
+              wetted surface, the latent-heat sink of standing water, or the loss of incoming solar
+              radiation under a rain shaft. Because the model integrates forward, the error persists
+              through the remaining hours, not only the wet ones.
+              {rainHourCount(reportRain)} of the 72 hours are wet, in {reportRain.length} period(s):
+              {rainSpanLabel(reportRain)}. These are hatched on the charts. Treat the saw-cut
+              verdict as indicative only.
+            </p>
+          {/if}
           {#if peakTensile}
             <p class="callout">
               Peak creep-adjusted tensile demand: <strong>{fmtFixed(toStress(peakTensile.value), 1)} {stressUnit}</strong> at hour <strong>{peakTensile.hour}</strong>.
@@ -1227,10 +1547,40 @@
                 continuous phase in which the slab could crack naturally.
               </p>
             {/if}
+            {#if crackCheck.exceedanceHoursAfterRelief.length}
+              <p class="callout">
+                <strong>Further cracking expected.</strong> Demand still reaches the tensile strength
+                at {crackCheck.exceedanceHoursAfterRelief.length} hour(s) after the joint or crack
+                relieved the slab (first: hour {crackCheck.exceedanceHoursAfterRelief[0]}). The model
+                forms one crack and does not subdivide the panel further.
+              </p>
+            {/if}
           {/if}
           {#if analysisCharts.stressDev}
             <div class="chart-block">
               <img src={analysisCharts.stressDev} alt="Stress Development and Cracking Risk" class="chart-image" />
+              {#if firstCrackHour !== undefined}
+                <p class="chart-caption">
+                  The red dashed line marks the first crack at hour <strong>{firstCrackHour}</strong> —
+                  {#if firstCrackAfterRelief}
+                    the first hour the creep-adjusted demand reaches the tensile strength after the
+                    joint or crack had already relieved the slab, which is where the next crack would
+                    form.
+                  {:else}
+                    the hour the creep-adjusted demand first reached the tensile strength while the
+                    slab was still continuous, breaking it.
+                  {/if}
+                  The blue dashed line, where shown, is the planned saw-cut.
+                </p>
+              {/if}
+              {#if elasticStressHidden}
+                <p class="chart-caption">
+                  The elastic total is omitted from this figure. Without creep relaxation the
+                  restrained slab accumulates stress far beyond the creep-adjusted range, so plotting
+                  it flattens the curves the cracking check turns on. Its values are tabulated under
+                  σ elastic in the hourly results.
+                </p>
+              {/if}
             </div>
           {/if}
         </div>
@@ -1251,10 +1601,22 @@
           {#if analysisCharts.stressKI}
             <div class="chart-block">
               <img src={analysisCharts.stressKI} alt="Mode-I Stress Intensity Factor" class="chart-image" />
+              {#if elasticKIHidden}
+                <p class="chart-caption">
+                  The elastic Kᵢ is omitted for the same reason as the elastic total — it is an
+                  unrelaxed reference that would otherwise set the axis.
+                </p>
+              {/if}
               {#if snap.stressParams.sawcutNormalized === '' || snap.stressParams.sawcutNormalized === 0}
                 <p class="chart-caption">Kᵢ is zero without a saw-cut; specify a saw-cut depth to engage the joint fracture-mechanics coefficients.</p>
               {/if}
             </div>
+          {/if}
+          {#if reportRain.length}
+            <p class="chart-caption">
+              Hatched bands mark the forecast wet hours ({rainSpanLabel(reportRain)}), where the
+              thermal model — and therefore every curve above — no longer tracks the real slab.
+            </p>
           {/if}
         </div>
         <div class="page-number"><p>{pageNum.stressCharts}</p></div>
@@ -1265,7 +1627,7 @@
         <div class="page-content">
           <h2 class="page-title">Stress Analysis — Hourly Results</h2>
           <div class="title-rule"></div>
-          <p class="table-caption">Sampled at 6-hour intervals. ΔT*<sub>c</sub> and ΔT*<sub>g</sub> are the pseudo-temperatures applied to the elastic analysis after the B⁻¹ creep transformation, not the raw thermal differences.</p>
+          <p class="tbl-note">Sampled at 6-hour intervals. ΔT*<sub>c</sub> and ΔT*<sub>g</sub> are the pseudo-temperatures applied to the elastic analysis after the B⁻¹ creep transformation, not the raw thermal differences.</p>
           <table class="data-table compact">
             <thead>
               <tr>
@@ -1314,16 +1676,106 @@
       </div>
     </div>
 
-    <!-- Appendix A -->
-    <div class="page">
-      <div class="page-content">
-        <h2 class="page-title">Appendix A</h2>
-        <div class="title-rule"></div>
-        <h3 class="section-subheading">Weather Station Data</h3>
-        <p class="section-placeholder">Content for Weather Station Data will appear here.</p>
+    <!-- Appendix A — the hourly weather series the whole analysis is driven by,
+         printed in full so a reader can reproduce it. Paginated because 72 rows
+         do not fit on one letter page. -->
+    {#each weatherPages as rows, pageIdx}
+      <div class="page">
+        <div class="page-content">
+          <h2 class="page-title">
+            Appendix A — Hourly {isForecastReport ? 'Forecast' : 'Weather'} Data{weatherPages.length >
+            1
+              ? ` (${pageIdx + 1} of ${weatherPages.length})`
+              : ''}
+          </h2>
+          <div class="title-rule"></div>
+
+          {#if pageIdx === 0}
+            <p class="tbl-note">
+              The 72-hour series driving the thermal, maturity and stress analyses, as loaded on the
+              Environment tab. Hour 1 is the placement hour. Source:
+              {#if isForecastReport}
+                NOAA/NWS gridded 72-hour forecast{#if snap.forecastMeta}, grid
+                  {snap.forecastMeta.gridId}
+                  {snap.forecastMeta.gridX},{snap.forecastMeta.gridY}, issued
+                  {formatIssuance(snap.forecastMeta)}{/if}.
+              {:else}
+                NOAA hourly climate normals (1991–2020) at
+                {snap.weatherStations[0]?.name ?? 'the nearest station'}{snap.weatherStations[0]
+                  ?.ghcnId
+                  ? ` (${snap.weatherStations[0].ghcnId})`
+                  : ''}.
+              {/if}
+              Values are converted to {us ? 'US customary' : 'SI'} units for display; the models run
+              on the underlying SI values.
+            </p>
+          {/if}
+
+          {#if rows.length}
+            <table class="data-table compact">
+              <thead>
+                <tr>
+                  <th>Hour</th>
+                  <th>Date / time</th>
+                  <th class="num">Air temp ({tUnit})</th>
+                  <th class="num">Wind ({windUnit})</th>
+                  <th class="num">Cloud (%)</th>
+                  {#if isForecastReport}
+                    <th class="num">Precip prob (%)</th>
+                    <th class="num">QPF ({precipUnit})</th>
+                    <th>Source</th>
+                  {/if}
+                </tr>
+              </thead>
+              <tbody>
+                {#each rows as row (row.offsetHr)}
+                  {@const wet = isForecastReport && isRainHour(row)}
+                  <tr class:wet-row={wet}>
+                    <td class="mono">{row.offsetHr + 1}</td>
+                    <td class="mono">{weatherStamp(row)}</td>
+                    <td class="mono num">{fmtOrDash(tempDisplay(row.airTempC), 1)}</td>
+                    <td class="mono num">{fmtOrDash(windDisplay(row.windMps), 1)}</td>
+                    <td class="mono num">{fmtOrDash(row.cloudPct, 0)}</td>
+                    {#if isForecastReport}
+                      <td class="mono num">{fmtOrDash(row.precipProbPct, 0)}</td>
+                      <td class="mono num"
+                        >{row.precipAmountMm === null || row.precipAmountMm === undefined
+                          ? '—'
+                          : fmtOrDash(precipDisplay(row.precipAmountMm), us ? 3 : 2)}</td>
+                      <td>{row.estimated ? 'estimated' : 'forecast'}</td>
+                    {/if}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+
+            {#if pageIdx === weatherPages.length - 1}
+              {#if isForecastReport && reportRain.length}
+                <p class="tbl-note">
+                  Shaded rows are hours the forecast treats as wet (probability ≥ 50% or more than
+                  0.5 mm of accumulation): {rainSpanLabel(reportRain)}. The thermal model has no
+                  rainfall term, so results from hour {reportRain[0].startHour} onward are not
+                  reliable.
+                </p>
+              {/if}
+              {#if isForecastReport && snap.forecastMeta && snap.forecastMeta.estimatedLeadingHours > 0}
+                <p class="tbl-note">
+                  The first {snap.forecastMeta.estimatedLeadingHours} hour(s) preceded the issued
+                  forecast and were held at the earliest available value; they are marked
+                  "estimated".
+                </p>
+              {/if}
+            {/if}
+          {:else}
+            <p class="no-data-message">
+              No hourly weather data available. Run the lookup on the Environment tab and click
+              "Update PDF" to populate this appendix.
+            </p>
+          {/if}
+        </div>
+        <div class="page-number"><p>{pageNum[`appendixA${pageIdx}`]}</p></div>
       </div>
-      <div class="page-number"><p>{pageNum.appendixA}</p></div>
-    </div>
+    {/each}
 
   </div>
 </div>
@@ -1617,7 +2069,12 @@
   }
 
   /* ---- Section pages ---- */
+  /* Everything that renders as a run of text states `display` and `width`
+     itself. These elements sit between tables and images where a shrink-to-fit
+     box is indistinguishable from a layout bug. */
   .section-subheading {
+    display: block;
+    width: 100%;
     font-family: Calibri, sans-serif;
     font-size: 14pt;
     font-weight: bold;
@@ -1626,17 +2083,31 @@
     margin-bottom: 6pt;
   }
 
-  .section-placeholder {
-    color: #000000;
-    margin-top: 1rem;
+  /* First subheading under the title rule, which already provides the gap. */
+  .first-subheading {
+    margin-top: 0;
   }
 
   .no-data-message {
+    display: block;
+    width: 100%;
     font-family: Calibri, sans-serif;
     font-size: 12pt;
     color: #666;
     margin-top: 12pt;
     font-style: italic;
+  }
+
+  /* ---- Disclaimer / acknowledgement prose ---- */
+  .legal-para {
+    display: block;
+    width: 100%;
+    font-family: Calibri, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #000000;
+    margin: 0 0 7pt 0;
+    text-align: justify;
   }
 
   /* ---- Narrative (theory) paragraphs ---- */
@@ -1663,16 +2134,28 @@
     width: 100%;
   }
 
+  /* Captions sit directly above tables. `display`/`width` are pinned because a
+     block that shrink-wraps here collapses to one word per line — the class was
+     previously named `table-caption`, which Tailwind also defines as
+     `display: table-caption`, wrapping the paragraph in its own anonymous table
+     box. Named out of that collision and stated explicitly so no future utility
+     class can reintroduce it. */
   .chart-caption,
-  .table-caption {
+  .tbl-note {
+    display: block;
+    width: 100%;
     font-family: Calibri, sans-serif;
     font-size: 9.5pt;
     color: #555;
     margin: 4pt 0 10pt 0;
     line-height: 1.4;
+    text-align: left;
   }
 
   .callout {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
     font-family: Calibri, sans-serif;
     font-size: 11pt;
     color: #000000;
@@ -1681,6 +2164,12 @@
     border-radius: 3px;
     padding: 8pt 10pt;
     margin: 10pt 0;
+  }
+
+  /* Same box, for the caveats that are warnings rather than results. */
+  .callout-warn {
+    background-color: #f0f9ff;
+    border-color: #7dd3fc;
   }
 
   /* ---- Environment section ---- */
@@ -1889,5 +2378,10 @@
   .data-table .strong {
     font-weight: bold;
     background-color: #eff6ff;
+  }
+
+  /* Forecast hours the thermal model cannot be trusted for. */
+  .data-table tr.wet-row td {
+    background-color: #f0f9ff;
   }
 </style>
