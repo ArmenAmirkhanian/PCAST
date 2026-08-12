@@ -242,13 +242,28 @@
     return m;
   }
 
+  // Hour of the first crack anywhere in the window. Normally that is the natural
+  // crack — the slab breaking on its own while still continuous. When it survives
+  // to the saw-cut, the first crack is instead the first hour the *relieved* slab
+  // still reaches its tensile strength: the model forms one crack and does not
+  // subdivide further, so those hours are where the next crack would go.
+  $: firstCrackHour = (() => {
+    const c = $stressResults?.cracking;
+    if (!c) return undefined;
+    return c.naturalCrackHour ?? c.exceedanceHoursAfterRelief?.[0];
+  })();
+  // True when that hour came from the post-relief exceedance list rather than a
+  // natural crack, so the marker can say which kind of crack it is.
+  $: firstCrackAfterRelief =
+    firstCrackHour !== undefined && $stressResults?.cracking?.naturalCrackHour === undefined;
+
   // Vertical markers for the two events that define the regime switches: the
-  // planned saw-cut and (when it happens first) the natural crack.
+  // planned saw-cut and the first crack.
   function eventShapes(): { shapes: Partial<Shape>[]; annotations: Partial<Annotations>[] } {
     const shapes: Partial<Shape>[] = [];
     const annotations: Partial<Annotations>[] = [];
     const cut = $stressResults?.cracking?.sawCutHour;
-    const crack = $stressResults?.cracking?.naturalCrackHour;
+    const crack = firstCrackHour;
     const mark = (hour: number, color: string, text: string, yAnchor: number) => {
       shapes.push({
         type: 'line',
@@ -271,7 +286,13 @@
       });
     };
     if (typeof cut === 'number') mark(cut, '#2563eb', `saw-cut (h${cut})`, 1.02);
-    if (typeof crack === 'number') mark(crack, '#b91c1c', `natural crack (h${crack})`, 0.94);
+    if (typeof crack === 'number')
+      mark(
+        crack,
+        '#b91c1c',
+        firstCrackAfterRelief ? `first crack (h${crack}, after joint)` : `first crack (h${crack})`,
+        0.94
+      );
     return { shapes, annotations };
   }
 
@@ -490,7 +511,8 @@
           title: { text: 'Mode-I Stress Intensity Factor', font: { size: 15 } },
           xaxis: { title: { text: 'Hour after placement' } },
           yaxis: { title: { text: `Kᵢ (${kiUnit})` }, zeroline: true },
-          ...rainLayout
+          ...rainLayout,
+          ...eventShapes()
         } as Partial<Layout>,
         cfg
       );
@@ -875,6 +897,20 @@
 
     <div class="rounded-lg border bg-white p-4 shadow-sm">
       <div class="h-[360px] w-full" bind:this={chartStress}></div>
+      {#if firstCrackHour !== undefined}
+        <p class="mt-2 text-xs text-gray-500">
+          The red dashed line marks the first crack at hour <strong>{firstCrackHour}</strong> —
+          {#if firstCrackAfterRelief}
+            the first hour the creep-adjusted demand reaches the tensile strength after the
+            joint/crack had already relieved the slab. The model forms one crack and does not
+            subdivide the panel further, so this is where the next crack would form.
+          {:else}
+            the hour the creep-adjusted demand first reached the tensile strength while the slab was
+            still continuous, breaking it.
+          {/if}
+          The blue dashed line, where shown, is the planned saw-cut.
+        </p>
+      {/if}
       {#if elasticStressHidden}
         <p class="mt-2 text-xs text-gray-500">
           The elastic total starts hidden on this chart. Without creep relaxation the restrained
