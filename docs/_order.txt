@@ -3,3 +3,4 @@
 
 database_schema.md
 map_view.md
+versioning.md

@@ -312,6 +312,22 @@ PCAST/
 
 ---
 
+## Changing the Design Calculations
+
+Reports produced by PCAST record the version of the design calculations that generated them, so an
+archived report can always be matched to the methodology behind it. If you change anything that can
+alter a computed result — a formula, a coefficient, a default, a numerical scheme — you must bump
+the calculation version in a single file:
+
+```text
+src/lib/version.ts
+```
+
+The procedure, the semver rules, and a worked example are in [docs/versioning.md](docs/versioning.md).
+Running `npm run test` will tell you if a version bump was left half-finished.
+
+---
+
 ## Updating Dependencies
 
 To update installed packages:

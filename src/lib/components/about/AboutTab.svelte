@@ -8,6 +8,17 @@
     WEBAPP_DEVELOPMENT,
     FUNDING_ACKNOWLEDGMENT
   } from '$lib/content/legal';
+  // Version numbers are maintained in one place and read from there by both
+  // this tab and the PDF report — see $lib/version.ts.
+  import {
+    APP_VERSION,
+    CALC_VERSION,
+    CALC_VERSION_DATE,
+    CALC_MODULE_LIST,
+    CALC_CHANGELOG,
+    formatVersionDate
+  } from '$lib/version';
+  import { BUILD_ID } from '$lib/build-info';
 </script>
 
 <div class="space-y-6 max-w-3xl">
@@ -39,6 +50,79 @@
       Unlike the climate normals, a forecast is a single predicted realisation for a specific day
       and is only valid for the issuance time recorded with the analysis.
     </p>
+  </section>
+
+  <!-- Version and calculation provenance. A report filed years ago has to be
+       traceable to the calculations that produced it, so the same numbers
+       printed on the report are shown here. -->
+  <section>
+    <h2 class="text-xl font-semibold mb-2">Version and Calculation Provenance</h2>
+
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-gray-700 mb-4">
+      <dt class="font-medium">Application version</dt>
+      <dd>v{APP_VERSION}</dd>
+      <dt class="font-medium">Calculation version</dt>
+      <dd>v{CALC_VERSION}, effective {formatVersionDate(CALC_VERSION_DATE)}</dd>
+      <dt class="font-medium">Build</dt>
+      <dd class="font-mono text-sm">{BUILD_ID}</dd>
+    </dl>
+
+    <p class="text-gray-700 leading-relaxed mb-3">
+      The calculation version identifies the design methodology used to produce results. It changes
+      only when a computed result can change — a formula, coefficient, default, or numerical scheme.
+      Every generated PDF report records the calculation version and the versions of the individual
+      analyses it ran, so a filed report can always be matched to the methodology behind it.
+      Reports produced by different calculation versions are not directly comparable.
+    </p>
+
+    <h3 class="font-semibold mb-2">Calculation Modules</h3>
+    <div class="overflow-x-auto mb-4">
+      <table class="w-full text-sm text-left border-collapse">
+        <thead>
+          <tr class="border-b border-gray-300">
+            <th class="py-1 pr-4 font-semibold">Analysis</th>
+            <th class="py-1 pr-4 font-semibold whitespace-nowrap">Version</th>
+            <th class="py-1 pr-4 font-semibold whitespace-nowrap">Effective</th>
+            <th class="py-1 font-semibold">Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each CALC_MODULE_LIST as m}
+            <tr class="border-b border-gray-200 align-top">
+              <td class="py-1 pr-4">{m.label}</td>
+              <td class="py-1 pr-4 whitespace-nowrap">v{m.version}</td>
+              <td class="py-1 pr-4 whitespace-nowrap">{formatVersionDate(m.date)}</td>
+              <td class="py-1 text-gray-600">
+                {m.basis}
+                <span class="block font-mono text-xs text-gray-500">{m.source}</span>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="font-semibold mb-2">Calculation Change History</h3>
+    <div class="space-y-3">
+      {#each CALC_CHANGELOG as entry}
+        <div>
+          <p class="font-medium text-gray-800">
+            v{entry.version} — {formatVersionDate(entry.date)}
+            {#if entry.modules.length}
+              <span class="font-normal text-gray-500 text-sm">
+                ({entry.modules.join(', ')})
+              </span>
+            {/if}
+          </p>
+          <p class="text-gray-700">{entry.summary}</p>
+          <ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+            {#each entry.changes as change}
+              <li>{change}</li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
+    </div>
   </section>
 
   <section>

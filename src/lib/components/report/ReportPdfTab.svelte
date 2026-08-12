@@ -35,6 +35,19 @@
     FUNDING_ACKNOWLEDGMENT,
     DATA_SOURCES
   } from '$lib/content/legal';
+  // Version numbers are maintained in one place and read from there by both
+  // this report and the About tab — see $lib/version.ts.
+  import {
+    APP_VERSION,
+    CALC_VERSION,
+    CALC_VERSION_DATE,
+    CALC_MODULES,
+    CALC_CHANGELOG,
+    CALC_STAMP,
+    formatVersionDate,
+    type CalcModuleId
+  } from '$lib/version';
+  import { BUILD_ID } from '$lib/build-info';
 
   export let hydrationModelEquations: Record<string, string>;
   export let analysisNarratives: Record<string, string>;
@@ -124,11 +137,23 @@
   }
 
   // Get current date formatted
-  function getFormattedDate(): string {
-    return new Date().toLocaleDateString('en-US', {
+  function getFormattedDate(when: Date): string {
+    return when.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
+    });
+  }
+
+  /** Generation instant, to the minute — the report is an auditable record. */
+  function getFormattedDateTime(when: Date): string {
+    return when.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
     });
   }
 
@@ -141,6 +166,9 @@
     ) || null;
     const ap = get(allPoints);
     return {
+      // Stamped when the user clicks "Update PDF", not when the preview
+      // re-renders, so the printed date is the date of the results shown.
+      generatedAt: new Date(),
       projectInfo: { ...pi },
       materials: { ...get(materials) },
       slabLayout: { ...get(slabLayout) },
@@ -344,6 +372,19 @@
   $: hasWindCloud = !!(snap.chartImages.wind || snap.chartImages.cloud);
   $: isForecastReport = snap.weatherSource === 'forecast';
 
+  // ── Version provenance ───────────────────────────────────────────────────
+  // The report cites only the calculations it actually ran: a project that
+  // never ran the stress analysis must not appear to claim a stress-model
+  // version. See $lib/version.ts.
+  $: usedModules = ([] as CalcModuleId[])
+    .concat(hasMaturity ? ['maturity'] : [])
+    .concat(hasThermal ? ['thermal'] : [])
+    .concat(hasStress ? ['stress'] : [])
+    .map((id) => CALC_MODULES[id]);
+
+  /** Printed at the foot of every page, so no page can be quoted unversioned. */
+  const FOOTER_STAMP = `PCAST v${APP_VERSION} · calc v${CALC_VERSION} · build ${BUILD_ID}`;
+
   // ── Hourly weather appendix ──────────────────────────────────────────────
   // The full driving series, printed at the back so the analysis pages stay
   // readable. Chunked because 72 rows do not fit on a letter page.
@@ -402,7 +443,7 @@
   // running page numbers and the table of contents.
   $: pageOrder = (() => {
     const o: string[] = [
-      'cover', 'disclaimer', 'acknowledgements', 'toc', 'projectInfo', 'materials',
+      'cover', 'disclaimer', 'provenance', 'acknowledgements', 'toc', 'projectInfo', 'materials',
       'materialsCont', 'slabLayout', 'environment'
     ];
     if (hasWindCloud) o.push('environmentCharts');
@@ -420,6 +461,7 @@
   $: tocSections = (() => {
     const s: { title: string; page: number; indent: boolean }[] = [
       { title: 'Disclaimer and Limitation of Liability', page: pageNum.disclaimer, indent: false },
+      { title: 'Version and Calculation Provenance', page: pageNum.provenance, indent: false },
       { title: 'Acknowledgements', page: pageNum.acknowledgements, indent: false },
       { title: 'Project Information', page: pageNum.projectInfo, indent: false },
       { title: 'Materials', page: pageNum.materials, indent: false },
@@ -845,7 +887,9 @@
 
       const options = {
         margin: 0,
-        filename: 'pavement-cracking-report.pdf',
+        // Calculation version in the filename: a folder of archived reports
+        // stays sortable and auditable without opening any of them.
+        filename: `pavement-cracking-report_calc-v${CALC_VERSION}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: {
           scale: 2,
@@ -920,7 +964,11 @@
               Location not specified
             {/if}
           </p>
-          <p class="cover-date">{getFormattedDate()}</p>
+          <p class="cover-date">{getFormattedDate(snap.generatedAt)}</p>
+          <!-- The methodology behind the numbers inside, stated on the face of
+               the report. Full detail on the provenance page. -->
+          <p class="cover-version">{CALC_STAMP}</p>
+          <p class="cover-build">PCAST v{APP_VERSION} · build {BUILD_ID}</p>
         </div>
       </div>
       <div class="cover-footer">
@@ -946,8 +994,81 @@
           construction specification, an acceptance criterion, or a substitute for the judgement of
           a licensed engineer of record.
         </p>
+
+        <p class="legal-para">
+          The results in this report were produced by PCAST calculation version {CALC_VERSION},
+          effective {formatVersionDate(CALC_VERSION_DATE)}. The design calculations are revised
+          from time to time; a later version may produce different results from the same inputs.
+          The following page records the version of each analysis used, and that record is the
+          reference point for any review of this report.
+        </p>
       </div>
-      <div class="page-number"><p>{pageNum.disclaimer}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.disclaimer}</p></div>
+    </div>
+
+    <!-- Version and calculation provenance. The audit page: what produced the
+         numbers in this report, and when that methodology took effect. All
+         values read from $lib/version.ts, which is also what the About tab
+         shows, so the printed record and the live site cannot disagree. -->
+    <div class="page">
+      <div class="page-content">
+        <h2 class="page-title">Version and Calculation Provenance</h2>
+        <div class="title-rule"></div>
+
+        <table class="data-table">
+          <tbody>
+            <tr><td>Report generated</td><td>{getFormattedDateTime(snap.generatedAt)}</td></tr>
+            <tr><td>Calculation version</td><td class="mono">v{CALC_VERSION}</td></tr>
+            <tr><td>Calculation version effective</td><td>{formatVersionDate(CALC_VERSION_DATE)}</td></tr>
+            <tr><td>Application version</td><td class="mono">v{APP_VERSION}</td></tr>
+            <tr><td>Build identifier</td><td class="mono">{BUILD_ID}</td></tr>
+          </tbody>
+        </table>
+
+        <h3 class="section-subheading">Analyses Used in This Report</h3>
+        {#if usedModules.length}
+          <table class="data-table">
+            <thead>
+              <tr><th>Analysis</th><th>Version</th><th>Effective</th><th>Implementation</th></tr>
+            </thead>
+            <tbody>
+              {#each usedModules as m}
+                <tr>
+                  <td>{m.label}</td>
+                  <td class="mono">v{m.version}</td>
+                  <td>{formatVersionDate(m.date)}</td>
+                  <td class="path">{m.source}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+          <p class="tbl-note">
+            Only the analyses actually run for this project are listed. Each version covers the
+            formulas, coefficients and numerical scheme of that analysis, and changes only when a
+            computed result can change.
+          </p>
+        {:else}
+          <p class="legal-para">
+            No analyses were run for this report, so no calculation modules are cited.
+          </p>
+        {/if}
+
+        <h3 class="section-subheading">Calculation Change History</h3>
+        <p class="tbl-note">
+          Most recent revisions to the design calculations. The complete history is published with
+          the source code at github.com/ArmenAmirkhanian/PCAST.
+        </p>
+        {#each CALC_CHANGELOG.slice(0, 3) as entry}
+          <p class="legal-para changelog-entry">
+            <strong>v{entry.version} — {formatVersionDate(entry.date)}.</strong>
+            {entry.summary}
+            {#if entry.modules.length}
+              Affected: {entry.modules.map((id) => CALC_MODULES[id].label).join('; ')}.
+            {/if}
+          </p>
+        {/each}
+      </div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.provenance}</p></div>
     </div>
 
     <!-- Acknowledgements -->
@@ -975,7 +1096,7 @@
           <p class="legal-para"><strong>{src.label}:</strong> {src.value}</p>
         {/each}
       </div>
-      <div class="page-number"><p>{pageNum.acknowledgements}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.acknowledgements}</p></div>
     </div>
 
     <!-- Table of Contents -->
@@ -993,7 +1114,7 @@
           {/each}
         </div>
       </div>
-      <div class="page-number"><p>{pageNum.toc}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.toc}</p></div>
     </div>
 
     <!-- Project Information -->
@@ -1046,7 +1167,7 @@
           </div>
         {/if}
       </div>
-      <div class="page-number"><p>{pageNum.projectInfo}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.projectInfo}</p></div>
     </div>
 
     <!-- Materials -->
@@ -1094,7 +1215,7 @@
           <p class="no-data-message" style="margin-top: 12pt;">No hydration model selected.</p>
         {/if}
       </div>
-      <div class="page-number"><p>{pageNum.materials}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.materials}</p></div>
     </div>
 
     <!-- Hydration Model Variables & Results -->
@@ -1169,7 +1290,7 @@
           <p class="no-data-message">No hydration model selected.</p>
         {/if}
       </div>
-      <div class="page-number"><p>{pageNum.materialsCont}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.materialsCont}</p></div>
     </div>
 
     <!-- Slab Layout -->
@@ -1201,7 +1322,7 @@
           </div>
         </div>
       </div>
-      <div class="page-number"><p>{pageNum.slabLayout}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.slabLayout}</p></div>
     </div>
 
     <!-- Environment -->
@@ -1300,7 +1421,7 @@
           </div>
         {/if}
       </div>
-      <div class="page-number"><p>{pageNum.environment}</p></div>
+      <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.environment}</p></div>
     </div>
 
     <!-- Environment - Remaining Charts -->
@@ -1323,7 +1444,7 @@
             {/if}
           </div>
         </div>
-        <div class="page-number"><p>{pageNum.environmentCharts}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.environmentCharts}</p></div>
       </div>
     {/if}
 
@@ -1334,12 +1455,16 @@
         <div class="page-content">
           <h2 class="page-title">Concrete Maturity &amp; Early Strength</h2>
           <div class="title-rule"></div>
+          <p class="module-stamp">
+            Calculation module v{CALC_MODULES.maturity.version}, effective
+            {formatVersionDate(CALC_MODULES.maturity.date)}
+          </p>
           <div class="narrative">
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html analysisNarratives.maturityTheory}
           </div>
         </div>
-        <div class="page-number"><p>{pageNum.maturityTheory}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.maturityTheory}</p></div>
       </div>
 
       <!-- Maturity charts -->
@@ -1363,7 +1488,7 @@
             </div>
           {/if}
         </div>
-        <div class="page-number"><p>{pageNum.maturityCharts}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.maturityCharts}</p></div>
       </div>
 
       <!-- Maturity table -->
@@ -1395,7 +1520,7 @@
             </tbody>
           </table>
         </div>
-        <div class="page-number"><p>{pageNum.maturityTable}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.maturityTable}</p></div>
       </div>
     {/if}
 
@@ -1406,12 +1531,16 @@
         <div class="page-content">
           <h2 class="page-title">Thermal Gradient Analysis</h2>
           <div class="title-rule"></div>
+          <p class="module-stamp">
+            Calculation module v{CALC_MODULES.thermal.version}, effective
+            {formatVersionDate(CALC_MODULES.thermal.date)}
+          </p>
           <div class="narrative">
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html analysisNarratives.thermalGradientTheory}
           </div>
         </div>
-        <div class="page-number"><p>{pageNum.thermalTheory}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.thermalTheory}</p></div>
       </div>
 
       <!-- Thermal chart + table -->
@@ -1460,7 +1589,7 @@
             </tbody>
           </table>
         </div>
-        <div class="page-number"><p>{pageNum.thermalResults}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.thermalResults}</p></div>
       </div>
     {/if}
 
@@ -1471,12 +1600,16 @@
         <div class="page-content">
           <h2 class="page-title">Early-Age Stress &amp; Creep Analysis</h2>
           <div class="title-rule"></div>
+          <p class="module-stamp">
+            Calculation module v{CALC_MODULES.stress.version}, effective
+            {formatVersionDate(CALC_MODULES.stress.date)}
+          </p>
           <div class="narrative">
             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
             {@html analysisNarratives.stressCreepTheory}
           </div>
         </div>
-        <div class="page-number"><p>{pageNum.stressTheory}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.stressTheory}</p></div>
       </div>
 
       <!-- Stress parameters + first chart -->
@@ -1584,7 +1717,7 @@
             </div>
           {/if}
         </div>
-        <div class="page-number"><p>{pageNum.stressParams}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.stressParams}</p></div>
       </div>
 
       <!-- Stress charts -->
@@ -1619,7 +1752,7 @@
             </p>
           {/if}
         </div>
-        <div class="page-number"><p>{pageNum.stressCharts}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.stressCharts}</p></div>
       </div>
 
       <!-- Stress hourly table -->
@@ -1663,7 +1796,7 @@
             </tbody>
           </table>
         </div>
-        <div class="page-number"><p>{pageNum.stressTable}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum.stressTable}</p></div>
       </div>
     {/if}
 
@@ -1773,7 +1906,7 @@
             </p>
           {/if}
         </div>
-        <div class="page-number"><p>{pageNum[`appendixA${pageIdx}`]}</p></div>
+        <div class="page-number"><span class="page-stamp">{FOOTER_STAMP}</span><p>{pageNum[`appendixA${pageIdx}`]}</p></div>
       </div>
     {/each}
 
@@ -1959,6 +2092,24 @@
     color: #000000;
   }
 
+  /* Version stamp on the running footer: a page photocopied out of the report
+     still says which calculations produced it. Sits left of the centred page
+     number rather than displacing it. */
+  .page-stamp {
+    position: absolute;
+    left: 0;
+    top: 2pt;
+    font-size: 7.5pt;
+    color: #555555;
+  }
+
+  /* Per-analysis version, under the heading of each theory page. */
+  .module-stamp {
+    font-size: 9pt;
+    color: #555555;
+    margin: -12pt 0 14pt 0;
+  }
+
   .page-title {
     font-size: 16pt;
     font-weight: 700;
@@ -2019,6 +2170,18 @@
     font-size: 16pt;
     color: #000000;
     margin: 0;
+  }
+
+  .cover-version {
+    font-size: 11pt;
+    color: #000000;
+    margin: 18pt 0 0 0;
+  }
+
+  .cover-build {
+    font-size: 9pt;
+    color: #555555;
+    margin: 2pt 0 0 0;
   }
 
   .cover-footer {
@@ -2108,6 +2271,12 @@
     color: #000000;
     margin: 0 0 7pt 0;
     text-align: justify;
+  }
+
+  /* Changelog lines read as a list, not as body prose. */
+  .changelog-entry {
+    text-align: left;
+    margin-bottom: 5pt;
   }
 
   /* ---- Narrative (theory) paragraphs ---- */
@@ -2373,6 +2542,14 @@
 
   .data-table .mono {
     font-family: 'Courier New', monospace;
+  }
+
+  /* Source paths on the provenance page: set smaller so a 40-character path
+     does not take the column width from the analysis names beside it. */
+  .data-table .path {
+    font-family: 'Courier New', monospace;
+    font-size: 8pt;
+    word-break: break-all;
   }
 
   .data-table .strong {
