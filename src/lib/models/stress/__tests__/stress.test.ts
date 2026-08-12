@@ -16,9 +16,8 @@ import { describe, it, expect } from 'vitest';
 import { matVec2, inverse2x2, solve2x2, lowerTriMatVec } from '../linalg';
 import {
   buildCreepCompliance,
-  buildDifferentialCreep,
-  buildTransformationMatrix,
-  buildInverseTransformation,
+  buildPseudoLoadOperator,
+  buildCumulativeSumOperator,
   DEFAULT_CREEP_PARAMS,
 } from '../creep';
 import {
@@ -252,92 +251,163 @@ describe('buildCreepCompliance – bounded aging-modulus models', () => {
     }
   });
 
-  it('B is invariant to a global scaling of the modulus profile (scale invariance)', () => {
-    const E = modArr(5);
-    const J1 = buildCreepCompliance(5, 5, DEFAULT_CREEP_PARAMS, E);
-    const J2 = buildCreepCompliance(5, 5, DEFAULT_CREEP_PARAMS, E.map(e => e * 1000));
-    const B1 = buildTransformationMatrix(buildDifferentialCreep(J1));
-    const B2 = buildTransformationMatrix(buildDifferentialCreep(J2));
-    for (let i = 0; i < 5; i++) {
+  it('B⁻¹ is invariant to ANY positive aging-modulus profile, not just a scaling of it', () => {
+    // E(tʹ) always cancels out of M[i][j] = J[i][j]·E(tʹ_j) = 1 + χ·φ(t,tʹ) by
+    // construction (see creep.ts derivation), so B⁻¹ depends only on φ's shape
+    // (a1, a2Scale, a2Rate) and χ — never on the modulus profile itself, scaled
+    // or not.
+    const start = 5, nt = 5;
+    const E = modArr(nt);
+    const J1 = buildCreepCompliance(start, nt, DEFAULT_CREEP_PARAMS, E);
+    const J2 = buildCreepCompliance(start, nt, DEFAULT_CREEP_PARAMS, E.map(e => e * 1000));
+    const Binv1 = buildPseudoLoadOperator(J1, start, nt, DEFAULT_CREEP_PARAMS, E);
+    const Binv2 = buildPseudoLoadOperator(J2, start, nt, DEFAULT_CREEP_PARAMS, E.map(e => e * 1000));
+    for (let i = 0; i < nt; i++) {
       for (let j = 0; j <= i; j++) {
-        expect(B2[i][j]).toBeCloseTo(B1[i][j], 10);
+        expect(Binv2[i][j]).toBeCloseTo(Binv1[i][j], 10);
       }
     }
   });
 });
 
-describe('buildDifferentialCreep', () => {
-  it('diagonal entries equal J diagonal', () => {
-    const J = buildCreepCompliance(10, 4, DEFAULT_CREEP_PARAMS, modArr(4));
-    const dJ = buildDifferentialCreep(J);
-    for (let i = 0; i < 4; i++) {
-      expect(dJ[i][i]).toBeCloseTo(J[i][i]);
-    }
-  });
-
-  it('off-diagonal = J[i][j] - J[i][j+1] ≥ 0 (creep is non-decreasing)', () => {
-    const J = buildCreepCompliance(5, 5, DEFAULT_CREEP_PARAMS, modArr(5));
-    const dJ = buildDifferentialCreep(J);
-    for (let i = 1; i < 5; i++) {
-      for (let j = 0; j < i; j++) {
-        expect(dJ[i][j]).toBeGreaterThanOrEqual(0);
-      }
-    }
-  });
-});
-
-describe('buildTransformationMatrix (B)', () => {
+describe('buildCumulativeSumOperator (B)', () => {
   it('diagonal entries are all 1', () => {
-    const J = buildCreepCompliance(10, 5, DEFAULT_CREEP_PARAMS, modArr(5));
-    const dJ = buildDifferentialCreep(J);
-    const B = buildTransformationMatrix(dJ);
+    const B = buildCumulativeSumOperator(5);
     for (let i = 0; i < 5; i++) {
-      expect(B[i][i]).toBeCloseTo(1);
+      expect(B[i][i]).toBe(1);
     }
   });
 
-  it('upper triangle is zero', () => {
-    const J = buildCreepCompliance(10, 4, DEFAULT_CREEP_PARAMS, modArr(4));
-    const dJ = buildDifferentialCreep(J);
-    const B = buildTransformationMatrix(dJ);
+  it('upper triangle is zero, lower triangle (incl. diagonal) is all 1', () => {
+    const B = buildCumulativeSumOperator(4);
     for (let i = 0; i < 4; i++) {
-      for (let j = i + 1; j < 4; j++) {
-        expect(B[i][j]).toBe(0);
+      for (let j = 0; j < 4; j++) {
+        expect(B[i][j]).toBe(j <= i ? 1 : 0);
+      }
+    }
+  });
+
+  it('applying B to a history sums it (running total)', () => {
+    const B = buildCumulativeSumOperator(4);
+    const v = [2, 3, -1, 5];
+    const r = lowerTriMatVec(B, v);
+    expect(r).toEqual([2, 5, 4, 9]);
+  });
+});
+
+describe('buildPseudoLoadOperator (B⁻¹)', () => {
+  it('diagonal entries are all 1 and upper triangle is zero', () => {
+    const start = 10, nt = 5;
+    const E = modArr(nt);
+    const J = buildCreepCompliance(start, nt, DEFAULT_CREEP_PARAMS, E);
+    const Binv = buildPseudoLoadOperator(J, start, nt, DEFAULT_CREEP_PARAMS, E);
+    for (let i = 0; i < nt; i++) {
+      expect(Binv[i][i]).toBeCloseTo(1);
+      for (let j = i + 1; j < nt; j++) {
+        expect(Binv[i][j]).toBe(0);
+      }
+    }
+  });
+
+  it('correctly inverts M = I + strictLower(J)·diag(E)', () => {
+    const start = 5, nt = 4;
+    const E = modArr(nt);
+    const J = buildCreepCompliance(start, nt, DEFAULT_CREEP_PARAMS, E);
+    const Binv = buildPseudoLoadOperator(J, start, nt, DEFAULT_CREEP_PARAMS, E);
+
+    const M = Array.from({ length: nt }, (_, i) =>
+      Array.from({ length: nt }, (_, j) => (j < i ? J[i][j] * E[j] : j === i ? 1 : 0)),
+    );
+    // M · Binv ≈ I
+    for (let j = 0; j < nt; j++) {
+      const col = Binv.map(row => row[j]);
+      const result = lowerTriMatVec(M, col);
+      for (let i = 0; i < nt; i++) {
+        expect(result[i]).toBeCloseTo(i === j ? 1 : 0, 8);
+      }
+    }
+  });
+
+  it('stays well-conditioned (no blow-up) over a large window with a realistic, flattening aging modulus', () => {
+    // Regression test for the original bug: an aging modulus that grows
+    // quickly at first and then flattens out (as concrete matures) used to
+    // make the old divided-differences B formula divide by near-zero
+    // differences of the compliance diagonal, exploding B by orders of
+    // magnitude. The forward-substitution B⁻¹ has no such pivot.
+    const start = 6, nt = 67;
+    const E = Array.from({ length: nt }, (_, i) => 4_000_000 * (1 - Math.exp(-(i + 1) / 12)));
+    const J = buildCreepCompliance(start, nt, DEFAULT_CREEP_PARAMS, E);
+    const Binv = buildPseudoLoadOperator(J, start, nt, DEFAULT_CREEP_PARAMS, E);
+    for (let i = 0; i < nt; i++) {
+      for (let j = 0; j <= i; j++) {
+        expect(Number.isFinite(Binv[i][j])).toBe(true);
+        expect(Math.abs(Binv[i][j])).toBeLessThan(10); // stays O(1); never explodes
       }
     }
   });
 });
 
-describe('buildInverseTransformation (B⁻¹)', () => {
-  it('B · B⁻¹ ≈ identity for small matrices', () => {
-    const J = buildCreepCompliance(5, 4, DEFAULT_CREEP_PARAMS, modArr(4));
-    const dJ = buildDifferentialCreep(J);
-    const B = buildTransformationMatrix(dJ);
-    const Binv = buildInverseTransformation(B);
+describe('rate-type creep pipeline – physical sanity', () => {
+  // Assemble the B⁻¹ → E·p → B pipeline directly (bypassing the beam geometry)
+  // to check the pure creep-compliance behaviour in isolation.
+  function creepAdjustedHistory(
+    E: number[],
+    raw: number[],
+    start = 0,
+    params = DEFAULT_CREEP_PARAMS,
+  ): number[] {
+    const nt = E.length;
+    const J = buildCreepCompliance(start, nt, params, E);
+    const Binv = buildPseudoLoadOperator(J, start, nt, params, E);
+    const B = buildCumulativeSumOperator(nt);
+    const pseudo = lowerTriMatVec(Binv, raw);
+    const elasticStress = pseudo.map((p, i) => E[i] * p);
+    return lowerTriMatVec(B, elasticStress);
+  }
 
-    // Check B · (B⁻¹ column j) = e_j
-    for (let j = 0; j < 4; j++) {
-      const col = Binv.map(row => row[j]);
-      const result = lowerTriMatVec(B, col);
-      for (let i = 0; i < 4; i++) {
-        expect(result[i]).toBeCloseTo(i === j ? 1 : 0, 8);
-      }
+  it('a sustained strain on a non-aging material relaxes toward E/(1+a1)', () => {
+    const nt = 40;
+    const E = new Array(nt).fill(3_000_000);
+    const raw = new Array(nt).fill(1);
+    const creepStress = creepAdjustedHistory(E, raw);
+    // Monotonically relaxing (each step no larger in magnitude than the last).
+    for (let i = 1; i < nt; i++) {
+      expect(Math.abs(creepStress[i])).toBeLessThanOrEqual(Math.abs(creepStress[i - 1]) + 1e-6);
+    }
+    expect(creepStress[0]).toBeCloseTo(3_000_000, 0); // first hour: pure elastic
+    const target = 3_000_000 / (1 + DEFAULT_CREEP_PARAMS.a1);
+    expect(Math.abs(creepStress[nt - 1] - target) / target).toBeLessThan(0.01); // within 1% of the asymptote
+  });
+
+  it('a large, maturing-concrete-like window stays bounded for a diurnal-scale input', () => {
+    // The exact scenario that broke the old implementation: 67 hourly steps
+    // with a modulus that grows quickly then flattens, driven by a bounded
+    // oscillating (diurnal-like) load. Because B is a running sum, the bound
+    // scales with nt (roughly how many cycles of the load can accumulate) —
+    // but must NOT scale any faster than that, unlike the old exponential blow-up.
+    const start = 6, nt = 67;
+    const E = Array.from({ length: nt }, (_, i) => 4_000_000 * (1 - Math.exp(-(i + 1) / 12)));
+    const raw = Array.from({ length: nt }, (_, i) => 5 * Math.sin((2 * Math.PI * (start + i)) / 24));
+    const creepStress = creepAdjustedHistory(E, raw, start);
+    const maxAbsRaw = Math.max(...raw.map(Math.abs));
+    const maxAbsElasticBound = nt * Math.max(...E) * maxAbsRaw; // generous linear-accumulation ceiling
+    for (const s of creepStress) {
+      expect(Number.isFinite(s)).toBe(true);
+      expect(Math.abs(s)).toBeLessThan(maxAbsElasticBound);
     }
   });
 
-  it('B⁻¹ · B ≈ identity (apply in reverse order)', () => {
-    const J = buildCreepCompliance(8, 3, DEFAULT_CREEP_PARAMS, modArr(3));
-    const dJ = buildDifferentialCreep(J);
-    const B = buildTransformationMatrix(dJ);
-    const Binv = buildInverseTransformation(B);
-
-    for (let j = 0; j < 3; j++) {
-      const colB = B.map(row => row[j]);
-      const result = lowerTriMatVec(Binv, colB);
-      for (let i = 0; i < 3; i++) {
-        expect(result[i]).toBeCloseTo(i === j ? 1 : 0, 8);
-      }
+  it("'hydration' and 'cebFip' give the identical result (same φ shape, χ = 1) — only χ or φ's own shape can change it", () => {
+    const start = 6, nt = 20;
+    const E = Array.from({ length: nt }, (_, i) => 2_000_000 + i * 80_000);
+    const raw = Array.from({ length: nt }, (_, i) => 5 * Math.sin(i * 0.5));
+    const hyd = creepAdjustedHistory(E, raw, start, DEFAULT_CREEP_PARAMS);
+    const ceb = creepAdjustedHistory(E, raw, start, { ...DEFAULT_CREEP_PARAMS, creepModel: 'cebFip' });
+    const aemm = creepAdjustedHistory(E, raw, start, { ...DEFAULT_CREEP_PARAMS, creepModel: 'aemm' });
+    for (let i = 0; i < nt; i++) {
+      expect(ceb[i]).toBeCloseTo(hyd[i], 6);
     }
+    expect(aemm.some((v, i) => Math.abs(v - hyd[i]) > 1e-6)).toBe(true);
   });
 });
 
@@ -730,12 +800,15 @@ describe('runStressModel – selectable creep models', () => {
     }
   });
 
-  it('different creep models give different creep-adjusted stresses', () => {
+  it('changing χ (aemm) changes creep-adjusted stress, but the E(tʹ) profile alone does not', () => {
     const sum = (m: 'hydration' | 'cebFip' | 'aemm') =>
       runStressModel({ ...BASE_INPUT, creep: { creepModel: m } })
         .creepResults.reduce((s, r) => s + r.creepTotalStress, 0);
-    // Distinct aging-modulus profiles ⇒ distinct B ⇒ distinct relaxation.
-    expect(sum('hydration')).not.toBeCloseTo(sum('cebFip'), 3);
+    // E(tʹ) cancels out of the pseudo-load transform by construction (see the
+    // creep.ts derivation), so 'hydration' and 'cebFip' — which share the same
+    // φ shape and χ = 1 — give the IDENTICAL result. Only 'aemm' (χ ≠ 1)
+    // changes φ's effective weight, so it alone differs.
+    expect(sum('hydration')).toBeCloseTo(sum('cebFip'), 6);
     expect(sum('hydration')).not.toBeCloseTo(sum('aemm'), 3);
   });
 

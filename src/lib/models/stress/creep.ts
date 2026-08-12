@@ -1,16 +1,59 @@
 /**
- * Creep compliance matrix and Riesz transformation matrices.
+ * Creep compliance matrix and the pseudo-load transformation it drives.
  *
- * Converted from VBA Sub createCreep() and Sub creepTransform().
- *
- * The rate-type creep workflow:
+ * The rate-type creep workflow (see derivation below):
  *   1. Build creep compliance matrix J[i][j] = J(t_i, tʹ_j)
- *   2. Build differential compliance ΔJ[i][j]
- *   3. Build lower-triangular transformation matrix B  (creepTransform)
- *   4. Build B⁻¹  (creepTransform)
- *   5. Apply B⁻¹ to load histories → pseudo-loads (transformTemp)
- *   6. Run elastic analysis with pseudo-loads
- *   7. Apply B to elastic stresses → creep-adjusted stresses (creepResults)
+ *   2. Build the pseudo-load operator B⁻¹ from J (buildPseudoLoadOperator)
+ *   3. Apply B⁻¹ to load histories → pseudo-loads (transformTemp)
+ *   4. Run elastic analysis with pseudo-loads at each hour's own modulus
+ *   5. Apply B (a running sum) to the elastic-stress history →
+ *      creep-adjusted stresses (creepResults)
+ *
+ * Derivation of B and B⁻¹
+ * -----------------------
+ * A fully-restrained history cancels the free (thermal) strain with an equal
+ * and opposite mechanical strain, so the mechanical strain at hour i satisfies
+ * the discrete Volterra relation for a piecewise-constant stress history:
+ *
+ *   ε_i = Σ_{j≤i} J[i][j]·Δσ_j                                          (1)
+ *
+ * where Δσ_j is the stress *increment* applied at hour j. Because J[i][i] =
+ * 1/E(tʹ_i) (no creep term at t = tʹ), writing Δσ_j = E(tʹ_j)·p_j — i.e. the
+ * increment is exactly the elastic response of some "pseudo-strain" p_j at
+ * hour j's own modulus, which is what the beam analysis already computes each
+ * hour — turns (1) into a unit lower-triangular system for p:
+ *
+ *   ε = M·p,   M[i][j] = J[i][j]·E(tʹ_j) for j<i, M[i][i] = 1   ⟺   p = M⁻¹·ε = B⁻¹·ε   (2)
+ *
+ * solved once via ordinary forward substitution (buildPseudoLoadOperator).
+ * Because Δσ_j = E(tʹ_j)·p_j is itself the elastic-stress history the beam
+ * analysis produces, the creep-adjusted *total* stress at hour i is simply
+ * the running sum Σ_{j≤i} Δσ_j: B is the unit lower-triangular "cumulative
+ * sum" operator (buildCumulativeSumOperator) — independent of the compliance
+ * kernel, and never a near-singular pivot away from blowing up.
+ *
+ * (A prior implementation built B from divided differences of the aging
+ * compliance diagonal, one basis function per hour. That interpolates J
+ * exactly at every sampled hour but is a Cauchy-matrix-style construction:
+ * its conditioning degrades sharply whenever two hours have nearly equal
+ * instantaneous compliance — which is the normal case once concrete matures
+ * and E(t) flattens out — and explodes the "creep-adjusted" stress by orders
+ * of magnitude well before the 72-hour window ends. The forward-substitution
+ * form above needs only that E(tʹ) stay positive and bounded, which the aging
+ * modulus profile already guarantees.)
+ *
+ * A consequence worth flagging: M[i][j] = J[i][j]·E(tʹ_j) = 1 + χ·φ(t_i,tʹ_j)
+ * exactly (E(tʹ_j) cancels the 1/E(tʹ_j) baked into J by construction), so B⁻¹
+ * depends only on the *shape* of φ (a1, a2Scale, a2Rate) and χ — never on the
+ * absolute aging-modulus profile used to normalise J. The 'creepModel' choice
+ * of E(tʹ) (hydration/cebFip/aemm) therefore cannot change B⁻¹ or the
+ * creep-adjusted stress on its own; only a genuine change to φ's shape or to χ
+ * (the 'aemm' aging coefficient) does. This is a property of the pseudo-load
+ * method itself, not a limitation of this implementation — a *different*
+ * closed-form E(tʹ) profile only matters if it also drives the elastic beam
+ * solve's own modulus, which 'cebFip' deliberately does not (it stays
+ * self-contained, independent of the hydration model's E(t) — see CreepModel
+ * in types.ts).
  */
 
 import type { CreepModelParams, CebFipCement } from './types';
@@ -108,12 +151,13 @@ function modulusProfile(
  * χ = `agingCoefficient` for the 'aemm' model and 1 otherwise. E(tʹ) is the
  * bounded aging modulus selected by `creepModel` (see modulusProfile).
  *
- * Scale invariance: the downstream transformation matrix B is built entirely
- * from ratios of ΔJ entries, so multiplying every J entry by a constant leaves
- * B (and therefore the creep-adjusted results) unchanged. Only the *relative*
- * variation of E(tʹ) across loading ages and the shape of φ matter — which is
- * why the closed-form 'cebFip' profile can drop E₂₈ and the per-hour 'hydration'
- * profile can be passed in raw psi.
+ * Scale invariance: the downstream pseudo-load operator B⁻¹ (buildPseudoLoadOperator)
+ * is built from J[i][j]·E(tʹ_j), which collapses to exactly 1+χφ(t_i,tʹ_j) —
+ * E(tʹ) cancels out entirely, at any scale or shape. Only φ's shape (a1,
+ * a2Scale, a2Rate) and χ matter — which is why the closed-form 'cebFip'
+ * profile can drop E₂₈ and the per-hour 'hydration' profile can be passed in
+ * raw psi: neither choice can change the result on its own (see the
+ * module-level derivation above).
  *
  * @param startHour       First hour index (n0 in VBA)
  * @param nt              Number of time steps
@@ -149,90 +193,63 @@ export function buildCreepCompliance(
 }
 
 // ---------------------------------------------------------------------------
-// Differential compliance  ΔJ
+// Pseudo-load operator  B⁻¹
 // ---------------------------------------------------------------------------
 
 /**
- * Build the differential creep compliance matrix from J.
+ * Build the pseudo-load operator B⁻¹ (see the module-level derivation).
  *
- * ΔJ[i][i] = J[i][i]                       (diagonal – elastic)
- * ΔJ[i][j] = J[i][j] − J[i][j+1]  (j < i)  (incremental creep)
+ * B⁻¹ is the inverse of the unit lower-triangular matrix
+ * M[i][j] = J[i][j]·E(tʹ_j) for j < i, M[i][i] = 1, obtained by the standard
+ * (and numerically stable — M's diagonal is exactly 1, never a small pivot)
+ * forward-substitution formula for inverting a unit lower-triangular matrix:
  *
- * VBA name: creepInt
+ *   B⁻¹[i][i] = 1
+ *   B⁻¹[i][j] = −Σ_{k=j}^{i−1} J[i][k]·E(tʹ_k)·B⁻¹[k][j]     for j < i
+ *
+ * `E` must be the same per-index aging modulus used to build `J` (the
+ * loading-age modulus profile, resolved by `modulusProfile` — the caller
+ * passes the same `params`/`modulusByIndex` used for `buildCreepCompliance`
+ * so the two stay consistent for every creep model, including the
+ * self-contained 'cebFip' profile).
  */
-export function buildDifferentialCreep(J: number[][]): number[][] {
-  const nt = J.length;
-  const dJ: number[][] = Array.from({ length: nt }, () => new Array<number>(nt).fill(0));
-
-  for (let i = 0; i < nt; i++) {
-    dJ[i][i] = J[i][i];
-    for (let j = 0; j < i; j++) {
-      dJ[i][j] = J[i][j] - J[i][j + 1];
-    }
-  }
-
-  return dJ;
-}
-
-// ---------------------------------------------------------------------------
-// Transformation matrix B  (lower triangular)
-// ---------------------------------------------------------------------------
-
-/**
- * Build the Riesz transformation matrix B from the differential compliance ΔJ.
- *
- * B[i][i] = 1
- * B[i][j] = (Σ_{k=j}^{i−1} ΔJ[i][k] · B[k][j]) / (ΔJ[j][j] − ΔJ[i][i])
- *            for j < i
- *
- * VBA: BB matrix in Sub creepTransform()
- */
-export function buildTransformationMatrix(dJ: number[][]): number[][] {
-  const nt = dJ.length;
-  const B: number[][] = Array.from({ length: nt }, () => new Array<number>(nt).fill(0));
-
-  for (let i = 0; i < nt; i++) {
-    B[i][i] = 1;
-    for (let k = 1; k <= i; k++) {
-      const j = i - k;                              // j runs from i−1 down to 0
-      let sum = 0;
-      for (let k2 = j; k2 < i; k2++) {
-        sum += dJ[i][k2] * B[k2][j];
-      }
-      const denom = dJ[j][j] - dJ[i][i];
-      B[i][j] = Math.abs(denom) > 1e-30 ? sum / denom : 0;
-    }
-  }
-
-  return B;
-}
-
-// ---------------------------------------------------------------------------
-// Inverse transformation matrix B⁻¹
-// ---------------------------------------------------------------------------
-
-/**
- * Build B⁻¹ from B using back-substitution.
- *
- * B⁻¹[i][i] = 1 / B[i][i]  = 1
- * B⁻¹[i][j] = −(Σ_{k=0}^{i−1} B[i][k] · B⁻¹[k][j]) / B[i][i]   for j < i
- *
- * VBA: BBinv matrix in Sub creepTransform()
- */
-export function buildInverseTransformation(B: number[][]): number[][] {
-  const nt = B.length;
+export function buildPseudoLoadOperator(
+  J: number[][],
+  startHour: number,
+  nt: number,
+  params: Required<CreepModelParams>,
+  modulusByIndex?: number[],
+): number[][] {
+  const E = modulusProfile(startHour, nt, params, modulusByIndex);
   const Binv: number[][] = Array.from({ length: nt }, () => new Array<number>(nt).fill(0));
 
   for (let i = 0; i < nt; i++) {
-    Binv[i][i] = 1 / B[i][i];           // B[i][i] = 1, so this is always 1
+    Binv[i][i] = 1;
     for (let j = 0; j < i; j++) {
       let sum = 0;
-      for (let k = 0; k < i; k++) {
-        sum += B[i][k] * Binv[k][j];
+      for (let k = j; k < i; k++) {
+        sum += J[i][k] * E[k] * Binv[k][j];
       }
-      Binv[i][j] = -sum / B[i][i];
+      Binv[i][j] = -sum;
     }
   }
 
   return Binv;
+}
+
+// ---------------------------------------------------------------------------
+// Creep-adjustment operator  B  (cumulative sum)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the creep-adjustment operator B applied to the elastic-stress history
+ * to recover the creep-adjusted (relaxed) stress — see the module-level
+ * derivation. Because the elastic-stress history IS the stress-increment
+ * history Δσ, B is simply the unit lower-triangular running-sum operator,
+ * independent of the compliance kernel or the aging modulus.
+ */
+export function buildCumulativeSumOperator(nt: number): number[][] {
+  return Array.from({ length: nt }, (_, i) =>
+    Array.from({ length: nt }, (_, j) => (j <= i ? 1 : 0)),
+  );
 }

@@ -61,6 +61,13 @@ export interface JointProperties {
  *                  the hydration modulus with the creep coefficient down-weighted
  *                  by the aging coefficient χ, J = (1 + χ·φ)/E_hydration(tʹ).
  *                  χ = 1 recovers the standard effective-modulus kernel.
+ *
+ * Note: E(tʹ) always cancels out of the pseudo-load transform (see creep.ts),
+ * so 'hydration' and 'cebFip' — which share the same φ shape and χ = 1 —
+ * produce IDENTICAL creep-adjusted stress; only χ (via 'aemm') or a change to
+ * φ's own shape parameters (a1, a2Scale, a2Rate) changes the result. Distinct
+ * E(tʹ) profiles matter only if they also feed the elastic beam solve, which
+ * 'cebFip' deliberately does not.
  */
 export type CreepModel = 'hydration' | 'cebFip' | 'aemm';
 
