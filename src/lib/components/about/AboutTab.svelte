@@ -1,3 +1,26 @@
+<script lang="ts">
+  // Shared with the PDF report so the two can never disagree — see
+  // $lib/content/legal.ts.
+  import {
+    DISCLAIMER_PARAGRAPHS_WEB,
+    ORIGINAL_WORK,
+    ORIGINAL_CONTRIBUTORS,
+    WEBAPP_DEVELOPMENT,
+    FUNDING_ACKNOWLEDGMENT
+  } from '$lib/content/legal';
+  // Version numbers are maintained in one place and read from there by both
+  // this tab and the PDF report — see $lib/version.ts.
+  import {
+    APP_VERSION,
+    CALC_VERSION,
+    CALC_VERSION_DATE,
+    CALC_MODULE_LIST,
+    CALC_CHANGELOG,
+    formatVersionDate
+  } from '$lib/version';
+  import { BUILD_ID } from '$lib/build-info';
+</script>
+
 <div class="space-y-6 max-w-3xl">
   <section>
     <h2 class="text-xl font-semibold mb-2">About PCAST</h2>
@@ -29,13 +52,83 @@
     </p>
   </section>
 
+  <!-- Version and calculation provenance. A report filed years ago has to be
+       traceable to the calculations that produced it, so the same numbers
+       printed on the report are shown here. -->
+  <section>
+    <h2 class="text-xl font-semibold mb-2">Version and Calculation Provenance</h2>
+
+    <dl class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-gray-700 mb-4">
+      <dt class="font-medium">Application version</dt>
+      <dd>v{APP_VERSION}</dd>
+      <dt class="font-medium">Calculation version</dt>
+      <dd>v{CALC_VERSION}, effective {formatVersionDate(CALC_VERSION_DATE)}</dd>
+      <dt class="font-medium">Build</dt>
+      <dd class="font-mono text-sm">{BUILD_ID}</dd>
+    </dl>
+
+    <p class="text-gray-700 leading-relaxed mb-3">
+      The calculation version identifies the design methodology used to produce results. It changes
+      only when a computed result can change — a formula, coefficient, default, or numerical scheme.
+      Every generated PDF report records the calculation version and the versions of the individual
+      analyses it ran, so a filed report can always be matched to the methodology behind it.
+      Reports produced by different calculation versions are not directly comparable.
+    </p>
+
+    <h3 class="font-semibold mb-2">Calculation Modules</h3>
+    <div class="overflow-x-auto mb-4">
+      <table class="w-full text-sm text-left border-collapse">
+        <thead>
+          <tr class="border-b border-gray-300">
+            <th class="py-1 pr-4 font-semibold">Analysis</th>
+            <th class="py-1 pr-4 font-semibold whitespace-nowrap">Version</th>
+            <th class="py-1 pr-4 font-semibold whitespace-nowrap">Effective</th>
+            <th class="py-1 font-semibold">Basis</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each CALC_MODULE_LIST as m}
+            <tr class="border-b border-gray-200 align-top">
+              <td class="py-1 pr-4">{m.label}</td>
+              <td class="py-1 pr-4 whitespace-nowrap">v{m.version}</td>
+              <td class="py-1 pr-4 whitespace-nowrap">{formatVersionDate(m.date)}</td>
+              <td class="py-1 text-gray-600">
+                {m.basis}
+                <span class="block font-mono text-xs text-gray-500">{m.source}</span>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="font-semibold mb-2">Calculation Change History</h3>
+    <div class="space-y-3">
+      {#each CALC_CHANGELOG as entry}
+        <div>
+          <p class="font-medium text-gray-800">
+            v{entry.version} — {formatVersionDate(entry.date)}
+            {#if entry.modules.length}
+              <span class="font-normal text-gray-500 text-sm">
+                ({entry.modules.join(', ')})
+              </span>
+            {/if}
+          </p>
+          <p class="text-gray-700">{entry.summary}</p>
+          <ul class="list-disc list-inside space-y-1 text-gray-600 text-sm">
+            {#each entry.changes as change}
+              <li>{change}</li>
+            {/each}
+          </ul>
+        </div>
+      {/each}
+    </div>
+  </section>
+
   <section>
     <h2 class="text-xl font-semibold mb-2">Original Work</h2>
     <p class="text-gray-700 leading-relaxed mb-3">
-      PCAST is based on a spreadsheet-based methodology developed under Cooperative
-      Agreement 693JJ31950004, <em>Advancing Concrete Pavement Technology Solutions</em>,
-      managed by the Concrete Pavement Technology Center (CP Tech Center) at Iowa State
-      University and sponsored by the Federal Highway Administration (FHWA).
+      {ORIGINAL_WORK.before}<em>{ORIGINAL_WORK.emphasis}</em>{ORIGINAL_WORK.after}
     </p>
 
     <p class="text-gray-700 mb-3">
@@ -43,61 +136,26 @@
     </p>
 
     <ul class="list-disc list-inside space-y-1 text-gray-700">
-      <li>Armen Amirkhanian</li>
-      <li>Lev Khazanovich</li>
-      <li>Sushobhan Sen</li>
-      <li>Alexander Brand</li>
-      <li>Jeff Roesler</li>
-      <li>Amanda Bordelon</li>
-      <li>Shane Crawford</li>
-      <li>Grace Vaughan</li>
+      {#each ORIGINAL_CONTRIBUTORS as name}
+        <li>{name}</li>
+      {/each}
     </ul>
   </section>
 
   <section>
     <h2 class="text-xl font-semibold mb-2">Web Application Development</h2>
-    <p class="text-gray-700 leading-relaxed">
-      The original spreadsheet methodology was converted into this SvelteKit-based web
-      application by Maddie Lassiter and Armen Amirkhanian. The development of the web
-      application served as the culminating project for Maddie Lassiter's Master's degree. Large language models from both OpenAI and Anthropic were used for various parts of this project.
-    </p>
+    <p class="text-gray-700 leading-relaxed">{WEBAPP_DEVELOPMENT}</p>
   </section>
 
   <section>
     <h2 class="text-xl font-semibold mb-2">Funding Acknowledgment</h2>
-    <p class="text-gray-700 leading-relaxed">
-      Development of the original methodology was supported through funding provided by
-      the Federal Highway Administration (FHWA) under the Advancing Concrete Pavement
-      Technology Solutions program administered by the Concrete Pavement Technology Center
-      at Iowa State University.
-    </p>
+    <p class="text-gray-700 leading-relaxed">{FUNDING_ACKNOWLEDGMENT}</p>
   </section>
 
   <section>
     <h2 class="text-xl font-semibold mb-2">Disclaimer</h2>
-    <p class="text-gray-700 leading-relaxed mb-3">
-      PCAST is provided for research, educational, and engineering evaluation purposes
-      only. The results generated by this software are estimates based on the input data,
-      assumptions, and analytical models used by the application. Users are responsible
-      for verifying all inputs and interpreting results using appropriate engineering
-      judgment.
-    </p>
-
-    <p class="text-gray-700 leading-relaxed mb-3">
-      Neither the authors, developers, sponsoring organizations, nor their affiliated
-      institutions make any warranty, expressed or implied, regarding the accuracy,
-      completeness, reliability, or suitability of the software or its results for any
-      particular purpose. The authors and affiliated organizations shall not be liable
-      for any damages arising from the use of this application.
-    </p>
-
-    <p class="text-gray-700 leading-relaxed">
-      The contents of this website reflect the views of the authors, who are responsible
-      for the facts and accuracy of the information presented herein. The contents do not
-      necessarily reflect the official views or policies of the Federal Highway
-      Administration (FHWA) or the U.S. Department of Transportation. Mention of trade
-      names, commercial products, or organizations does not constitute endorsement by the
-      U.S. Government.
-    </p>
+    {#each DISCLAIMER_PARAGRAPHS_WEB as para}
+      <p class="text-gray-700 leading-relaxed mb-3">{para}</p>
+    {/each}
   </section>
 </div>

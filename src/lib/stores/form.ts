@@ -144,6 +144,16 @@ export type WeatherHourlyRow = {
 export const weatherHourlyData = writable<WeatherHourlyRow[]>([]);
 export const thermalGradientResults = writable<ModelOutput | null>(null);
 
+/**
+ * Hours the gradient profile is plotted at, as chosen on the Results tab.
+ *
+ * Lives here rather than inside the chart component so the report can plot the
+ * same curves the user is looking at. A hard-coded set in the report would
+ * silently disagree with the screen the moment the user changed the selection.
+ */
+export const DEFAULT_THERMAL_DISPLAY_HOURS = [1, 6, 12, 24, 48, 72];
+export const thermalDisplayHours = writable<number[]>([...DEFAULT_THERMAL_DISPLAY_HOURS]);
+
 // ---------------------------------------------------------------------------
 // Stress & creep analysis
 // ---------------------------------------------------------------------------

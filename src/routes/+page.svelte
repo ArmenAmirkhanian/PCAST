@@ -12,6 +12,7 @@ import HydrationPlotsTab from '$lib/components/materials/HydrationPlotsTab.svelt
 import TemperatureGradientChart from '$lib/components/results/TemperatureGradientChart.svelte';
 import StressAnalysisTab from '$lib/components/analysis/StressAnalysisTab.svelte';
 import AboutTab from '$lib/components/about/AboutTab.svelte';
+  import { APP_VERSION, CALC_VERSION, CALC_VERSION_DATE, formatVersionDate } from '$lib/version';
 
   export let data: {
     explanations: {
@@ -41,7 +42,16 @@ import AboutTab from '$lib/components/about/AboutTab.svelte';
 
 <div class="mx-auto max-w-5xl p-4">
   <div class="flex items-center justify-between mb-4">
-    <h1 class="text-2xl font-bold">Pavement Cracking Tool</h1>
+    <div>
+      <h1 class="text-2xl font-bold">Pavement Cracking Tool</h1>
+      <!-- Which calculations produced what is on screen. Full provenance,
+           including the per-module versions and the change history, is on the
+           About tab; see $lib/version.ts. -->
+      <p class="text-xs text-gray-500">
+        v{APP_VERSION} · calculations v{CALC_VERSION} ({formatVersionDate(CALC_VERSION_DATE)}) ·
+        <a href="#about" class="underline hover:text-gray-700">version details</a>
+      </p>
+    </div>
     <div class="flex items-center gap-2">
       <label class="font-medium">Units</label>
       <select class="border rounded-lg p-2" bind:value={system}>
